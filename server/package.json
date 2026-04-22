@@ -12,16 +12,19 @@
   },
   "dependencies": {
     "@helpdesk/core": "workspace:*",
-    "@prisma/client": "^6.0.0",
+    "@prisma/adapter-pg": "^7.0.0",
+    "@prisma/client": "^7.0.0",
+    "pg": "^8.13.3",
     "better-auth": "^1.2.9",
     "cors": "^2.8.5",
     "express": "^5.1.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
+    "@types/pg": "^8.11.10",
     "@types/express": "^5.0.1",
     "@types/node": "^22.0.0",
-    "prisma": "^6.0.0",
+    "prisma": "^7.0.0",
     "typescript": "^5.8.3"
   }
 }
