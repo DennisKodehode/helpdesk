@@ -4,3 +4,4 @@ dist
 .env.local
 server/src/generated/
 .idea/
+.claude/settings.local.json
