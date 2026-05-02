@@ -11,7 +11,8 @@ helpdesk/
 ├── client/          @helpdesk/client  — React + Vite + TypeScript
 ├── server/          @helpdesk/server  — Express + Bun + TypeScript
 ├── core/            @helpdesk/core    — shared types (Role, TicketStatus, TicketCategory)
-├── docker-compose.yml                 — PostgreSQL 16
+├── e2e/                               — Playwright E2E tests
+├── playwright.config.ts               — Playwright config (webServer, globalSetup)
 └── package.json                       — workspace root (bun workspaces)
 ```
 
@@ -56,9 +57,9 @@ bun run db:push                      # push schema without migration (dev only)
 bun run db:generate                  # regenerate Prisma client after schema change
 bun run db:studio                    # open Prisma Studio
 
-# Docker
-docker compose up -d                 # start PostgreSQL
-docker compose down                  # stop PostgreSQL
+# E2E tests
+bun run test:e2e                     # run Playwright tests (resets test DB first)
+bun run test:e2e:ui                  # Playwright UI mode
 ```
 
 ## Environment
@@ -71,8 +72,12 @@ BETTER_AUTH_SECRET=<random secret>
 BETTER_AUTH_URL=http://localhost:3000
 CLIENT_URL=http://localhost:5173
 SEED_ADMIN_EMAIL=admin@example.com
-SEED_ADMIN_PASSWORD=change-me
+SEED_ADMIN_PASSWORD=<min 12 chars — seed.ts throws if shorter>
 ```
+
+PostgreSQL runs locally (not Docker) — no docker-compose. Both `helpdesk` (dev) and `helpdesk_test` (E2E) are databases on the same local instance at `localhost:5432`.
+
+For E2E tests, copy `server/.env.test.example` → `server/.env.test` and `client/.env.example` → `client/.env`.
 
 ## Authentication
 
@@ -88,7 +93,7 @@ Mounted in `index.ts` via `toNodeHandler(auth)` at `/api/auth/*splat`. CORS is c
 
 ### Client (`client/src/lib/auth-client.ts`)
 
-`baseURL` points directly to the server (`http://localhost:3000`) — auth requests bypass the Vite proxy. Exports used across the app: `signIn`, `signOut`, `signUp`, `useSession`.
+`baseURL` reads from `import.meta.env.VITE_API_URL` (set in `client/.env`) — auth requests bypass the Vite proxy and go directly to the server. Exports used across the app: `signIn`, `signOut`, `signUp`, `useSession`.
 
 `useSession()` returns `{ data: session | null, isPending: boolean, error }` — check `isPending` before acting on `data`.
 
@@ -117,11 +122,27 @@ Use middleware from `server/src/middleware/auth-middleware.ts`:
 - **Shared types**: always import `Role`, `TicketStatus`, `TicketCategory` from `@helpdesk/core`.
 - **Error handling**: 4-argument middleware `(err, req, res, next)` at the bottom of `index.ts`.
 
+## E2E Testing (Playwright)
+
+Tests live in `e2e/`. Config in `playwright.config.ts` (root).
+
+**Test database**: `helpdesk_test` on `localhost:5432` — a separate database on the same local PostgreSQL instance. Credentials in `server/.env.test` (gitignored).
+
+**globalSetup** (`e2e/global-setup.ts`): runs before every test run — resets `helpdesk_test` with `prisma migrate reset --force` then seeds the admin user. Always starts from a clean known state.
+
+**Prisma AI guard**: Prisma 7 blocks `migrate reset` when invoked by an AI agent. `globalSetup` passes `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION: "yes"` in the child process env to satisfy this check. Note: `--skip-seed` is not a valid flag in Prisma 7 — omit it.
+
+**webServer**: Playwright starts both servers automatically before tests:
+- API server: `bun --env-file server/.env.test server/src/index.ts` (health-checked via `/api/health`)
+- Vite client: `bun run --cwd client dev`
+
+**CLI tools**: always use `npx`, never `bunx` — bunx has fs-extra compatibility issues with Playwright, shadcn, and Prisma CLI.
+
 ## shadcn/ui
 
 Installed in `client/` with the default theme. Style: `base-nova`, base color: `neutral`, CSS variables enabled, Tailwind v4 compatible (`tailwind.config` is empty in `components.json`).
 
-- **Add components**: `npx shadcn@latest add <component>` from `client/` — always use `npx`, not `bunx` (`bunx` fails with an `fs-extra` error)
+- **Add components**: `npx shadcn@latest add <component>` from `client/` — always `npx`, never `bunx` (see E2E Testing section for why)
 - **Components land in**: `client/src/components/ui/`
 - **`cn()` helper**: `client/src/lib/utils.ts` — use for merging Tailwind classes
 - **`@` alias**: resolves to `client/src/` — configured in `vite.config.ts`, `tsconfig.json`, and `tsconfig.app.json`

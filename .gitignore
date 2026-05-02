@@ -3,7 +3,9 @@ dist
 .env
 .env.local
 server/src/generated/
+server/.env.test
 .idea/
 .claude/settings.local.json
 .claude/agent-memory/
 *.tsbuildinfo
+test-results/
