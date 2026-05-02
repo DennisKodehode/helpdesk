@@ -5,8 +5,8 @@ import { auth, type Session } from "../lib/auth";
 declare global {
   namespace Express {
     interface Request {
-      user: Session["user"];
-      session: Session["session"];
+      user?: Session["user"];
+      session?: Session["session"];
     }
   }
 }
@@ -25,3 +25,17 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
   req.session = session.session;
   next();
 };
+
+export const requireAdmin: RequestHandler = (req, res, next) => {
+  if (!req.user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  if (req.user.role !== "admin") {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  next();
+};
+
+export const requireAdminChain: RequestHandler[] = [requireAuth, requireAdmin];

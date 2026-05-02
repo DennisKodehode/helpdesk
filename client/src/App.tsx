@@ -20,9 +20,11 @@ function ProtectedLayout() {
 }
 
 function AdminLayout() {
-  const { data: session } = useSession();
-  const role = (session?.user as Record<string, unknown>)?.role;
+  const { data: session, isPending } = useSession();
 
+  if (isPending) return null;
+
+  const role = (session?.user as Record<string, unknown>)?.role;
   if (role !== "admin") return <Navigate to="/" replace />;
 
   return <Outlet />;
