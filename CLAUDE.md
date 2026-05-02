@@ -35,7 +35,7 @@ helpdesk/
 | ---- | ------- |
 | `server/src/index.ts` | Express entry point; mounts Better Auth at `/api/auth/*splat` |
 | `server/src/lib/auth.ts` | Better Auth instance (Prisma adapter, email+password, role field) |
-| `server/src/middleware/require-auth.ts` | `requireAuth` middleware — validates session, attaches `req.user` / `req.session` |
+| `server/src/middleware/auth-middleware.ts` | `requireAuth`, `requireAdmin`, `requireAdminChain` — session validation and role enforcement |
 | `server/prisma/schema.prisma` | Full schema: User, Session, Account, Verification, Ticket, Reply |
 | `server/prisma/seed.ts` | Seeds the admin user (run via `bun run db:seed` from `server/`) |
 | `client/src/App.tsx` | Route tree: `ProtectedLayout` (auth) → `AdminLayout` (role) |
@@ -104,7 +104,9 @@ Mounted in `index.ts` via `toNodeHandler(auth)` at `/api/auth/*splat`. CORS is c
 
 ### Server-side session validation
 
-Use the `requireAuth` middleware (`server/src/middleware/require-auth.ts`). It validates the session cookie, returns 401 if missing, and attaches `req.user` / `req.session` for downstream handlers.
+Use middleware from `server/src/middleware/auth-middleware.ts`:
+- `requireAuth` — validates session cookie, returns 401 if missing, attaches `req.user` / `req.session`
+- `requireAdminChain` — composed `[requireAuth, requireAdmin]`; use this for all admin-only routes
 
 ## Conventions
 

@@ -5,4 +5,5 @@ dist
 server/src/generated/
 .idea/
 .claude/settings.local.json
+.claude/agent-memory/
 *.tsbuildinfo
