@@ -1,0 +1,236 @@
+import { test, expect } from "@playwright/test";
+
+// ---------------------------------------------------------------------------
+// Credentials
+// ---------------------------------------------------------------------------
+
+const ADMIN_EMAIL = "admin@test.example.com";
+const ADMIN_PASSWORD = "TestPassword123!";
+
+const AGENT_EMAIL = "agent@test.example.com";
+const AGENT_PASSWORD = "AgentPassword123!";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Fills the login form and submits it. Does NOT assert any outcome. */
+async function submitLoginForm(
+  page: import("@playwright/test").Page,
+  email: string,
+  password: string
+) {
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+}
+
+// ===========================================================================
+// 1. Happy-path login
+// ===========================================================================
+
+test.describe("Happy-path login", () => {
+  test("admin can log in and is redirected to the dashboard", async ({ page }) => {
+    await page.goto("/login");
+
+    await submitLoginForm(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+
+    await page.waitForURL("/");
+    await expect(page.getByRole("heading", { name: /Welcome/ })).toBeVisible();
+  });
+
+  test("agent can log in and is redirected to the dashboard", async ({ page }) => {
+    await page.goto("/login");
+
+    await submitLoginForm(page, AGENT_EMAIL, AGENT_PASSWORD);
+
+    await page.waitForURL("/");
+    await expect(page.getByRole("heading", { name: /Welcome/ })).toBeVisible();
+  });
+
+  test("already-authenticated user visiting /login is redirected to dashboard", async ({
+    page,
+  }) => {
+    await page.goto("/login");
+    await submitLoginForm(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.waitForURL("/");
+
+    // Navigate back to /login while session is still active
+    await page.goto("/login");
+    await expect(page).toHaveURL("/");
+  });
+});
+
+// ===========================================================================
+// 2. Login failure and form validation
+// ===========================================================================
+
+test.describe("Login failure", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/login");
+  });
+
+  test("shows an error for wrong password", async ({ page }) => {
+    await submitLoginForm(page, ADMIN_EMAIL, "WrongPassword!");
+
+    // Stay on /login — no redirect
+    await expect(page).toHaveURL("/login");
+
+    // Server error message is visible somewhere on the page
+    await expect(
+      page.getByText(/invalid credentials/i).or(page.getByText(/invalid email or password/i))
+    ).toBeVisible();
+  });
+
+  test("shows an error for a non-existent email", async ({ page }) => {
+    await submitLoginForm(page, "nobody@nowhere.example.com", "AnyPassword123!");
+
+    await expect(page).toHaveURL("/login");
+    await expect(
+      page.getByText(/invalid credentials/i).or(page.getByText(/invalid email or password/i))
+    ).toBeVisible();
+  });
+
+  test("shows a validation error when email field is empty", async ({ page }) => {
+    // Leave email blank, fill password, submit
+    await page.getByLabel("Password").fill("SomePassword!");
+    await page.getByRole("button", { name: "Sign in" }).click();
+
+    await expect(page).toHaveURL("/login");
+    // Zod client-side: "Invalid email address"
+    await expect(page.getByText(/invalid email address/i)).toBeVisible();
+  });
+
+  test("shows a validation error when password field is empty", async ({ page }) => {
+    await page.getByLabel("Email").fill(ADMIN_EMAIL);
+    await page.getByRole("button", { name: "Sign in" }).click();
+
+    await expect(page).toHaveURL("/login");
+    // Zod client-side: "Password is required"
+    await expect(page.getByText(/password is required/i)).toBeVisible();
+  });
+
+  test("shows a validation error for an invalid email format", async ({ page }) => {
+    await page.getByLabel("Email").fill("not-an-email");
+    await page.getByLabel("Password").fill("SomePassword!");
+    await page.getByRole("button", { name: "Sign in" }).click();
+
+    await expect(page).toHaveURL("/login");
+    await expect(page.getByText(/invalid email address/i)).toBeVisible();
+  });
+
+  test("shows validation errors when both fields are empty", async ({ page }) => {
+    await page.getByRole("button", { name: "Sign in" }).click();
+
+    await expect(page).toHaveURL("/login");
+    await expect(page.getByText(/invalid email address/i)).toBeVisible();
+    await expect(page.getByText(/password is required/i)).toBeVisible();
+  });
+});
+
+// ===========================================================================
+// 3. Unauthenticated access guard
+// ===========================================================================
+
+test.describe("Unauthenticated access guard", () => {
+  test("visiting a protected route redirects to /login", async ({ page }) => {
+    await page.goto("/");
+
+    await expect(page).toHaveURL("/login");
+  });
+
+  test("visiting an admin route while unauthenticated redirects to /login", async ({
+    page,
+  }) => {
+    await page.goto("/users");
+
+    await expect(page).toHaveURL("/login");
+  });
+
+  test("unknown routes redirect to dashboard, which in turn redirects to /login", async ({
+    page,
+  }) => {
+    await page.goto("/some/unknown/path");
+
+    // App.tsx wildcard → Navigate to "/" → ProtectedLayout → Navigate to "/login"
+    await expect(page).toHaveURL("/login");
+  });
+});
+
+// ===========================================================================
+// 4. Logout
+// ===========================================================================
+
+test.describe("Logout", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/login");
+    await submitLoginForm(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.waitForURL("/");
+  });
+
+  test("signed-in user can sign out and is redirected to /login", async ({ page }) => {
+    await page.getByRole("button", { name: "Sign out" }).click();
+
+    await expect(page).toHaveURL("/login");
+  });
+
+  test("after sign-out, protected routes redirect to /login", async ({ page }) => {
+    await page.getByRole("button", { name: "Sign out" }).click();
+    await expect(page).toHaveURL("/login");
+
+    // Try navigating to the dashboard after logout
+    await page.goto("/");
+    await expect(page).toHaveURL("/login");
+  });
+
+});
+
+// ===========================================================================
+// 5. Authorization guards (role-based)
+// ===========================================================================
+
+test.describe("Authorization — admin", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/login");
+    await submitLoginForm(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.waitForURL("/");
+  });
+
+  test("admin can access the /users page", async ({ page }) => {
+    await page.goto("/users");
+
+    await expect(page).toHaveURL("/users");
+    await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
+  });
+
+  test("admin sees a 'Users' link in the navbar", async ({ page }) => {
+    await expect(page.getByRole("link", { name: "Users" })).toBeVisible();
+  });
+
+  test("admin can navigate to /users via the navbar link", async ({ page }) => {
+    await page.getByRole("link", { name: "Users" }).click();
+
+    await expect(page).toHaveURL("/users");
+    await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
+  });
+});
+
+test.describe("Authorization — agent", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/login");
+    await submitLoginForm(page, AGENT_EMAIL, AGENT_PASSWORD);
+    await page.waitForURL("/");
+  });
+
+  test("agent cannot access /users and is redirected to dashboard", async ({ page }) => {
+    await page.goto("/users");
+
+    // AdminLayout redirects non-admins to "/"
+    await expect(page).toHaveURL("/");
+    await expect(page.getByRole("heading", { name: /Welcome/ })).toBeVisible();
+  });
+
+  test("agent does not see a 'Users' link in the navbar", async ({ page }) => {
+    await expect(page.getByRole("link", { name: "Users" })).not.toBeVisible();
+  });
+});
