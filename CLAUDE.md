@@ -21,7 +21,7 @@ helpdesk/
 | Layer    | Choice                                                             |
 | -------- | ------------------------------------------------------------------ |
 | Runtime  | Bun                                                                |
-| Frontend | React 19, Vite, TypeScript, Tailwind CSS, shadcn/ui, TanStack Query, React Router |
+| Frontend | React 19, Vite, TypeScript, Tailwind CSS, shadcn/ui, TanStack Query, axios, React Router |
 | Backend  | Express 5, TypeScript                                              |
 | Auth     | Better Auth (database sessions, email + password, role field)      |
 | ORM      | Prisma + PostgreSQL                                                |
@@ -121,6 +121,7 @@ Use middleware from `server/src/middleware/auth-middleware.ts`:
 - **Ticket transitions**: `open → resolved` (agent); `resolved → closed` (auto after 48h, or admin force-close); no skipping `open → closed`.
 - **Shared types**: always import `Role`, `TicketStatus`, `TicketCategory` from `@helpdesk/core`.
 - **Error handling**: 4-argument middleware `(err, req, res, next)` at the bottom of `index.ts`.
+- **Data fetching**: always use **axios** for HTTP requests and **TanStack Query** for server state. Use `useQuery` for reads and `useMutation` for writes; invalidate the relevant query key in `onSuccess`. Never use `fetch` directly or manage loading/error state manually with `useState` + `useEffect`. `QueryClientProvider` is already wired up in `client/src/main.tsx`.
 
 ## shadcn/ui
 

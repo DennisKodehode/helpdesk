@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import axios from "axios";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,14 +31,20 @@ type User = {
   createdAt: string;
 };
 
+async function fetchUsers(): Promise<User[]> {
+  const { data } = await axios.get<User[]>("/api/users");
+  return data;
+}
+
 export default function UsersPage() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+
+  const { data: users = [], isPending, isError } = useQuery({
+    queryKey: ["users"],
+    queryFn: fetchUsers,
+  });
 
   const {
     register,
@@ -48,65 +56,31 @@ export default function UsersPage() {
     resolver: zodResolver(createAgentSchema),
   });
 
-  const loadUsers = useCallback(async () => {
-    try {
-      const res = await fetch("/api/users", { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch");
-      setUsers(await res.json());
-      setFetchError(null);
-    } catch {
-      setFetchError("Failed to load users");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const createMutation = useMutation({
+    mutationFn: (data: CreateAgentForm) => axios.post("/api/users", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      reset();
+      setCreateOpen(false);
+    },
+    onError: (err) => {
+      if (axios.isAxiosError(err)) {
+        setFieldError("email", { message: err.response?.data?.error ?? "Something went wrong" });
+      }
+    },
+  });
 
-  useEffect(() => {
-    loadUsers();
-  }, [loadUsers]);
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => axios.delete(`/api/users/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      setDeleteTarget(null);
+    },
+  });
 
   function closeCreateDialog(open: boolean) {
     setCreateOpen(open);
     if (!open) reset();
-  }
-
-  async function onCreateSubmit(data: CreateAgentForm) {
-    setSubmitting(true);
-    try {
-      const res = await fetch("/api/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        const json = await res.json();
-        setFieldError("email", { message: json.error ?? "Something went wrong" });
-        return;
-      }
-      reset();
-      setCreateOpen(false);
-      await loadUsers();
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function confirmDelete() {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    try {
-      const res = await fetch(`/api/users/${deleteTarget.id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (res.ok) {
-        setDeleteTarget(null);
-        await loadUsers();
-      }
-    } finally {
-      setDeleting(false);
-    }
   }
 
   return (
@@ -116,10 +90,10 @@ export default function UsersPage() {
         <Button onClick={() => setCreateOpen(true)}>Add Agent</Button>
       </div>
 
-      {loading ? (
+      {isPending ? (
         <p className="text-sm text-gray-500">Loading...</p>
-      ) : fetchError ? (
-        <p className="text-sm text-red-500">{fetchError}</p>
+      ) : isError ? (
+        <p className="text-sm text-red-500">Failed to load users</p>
       ) : (
         <div className="rounded-lg border border-gray-200 overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
@@ -196,7 +170,7 @@ export default function UsersPage() {
             <DialogTitle>Add Agent</DialogTitle>
           </DialogHeader>
           <form
-            onSubmit={handleSubmit(onCreateSubmit)}
+            onSubmit={handleSubmit((data) => createMutation.mutate(data))}
             className="flex flex-col gap-4 mt-2"
           >
             <div className="flex flex-col gap-1.5">
@@ -231,8 +205,8 @@ export default function UsersPage() {
               )}
             </div>
             <DialogFooter className="mt-2">
-              <Button type="submit" disabled={submitting}>
-                {submitting ? "Creating..." : "Create Agent"}
+              <Button type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending ? "Creating..." : "Create Agent"}
               </Button>
             </DialogFooter>
           </form>
@@ -258,16 +232,16 @@ export default function UsersPage() {
             <Button
               variant="outline"
               onClick={() => setDeleteTarget(null)}
-              disabled={deleting}
+              disabled={deleteMutation.isPending}
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
-              onClick={confirmDelete}
-              disabled={deleting}
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+              disabled={deleteMutation.isPending}
             >
-              {deleting ? "Deleting..." : "Delete"}
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>
