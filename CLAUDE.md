@@ -122,32 +122,22 @@ Use middleware from `server/src/middleware/auth-middleware.ts`:
 - **Shared types**: always import `Role`, `TicketStatus`, `TicketCategory` from `@helpdesk/core`.
 - **Error handling**: 4-argument middleware `(err, req, res, next)` at the bottom of `index.ts`.
 
-## E2E Testing (Playwright)
-
-Tests live in `e2e/`. Config in `playwright.config.ts` (root).
-
-**Test database**: `helpdesk_test` on `localhost:5432` — a separate database on the same local PostgreSQL instance. Credentials in `server/.env.test` (gitignored).
-
-**globalSetup** (`e2e/global-setup.ts`): runs before every test run — resets `helpdesk_test` with `prisma migrate reset --force` then seeds the admin user. Always starts from a clean known state.
-
-**Prisma AI guard**: Prisma 7 blocks `migrate reset` when invoked by an AI agent. `globalSetup` passes `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION: "yes"` in the child process env to satisfy this check. Note: `--skip-seed` is not a valid flag in Prisma 7 — omit it.
-
-**webServer**: Playwright starts both servers automatically before tests:
-- API server: `bun --env-file server/.env.test server/src/index.ts` (health-checked via `/api/health`)
-- Vite client: `bun run --cwd client dev`
-
-**CLI tools**: always use `npx`, never `bunx` — bunx has fs-extra compatibility issues with Playwright, shadcn, and Prisma CLI.
-
 ## shadcn/ui
 
 Installed in `client/` with the default theme. Style: `base-nova`, base color: `neutral`, CSS variables enabled, Tailwind v4 compatible (`tailwind.config` is empty in `components.json`).
 
-- **Add components**: `npx shadcn@latest add <component>` from `client/` — always `npx`, never `bunx` (see E2E Testing section for why)
+- **Add components**: `npx shadcn@latest add <component>` from `client/` — always `npx`, never `bunx` (bunx has fs-extra compatibility issues)
 - **Components land in**: `client/src/components/ui/`
 - **`cn()` helper**: `client/src/lib/utils.ts` — use for merging Tailwind classes
 - **`@` alias**: resolves to `client/src/` — configured in `vite.config.ts`, `tsconfig.json`, and `tsconfig.app.json`
 - **Primitives**: uses `@base-ui/react` as the headless layer (not Radix UI)
 - **Theme**: CSS variables in `client/src/index.css`; dark mode via `.dark` class
+
+## E2E Tests — always use the playwright-e2e-writer agent
+
+Never write Playwright E2E tests directly. Always delegate to the `playwright-e2e-writer` sub-agent — it has the full test infrastructure context, locator conventions, auth patterns, and quality checklist for this project.
+
+Trigger it after completing a UI feature or when explicitly asked to write E2E tests.
 
 ## Documentation — always use context7
 
