@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { screen, waitFor, within, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import axios from "axios";
-import { renderWithProviders } from "../test/utils";
+import { renderWithProviders, screen, waitFor, within, cleanup } from "../test/utils";
 import UsersPage from "./UsersPage";
 
 vi.mock("axios", () => ({
