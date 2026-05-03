@@ -13,7 +13,7 @@ export default function Navbar() {
 
   return (
     <nav className="h-14 border-b border-gray-200 bg-white flex items-center justify-between px-6">
-      <span className="text-sm font-semibold text-gray-900">Helpdesk</span>
+      <Link to="/" className="text-sm font-semibold text-gray-900 hover:text-gray-600 transition-colors">Helpdesk</Link>
       <div className="flex items-center gap-4">
         {!isPending && role === "admin" && (
           <Link
