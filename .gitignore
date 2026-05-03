@@ -8,4 +8,4 @@ server/.env.test
 .claude/settings.local.json
 .claude/agent-memory/
 *.tsbuildinfo
-test-results/
+e2e/test-results/
