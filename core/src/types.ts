@@ -1,4 +1,8 @@
-export type Role = "admin" | "agent";
+export const Role = {
+  admin: "admin",
+  agent: "agent",
+} as const;
+export type Role = (typeof Role)[keyof typeof Role];
 
 export type TicketStatus = "open" | "resolved" | "closed";
 

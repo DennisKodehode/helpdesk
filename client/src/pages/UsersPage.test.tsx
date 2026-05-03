@@ -115,7 +115,7 @@ describe("add agent", () => {
     await user.click(screen.getByRole("button", { name: "Create Agent" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Name must be at least 2 characters")).toBeInTheDocument();
+      expect(screen.getByText("Name must be at least 3 characters")).toBeInTheDocument();
     });
     expect(screen.getByText("Invalid email address")).toBeInTheDocument();
     expect(screen.getByText("Password must be at least 8 characters")).toBeInTheDocument();

@@ -15,10 +15,11 @@
     "@helpdesk/core": "workspace:*",
     "@prisma/adapter-pg": "^7.0.0",
     "@prisma/client": "^7.0.0",
-    "pg": "^8.13.3",
     "better-auth": "^1.2.9",
     "cors": "^2.8.5",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "pg": "^8.13.3",
+    "zod": "^4.4.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
