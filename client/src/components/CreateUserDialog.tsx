@@ -63,7 +63,7 @@ export default function CreateUserDialog({ open, onOpenChange }: CreateUserDialo
         >
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="name">Name</Label>
-            <Input id="name" placeholder="Full name" {...register("name")} />
+            <Input id="name" placeholder="Full name" aria-invalid={!!errors.name} data-invalid={errors.name ? "" : undefined} {...register("name")} />
             {errors.name && (
               <p className="text-xs text-red-500">{errors.name.message}</p>
             )}
@@ -74,6 +74,8 @@ export default function CreateUserDialog({ open, onOpenChange }: CreateUserDialo
               id="email"
               type="email"
               placeholder="agent@example.com"
+              aria-invalid={!!errors.email}
+              data-invalid={errors.email ? "" : undefined}
               {...register("email")}
             />
             {errors.email && (
@@ -86,6 +88,8 @@ export default function CreateUserDialog({ open, onOpenChange }: CreateUserDialo
               id="password"
               type="password"
               placeholder="Min 8 characters"
+              aria-invalid={!!errors.password}
+              data-invalid={errors.password ? "" : undefined}
               {...register("password")}
             />
             {errors.password && (

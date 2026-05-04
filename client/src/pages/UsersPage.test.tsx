@@ -160,6 +160,36 @@ describe("add agent", () => {
 
     expect(await screen.findByText("Email already in use")).toBeInTheDocument();
   });
+
+  it("closes the dialog when Escape is pressed", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<UsersPage />);
+
+    await screen.findByText("Alice Smith");
+    await user.click(screen.getByRole("button", { name: "Add Agent" }));
+    expect(screen.getByRole("heading", { name: "Add Agent" })).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: "Add Agent" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("closes the dialog when clicking outside", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<UsersPage />);
+
+    await screen.findByText("Alice Smith");
+    await user.click(screen.getByRole("button", { name: "Add Agent" }));
+    expect(screen.getByRole("heading", { name: "Add Agent" })).toBeInTheDocument();
+
+    await user.click(document.body);
+
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: "Add Agent" })).not.toBeInTheDocument();
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
