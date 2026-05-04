@@ -124,7 +124,7 @@ Use middleware from `server/src/middleware/auth-middleware.ts`:
 - **Roles**: `admin` is seeded at deploy time. Agents are created by admins. `role` defaults to `"agent"` — never accept it as user input.
 - **Ticket transitions**: `open → resolved` (agent); `resolved → closed` (auto after 48h, or admin force-close); no skipping `open → closed`.
 - **Shared types**: always import `Role`, `TicketStatus`, `TicketCategory` from `@helpdesk/core`. `Role` is exported as both a const and a type — use `Role.agent` / `Role.admin` as values, not raw strings.
-- **Validation**: Use **Zod** for request body validation on all API endpoints. Parse with `schema.safeParse(req.body)`; return `400` with `{ error: result.error.issues[0].message }` on failure.
+- **Validation**: Define Zod schemas in `core/src/schemas.ts` and export them from `@helpdesk/core` so client and server share the same schema. On the server, parse with `schema.safeParse(req.body)`; return `400` with `{ error: result.error.issues[0].message }` on failure. On the client, use **react-hook-form** with `standardSchemaResolver(schema)` from `@hookform/resolvers/standard-schema` — not `zodResolver`, which doesn't support Zod v4 types like `ZodEmail` (`z.email()`).
 - **Error handling**: 4-argument middleware `(err, req, res, next)` at the bottom of `index.ts`.
 - **Data fetching**: always use **axios** for HTTP requests and **TanStack Query** for server state. Use `useQuery` for reads and `useMutation` for writes; invalidate the relevant query key in `onSuccess`. Never use `fetch` directly or manage loading/error state manually with `useState` + `useEffect`. `QueryClientProvider` is already wired up in `client/src/main.tsx`.
 
