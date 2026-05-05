@@ -1,6 +1,7 @@
 import { Navigate, Outlet, Route, Routes } from "react-router";
 import Navbar from "./components/Navbar";
 import { useSession } from "./lib/auth-client";
+import { Role } from "@helpdesk/core";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import UsersPage from "./pages/UsersPage";
@@ -25,7 +26,7 @@ function AdminLayout() {
   if (isPending) return null;
 
   const role = (session?.user as Record<string, unknown>)?.role;
-  if (role !== "admin") return <Navigate to="/" replace />;
+  if (role !== Role.admin) return <Navigate to="/" replace />;
 
   return <Outlet />;
 }

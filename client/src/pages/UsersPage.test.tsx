@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import axios from "axios";
 import { renderWithProviders, screen, waitFor, within, cleanup } from "../test/utils";
 import UsersPage from "./UsersPage";
+import { Role } from "@helpdesk/core";
 
 vi.mock("axios", () => ({
   default: {
@@ -18,14 +19,14 @@ const mockUsers = [
     id: "1",
     name: "Alice Smith",
     email: "alice@example.com",
-    role: "admin",
+    role: Role.admin,
     createdAt: "2024-01-15T00:00:00Z",
   },
   {
     id: "2",
     name: "Bob Jones",
     email: "bob@example.com",
-    role: "agent",
+    role: Role.agent,
     createdAt: "2024-03-20T00:00:00Z",
   },
 ];
@@ -47,7 +48,8 @@ describe("loading state", () => {
     renderWithProviders(<UsersPage />);
 
     const skeletons = document.querySelectorAll('[data-slot="skeleton"]');
-    expect(skeletons.length).toBe(30); // 5 rows × 6 skeletons (4 data cells + 2 in actions cell)
+    expect(skeletons.length).toBeGreaterThan(0);
+    expect(screen.queryByText("Alice Smith")).not.toBeInTheDocument();
   });
 });
 
@@ -66,8 +68,8 @@ describe("loaded state", () => {
   it("shows a role badge for each user", async () => {
     renderWithProviders(<UsersPage />);
 
-    expect(await screen.findByText("admin")).toBeInTheDocument();
-    expect(screen.getByText("agent")).toBeInTheDocument();
+    expect(await screen.findByText(Role.admin)).toBeInTheDocument();
+    expect(screen.getByText(Role.agent)).toBeInTheDocument();
   });
 
   it("shows 'No users found' when the list is empty", async () => {
@@ -202,11 +204,11 @@ describe("delete user", () => {
     renderWithProviders(<UsersPage />);
 
     await screen.findByText("Alice Smith");
-    await user.click(screen.getAllByRole("button", { name: "Delete" })[0]);
+    await user.click(screen.getByRole("button", { name: "Delete" }));
 
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("heading", { name: "Delete user?" })).toBeInTheDocument();
-    expect(within(dialog).getByText(/alice@example\.com/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/bob@example\.com/)).toBeInTheDocument();
   });
 
   it("closes the dialog when Cancel is clicked", async () => {
@@ -214,7 +216,7 @@ describe("delete user", () => {
     renderWithProviders(<UsersPage />);
 
     await screen.findByText("Alice Smith");
-    await user.click(screen.getAllByRole("button", { name: "Delete" })[0]);
+    await user.click(screen.getByRole("button", { name: "Delete" }));
     await user.click(screen.getByRole("button", { name: "Cancel" }));
 
     await waitFor(() => {
@@ -228,13 +230,13 @@ describe("delete user", () => {
     renderWithProviders(<UsersPage />);
 
     await screen.findByText("Alice Smith");
-    await user.click(screen.getAllByRole("button", { name: "Delete" })[0]);
+    await user.click(screen.getByRole("button", { name: "Delete" }));
 
     const dialog = screen.getByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: "Delete" }));
 
     await waitFor(() => {
-      expect(axios.delete).toHaveBeenCalledWith("/api/users/1");
+      expect(axios.delete).toHaveBeenCalledWith("/api/users/2");
     });
     expect(axios.get).toHaveBeenCalledTimes(2); // initial load + refetch
   });

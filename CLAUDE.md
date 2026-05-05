@@ -105,7 +105,7 @@ Mounted in `index.ts` via `toNodeHandler(auth)` at `/api/auth/*splat`. CORS is c
 
 `App.tsx` uses two nested layout components: `ProtectedLayout` (redirects to `/login` if unauthenticated) and `AdminLayout` (redirects to `/` if not admin). New protected routes go inside `ProtectedLayout`; admin-only routes go inside `AdminLayout`.
 
-**Role type cast**: `session.user.role` is not in the Better Auth client types (it's an `additionalField` only typed server-side). Access it with `(session.user as Record<string, unknown>).role` and compare to `"admin"` / `"agent"`.
+**Role type cast**: `session.user.role` is not in the Better Auth client types (it's an `additionalField` only typed server-side). Access it with `(session.user as Record<string, unknown>).role` and compare using `Role.admin` / `Role.agent` — never use raw strings.
 
 ### Navbar
 
@@ -123,7 +123,7 @@ Use middleware from `server/src/middleware/auth-middleware.ts`:
 - **Auth**: Better Auth handles all `/api/auth/*` routes. Use `useSession()` on the client.
 - **Roles**: `admin` is seeded at deploy time. Agents are created by admins. `role` defaults to `"agent"` — never accept it as user input.
 - **Ticket transitions**: `open → resolved` (agent); `resolved → closed` (auto after 48h, or admin force-close); no skipping `open → closed`.
-- **Shared types**: always import `Role`, `TicketStatus`, `TicketCategory` from `@helpdesk/core`. `Role` is exported as both a const and a type — use `Role.agent` / `Role.admin` as values, not raw strings.
+- **Shared types**: always import `Role`, `TicketStatus`, `TicketCategory` from `@helpdesk/core`. `Role` is exported as both a const and a type — use `Role.agent` / `Role.admin` as values everywhere (source files, tests, server routes). Never use the raw strings `"admin"` or `"agent"` directly.
 - **Validation**: Define Zod schemas in `core/src/schemas.ts` and export them from `@helpdesk/core` so client and server share the same schema. On the server, parse with `schema.safeParse(req.body)`; return `400` with `{ error: result.error.issues[0].message }` on failure. On the client, use **react-hook-form** with `standardSchemaResolver(schema)` from `@hookform/resolvers/standard-schema` — not `zodResolver`, which doesn't support Zod v4 types like `ZodEmail` (`z.email()`).
 - **Error handling**: 4-argument middleware `(err, req, res, next)` at the bottom of `index.ts`.
 - **Data fetching**: always use **axios** for HTTP requests and **TanStack Query** for server state. Use `useQuery` for reads and `useMutation` for writes; invalidate the relevant query key in `onSuccess`. Never use `fetch` directly or manage loading/error state manually with `useState` + `useEffect`. `QueryClientProvider` is already wired up in `client/src/main.tsx`.

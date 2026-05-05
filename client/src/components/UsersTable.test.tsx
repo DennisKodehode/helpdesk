@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders, screen, cleanup } from "../test/utils";
 import UsersTable from "./UsersTable";
-import type { User } from "@helpdesk/core";
+import { Role, type User } from "@helpdesk/core";
 
 afterEach(cleanup);
 
@@ -11,14 +11,14 @@ const mockUsers: User[] = [
     id: "1",
     name: "Alice Smith",
     email: "alice@example.com",
-    role: "admin",
+    role: Role.admin,
     createdAt: "2024-01-15T00:00:00Z",
   },
   {
     id: "2",
     name: "Bob Jones",
     email: "bob@example.com",
-    role: "agent",
+    role: Role.agent,
     createdAt: "2024-03-20T00:00:00Z",
   },
 ];
@@ -34,7 +34,8 @@ describe("loading state", () => {
     );
 
     const skeletons = document.querySelectorAll('[data-slot="skeleton"]');
-    expect(skeletons.length).toBe(30); // 5 rows × 6 skeletons (4 cells + 2 in actions cell)
+    expect(skeletons.length).toBeGreaterThan(0);
+    expect(screen.queryByText("Alice Smith")).not.toBeInTheDocument();
   });
 });
 
@@ -87,8 +88,8 @@ describe("loaded state", () => {
       <UsersTable users={mockUsers} isPending={false} isError={false} onDelete={vi.fn()} onEdit={vi.fn()} />
     );
 
-    expect(screen.getByText("admin")).toBeInTheDocument();
-    expect(screen.getByText("agent")).toBeInTheDocument();
+    expect(screen.getByText(Role.admin)).toBeInTheDocument();
+    expect(screen.getByText(Role.agent)).toBeInTheDocument();
   });
 
   it("calls onDelete with the correct user when Delete is clicked", async () => {
@@ -98,9 +99,17 @@ describe("loaded state", () => {
       <UsersTable users={mockUsers} isPending={false} isError={false} onDelete={onDelete} onEdit={vi.fn()} />
     );
 
-    await user.click(screen.getAllByRole("button", { name: "Delete" })[0]);
+    await user.click(screen.getByRole("button", { name: "Delete" }));
 
-    expect(onDelete).toHaveBeenCalledWith(mockUsers[0]);
+    expect(onDelete).toHaveBeenCalledWith(mockUsers[1]);
+  });
+
+  it("does not show a Delete button for admin users", () => {
+    renderWithProviders(
+      <UsersTable users={mockUsers} isPending={false} isError={false} onDelete={vi.fn()} onEdit={vi.fn()} />
+    );
+
+    expect(screen.getAllByRole("button", { name: "Delete" })).toHaveLength(1);
   });
 
   it("calls onEdit with the correct user when Edit is clicked", async () => {

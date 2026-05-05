@@ -1,5 +1,5 @@
-import { type User } from "@helpdesk/core";
-import { Pencil } from "lucide-react";
+import { Role, type User } from "@helpdesk/core";
+import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -39,7 +39,7 @@ export default function UsersTable({ users, isPending, isError, onDelete, onEdit
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-1.5">
                     <Skeleton className="h-7 w-7" />
-                    <Skeleton className="h-7 w-16" />
+                    <Skeleton className="h-7 w-7" />
                   </div>
                 </td>
               </tr>
@@ -58,7 +58,7 @@ export default function UsersTable({ users, isPending, isError, onDelete, onEdit
                 <td className="px-4 py-3">
                   <span
                     className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                      user.role === "admin"
+                      user.role === Role.admin
                         ? "bg-purple-100 text-purple-700"
                         : "bg-blue-100 text-blue-700"
                     }`}
@@ -74,9 +74,13 @@ export default function UsersTable({ users, isPending, isError, onDelete, onEdit
                     <Button variant="outline" size="icon-sm" aria-label="Edit" onClick={() => onEdit(user)}>
                       <Pencil />
                     </Button>
-                    <Button variant="destructive" size="sm" onClick={() => onDelete(user)}>
-                      Delete
-                    </Button>
+                    {user.role !== Role.admin ? (
+                      <Button variant="destructive" size="icon-sm" aria-label="Delete" onClick={() => onDelete(user)}>
+                        <Trash2 />
+                      </Button>
+                    ) : (
+                      <div className="size-7" />
+                    )}
                   </div>
                 </td>
               </tr>

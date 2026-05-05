@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import axios from "axios";
 import { renderWithProviders, screen, waitFor, cleanup } from "../test/utils";
 import UserDialog from "./UserDialog";
-import type { User } from "@helpdesk/core";
+import { Role, type User } from "@helpdesk/core";
 
 vi.mock("axios", () => ({
   default: {
@@ -25,7 +25,7 @@ const mockUser: User = {
   id: "1",
   name: "Alice Smith",
   email: "alice@example.com",
-  role: "agent",
+  role: Role.agent,
   createdAt: "2024-01-15T00:00:00Z",
 };
 

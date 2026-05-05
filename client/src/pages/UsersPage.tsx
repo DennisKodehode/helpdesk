@@ -68,9 +68,8 @@ export default function UsersPage() {
             <DialogTitle>Delete user?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-gray-500 mt-1">
-            This will permanently delete{" "}
             <strong className="text-gray-900">{deleteTarget?.name}</strong> (
-            {deleteTarget?.email}). This action cannot be undone.
+            {deleteTarget?.email}) will be removed and lose access immediately.
           </p>
           <DialogFooter>
             <Button
