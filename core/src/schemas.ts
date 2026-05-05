@@ -21,12 +21,7 @@ export type CreateUserData = z.infer<typeof createUserSchema>;
 export const updateUserSchema = z.object({
   name: z.string().trim().min(3, "Name must be at least 3 characters"),
   email: z.email("Invalid email address"),
-  password: z
-    .string()
-    .refine(
-      (val) => !val.trim() || val.trim().length >= 8,
-      "Password must be at least 8 characters"
-    ),
+  password: z.string().min(8, "Password must be at least 8 characters").or(z.literal("")),
 });
 
 export type UpdateUserData = z.infer<typeof updateUserSchema>;

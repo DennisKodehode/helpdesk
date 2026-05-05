@@ -7,6 +7,10 @@ import { requireAdminChain } from "../middleware/auth-middleware";
 
 const router = Router();
 
+function firstIssue(error: { issues: { message: string }[] }) {
+  return error.issues[0].message;
+}
+
 router.get("/", ...requireAdminChain, async (_req, res) => {
   const users = await prisma.user.findMany({
     select: { id: true, name: true, email: true, role: true, createdAt: true },
@@ -18,7 +22,7 @@ router.get("/", ...requireAdminChain, async (_req, res) => {
 router.post("/", ...requireAdminChain, async (req, res) => {
   const result = createUserSchema.safeParse(req.body);
   if (!result.success) {
-    res.status(400).json({ error: result.error.issues[0].message });
+    res.status(400).json({ error: firstIssue(result.error) });
     return;
   }
   const { name, email, password } = result.data;
@@ -63,7 +67,7 @@ router.patch("/:id", ...requireAdminChain, async (req, res) => {
   const id = req.params.id as string;
   const result = updateUserSchema.safeParse(req.body);
   if (!result.success) {
-    res.status(400).json({ error: result.error.issues[0].message });
+    res.status(400).json({ error: firstIssue(result.error) });
     return;
   }
   const { name, email, password } = result.data;
