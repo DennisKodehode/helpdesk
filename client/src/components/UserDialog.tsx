@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
-import { updateUserSchema, type UpdateUserData, type User } from "@helpdesk/core";
+import { createUserSchema, updateUserSchema, type User } from "@helpdesk/core";
 import axios from "axios";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -15,13 +15,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-interface EditUserDialogProps {
-  user: User | null;
+interface UserDialogProps {
+  user?: User | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export default function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps) {
+type FormData = { name: string; email: string; password: string };
+
+export default function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
+  const isEdit = !!user;
   const queryClient = useQueryClient();
 
   const {
@@ -30,8 +33,8 @@ export default function EditUserDialog({ user, open, onOpenChange }: EditUserDia
     reset,
     setError: setFieldError,
     formState: { errors },
-  } = useForm<UpdateUserData>({
-    resolver: standardSchemaResolver(updateUserSchema),
+  } = useForm<FormData>({
+    resolver: standardSchemaResolver(isEdit ? updateUserSchema : createUserSchema),
     defaultValues: { name: "", email: "", password: "" },
   });
 
@@ -40,9 +43,13 @@ export default function EditUserDialog({ user, open, onOpenChange }: EditUserDia
   }, [user, reset]);
 
   const mutation = useMutation({
-    mutationFn: (data: UpdateUserData) => axios.patch(`/api/users/${user!.id}`, data),
+    mutationFn: (data: FormData) =>
+      isEdit
+        ? axios.patch(`/api/users/${user!.id}`, data)
+        : axios.post("/api/users", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
+      if (!isEdit) reset();
       onOpenChange(false);
     },
     onError: (err) => {
@@ -61,7 +68,7 @@ export default function EditUserDialog({ user, open, onOpenChange }: EditUserDia
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit Agent</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit Agent" : "Add Agent"}</DialogTitle>
         </DialogHeader>
         <form
           onSubmit={handleSubmit((data) => mutation.mutate(data))}
@@ -69,9 +76,9 @@ export default function EditUserDialog({ user, open, onOpenChange }: EditUserDia
           className="flex flex-col gap-4 mt-2"
         >
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="edit-name">Name</Label>
+            <Label htmlFor="name">Name</Label>
             <Input
-              id="edit-name"
+              id="name"
               placeholder="Full name"
               aria-invalid={!!errors.name}
               data-invalid={errors.name ? "" : undefined}
@@ -82,9 +89,9 @@ export default function EditUserDialog({ user, open, onOpenChange }: EditUserDia
             )}
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="edit-email">Email</Label>
+            <Label htmlFor="email">Email</Label>
             <Input
-              id="edit-email"
+              id="email"
               type="email"
               placeholder="agent@example.com"
               aria-invalid={!!errors.email}
@@ -96,11 +103,11 @@ export default function EditUserDialog({ user, open, onOpenChange }: EditUserDia
             )}
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="edit-password">Password</Label>
+            <Label htmlFor="password">Password</Label>
             <Input
-              id="edit-password"
+              id="password"
               type="password"
-              placeholder="Leave blank to keep current password"
+              placeholder={isEdit ? "Leave blank to keep current password" : "Min 8 characters"}
               aria-invalid={!!errors.password}
               data-invalid={errors.password ? "" : undefined}
               {...register("password")}
@@ -111,7 +118,9 @@ export default function EditUserDialog({ user, open, onOpenChange }: EditUserDia
           </div>
           <DialogFooter className="mt-2">
             <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? "Saving..." : "Save Changes"}
+              {mutation.isPending
+                ? isEdit ? "Saving..." : "Creating..."
+                : isEdit ? "Save Changes" : "Create Agent"}
             </Button>
           </DialogFooter>
         </form>

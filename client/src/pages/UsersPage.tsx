@@ -9,8 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import CreateUserDialog from "@/components/CreateUserDialog";
-import EditUserDialog from "@/components/EditUserDialog";
+import UserDialog from "@/components/UserDialog";
 import UsersTable from "@/components/UsersTable";
 import { type User } from "@helpdesk/core";
 
@@ -53,9 +52,9 @@ export default function UsersPage() {
         onEdit={setEditTarget}
       />
 
-      <CreateUserDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <UserDialog open={createOpen} onOpenChange={setCreateOpen} />
 
-      <EditUserDialog
+      <UserDialog
         user={editTarget}
         open={!!editTarget}
         onOpenChange={(open) => { if (!open) setEditTarget(null); }}
