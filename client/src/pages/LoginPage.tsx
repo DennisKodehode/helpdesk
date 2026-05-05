@@ -88,7 +88,10 @@ export default function LoginPage() {
             </div>
 
             {serverError && (
-              <p className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+              <p
+                role="alert"
+                className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2"
+              >
                 {serverError}
               </p>
             )}
