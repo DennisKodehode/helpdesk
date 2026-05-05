@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
-import { createUserSchema, updateUserSchema, type User } from "@helpdesk/core";
+import { createUserSchema, updateUserSchema, type CreateUserData, type UpdateUserData, type User } from "@helpdesk/core";
 import axios from "axios";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -21,8 +21,6 @@ interface UserDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type FormData = { name: string; email: string; password: string };
-
 export default function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
   const isEdit = !!user;
   const queryClient = useQueryClient();
@@ -33,7 +31,7 @@ export default function UserDialog({ user, open, onOpenChange }: UserDialogProps
     reset,
     setError: setFieldError,
     formState: { errors },
-  } = useForm<FormData>({
+  } = useForm<CreateUserData | UpdateUserData>({
     resolver: standardSchemaResolver(isEdit ? updateUserSchema : createUserSchema),
     defaultValues: { name: "", email: "", password: "" },
   });
@@ -43,7 +41,7 @@ export default function UserDialog({ user, open, onOpenChange }: UserDialogProps
   }, [user, reset]);
 
   const mutation = useMutation({
-    mutationFn: (data: FormData) =>
+    mutationFn: (data: CreateUserData | UpdateUserData) =>
       isEdit
         ? axios.patch(`/api/users/${user!.id}`, data)
         : axios.post("/api/users", data),
