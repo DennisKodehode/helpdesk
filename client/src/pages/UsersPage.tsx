@@ -20,8 +20,7 @@ async function fetchUsers(): Promise<User[]> {
 
 export default function UsersPage() {
   const queryClient = useQueryClient();
-  const [createOpen, setCreateOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<User | null>(null);
+  const [dialogTarget, setDialogTarget] = useState<User | "create" | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
 
   const { data: users = [], isPending, isError } = useQuery({
@@ -41,7 +40,7 @@ export default function UsersPage() {
     <main className="p-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-gray-900">Users</h1>
-        <Button onClick={() => setCreateOpen(true)}>Add Agent</Button>
+        <Button onClick={() => setDialogTarget("create")}>Add Agent</Button>
       </div>
 
       <UsersTable
@@ -49,15 +48,13 @@ export default function UsersPage() {
         isPending={isPending}
         isError={isError}
         onDelete={setDeleteTarget}
-        onEdit={setEditTarget}
+        onEdit={setDialogTarget}
       />
 
-      <UserDialog open={createOpen} onOpenChange={setCreateOpen} />
-
       <UserDialog
-        user={editTarget}
-        open={!!editTarget}
-        onOpenChange={(open) => { if (!open) setEditTarget(null); }}
+        open={dialogTarget !== null}
+        user={dialogTarget === "create" ? null : dialogTarget}
+        onOpenChange={(open) => { if (!open) setDialogTarget(null); }}
       />
 
       <Dialog
