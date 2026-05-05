@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import CreateUserDialog from "@/components/CreateUserDialog";
+import EditUserDialog from "@/components/EditUserDialog";
 import UsersTable from "@/components/UsersTable";
 import { type User } from "@helpdesk/core";
 
@@ -21,6 +22,7 @@ async function fetchUsers(): Promise<User[]> {
 export default function UsersPage() {
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<User | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
 
   const { data: users = [], isPending, isError } = useQuery({
@@ -48,9 +50,16 @@ export default function UsersPage() {
         isPending={isPending}
         isError={isError}
         onDelete={setDeleteTarget}
+        onEdit={setEditTarget}
       />
 
       <CreateUserDialog open={createOpen} onOpenChange={setCreateOpen} />
+
+      <EditUserDialog
+        user={editTarget}
+        open={!!editTarget}
+        onOpenChange={(open) => { if (!open) setEditTarget(null); }}
+      />
 
       <Dialog
         open={!!deleteTarget}

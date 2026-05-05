@@ -1,6 +1,7 @@
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
-import { createUserSchema, type CreateUserData } from "@helpdesk/core";
+import { updateUserSchema, type UpdateUserData, type User } from "@helpdesk/core";
 import axios from "axios";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -14,12 +15,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-interface CreateUserDialogProps {
+interface EditUserDialogProps {
+  user: User | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export default function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) {
+export default function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps) {
   const queryClient = useQueryClient();
 
   const {
@@ -28,15 +30,19 @@ export default function CreateUserDialog({ open, onOpenChange }: CreateUserDialo
     reset,
     setError: setFieldError,
     formState: { errors },
-  } = useForm<CreateUserData>({
-    resolver: standardSchemaResolver(createUserSchema),
+  } = useForm<UpdateUserData>({
+    resolver: standardSchemaResolver(updateUserSchema),
+    defaultValues: { name: "", email: "", password: "" },
   });
 
+  useEffect(() => {
+    if (user) reset({ name: user.name, email: user.email, password: "" });
+  }, [user, reset]);
+
   const mutation = useMutation({
-    mutationFn: (data: CreateUserData) => axios.post("/api/users", data),
+    mutationFn: (data: UpdateUserData) => axios.patch(`/api/users/${user!.id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
-      reset();
       onOpenChange(false);
     },
     onError: (err) => {
@@ -48,14 +54,14 @@ export default function CreateUserDialog({ open, onOpenChange }: CreateUserDialo
 
   function handleOpenChange(nextOpen: boolean) {
     onOpenChange(nextOpen);
-    if (!nextOpen) reset();
+    if (!nextOpen) reset({ name: "", email: "", password: "" });
   }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add Agent</DialogTitle>
+          <DialogTitle>Edit Agent</DialogTitle>
         </DialogHeader>
         <form
           onSubmit={handleSubmit((data) => mutation.mutate(data))}
@@ -63,16 +69,22 @@ export default function CreateUserDialog({ open, onOpenChange }: CreateUserDialo
           className="flex flex-col gap-4 mt-2"
         >
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="name">Name</Label>
-            <Input id="name" placeholder="Full name" aria-invalid={!!errors.name} data-invalid={errors.name ? "" : undefined} {...register("name")} />
+            <Label htmlFor="edit-name">Name</Label>
+            <Input
+              id="edit-name"
+              placeholder="Full name"
+              aria-invalid={!!errors.name}
+              data-invalid={errors.name ? "" : undefined}
+              {...register("name")}
+            />
             {errors.name && (
               <p className="text-xs text-red-500">{errors.name.message}</p>
             )}
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="edit-email">Email</Label>
             <Input
-              id="email"
+              id="edit-email"
               type="email"
               placeholder="agent@example.com"
               aria-invalid={!!errors.email}
@@ -84,11 +96,11 @@ export default function CreateUserDialog({ open, onOpenChange }: CreateUserDialo
             )}
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="edit-password">Password</Label>
             <Input
-              id="password"
+              id="edit-password"
               type="password"
-              placeholder="Min 8 characters"
+              placeholder="Leave blank to keep current password"
               aria-invalid={!!errors.password}
               data-invalid={errors.password ? "" : undefined}
               {...register("password")}
@@ -99,7 +111,7 @@ export default function CreateUserDialog({ open, onOpenChange }: CreateUserDialo
           </div>
           <DialogFooter className="mt-2">
             <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? "Creating..." : "Create Agent"}
+              {mutation.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </form>

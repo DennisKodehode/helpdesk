@@ -30,11 +30,11 @@ const mockUsers: User[] = [
 describe("loading state", () => {
   it("shows skeleton rows while pending", () => {
     renderWithProviders(
-      <UsersTable users={[]} isPending isError={false} onDelete={vi.fn()} />
+      <UsersTable users={[]} isPending isError={false} onDelete={vi.fn()} onEdit={vi.fn()} />
     );
 
     const skeletons = document.querySelectorAll('[data-slot="skeleton"]');
-    expect(skeletons.length).toBe(25); // 5 rows × 5 cells
+    expect(skeletons.length).toBe(30); // 5 rows × 6 skeletons (4 cells + 2 in actions cell)
   });
 });
 
@@ -45,7 +45,7 @@ describe("loading state", () => {
 describe("error state", () => {
   it("shows an error message", () => {
     renderWithProviders(
-      <UsersTable users={[]} isPending={false} isError onDelete={vi.fn()} />
+      <UsersTable users={[]} isPending={false} isError onDelete={vi.fn()} onEdit={vi.fn()} />
     );
 
     expect(screen.getByText("Failed to load users")).toBeInTheDocument();
@@ -59,7 +59,7 @@ describe("error state", () => {
 describe("empty state", () => {
   it("shows 'No users found' when the list is empty", () => {
     renderWithProviders(
-      <UsersTable users={[]} isPending={false} isError={false} onDelete={vi.fn()} />
+      <UsersTable users={[]} isPending={false} isError={false} onDelete={vi.fn()} onEdit={vi.fn()} />
     );
 
     expect(screen.getByText("No users found")).toBeInTheDocument();
@@ -73,7 +73,7 @@ describe("empty state", () => {
 describe("loaded state", () => {
   it("renders a row for each user", () => {
     renderWithProviders(
-      <UsersTable users={mockUsers} isPending={false} isError={false} onDelete={vi.fn()} />
+      <UsersTable users={mockUsers} isPending={false} isError={false} onDelete={vi.fn()} onEdit={vi.fn()} />
     );
 
     expect(screen.getByText("Alice Smith")).toBeInTheDocument();
@@ -84,7 +84,7 @@ describe("loaded state", () => {
 
   it("shows role badges for each user", () => {
     renderWithProviders(
-      <UsersTable users={mockUsers} isPending={false} isError={false} onDelete={vi.fn()} />
+      <UsersTable users={mockUsers} isPending={false} isError={false} onDelete={vi.fn()} onEdit={vi.fn()} />
     );
 
     expect(screen.getByText("admin")).toBeInTheDocument();
@@ -95,11 +95,23 @@ describe("loaded state", () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
     renderWithProviders(
-      <UsersTable users={mockUsers} isPending={false} isError={false} onDelete={onDelete} />
+      <UsersTable users={mockUsers} isPending={false} isError={false} onDelete={onDelete} onEdit={vi.fn()} />
     );
 
     await user.click(screen.getAllByRole("button", { name: "Delete" })[0]);
 
     expect(onDelete).toHaveBeenCalledWith(mockUsers[0]);
+  });
+
+  it("calls onEdit with the correct user when Edit is clicked", async () => {
+    const user = userEvent.setup();
+    const onEdit = vi.fn();
+    renderWithProviders(
+      <UsersTable users={mockUsers} isPending={false} isError={false} onDelete={vi.fn()} onEdit={onEdit} />
+    );
+
+    await user.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+
+    expect(onEdit).toHaveBeenCalledWith(mockUsers[0]);
   });
 });

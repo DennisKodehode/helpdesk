@@ -47,7 +47,7 @@ describe("loading state", () => {
     renderWithProviders(<UsersPage />);
 
     const skeletons = document.querySelectorAll('[data-slot="skeleton"]');
-    expect(skeletons.length).toBe(25); // 5 rows × 5 cells
+    expect(skeletons.length).toBe(30); // 5 rows × 6 skeletons (4 data cells + 2 in actions cell)
   });
 });
 

@@ -1,4 +1,5 @@
 import { type User } from "@helpdesk/core";
+import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -7,9 +8,10 @@ interface UsersTableProps {
   isPending: boolean;
   isError: boolean;
   onDelete: (user: User) => void;
+  onEdit: (user: User) => void;
 }
 
-export default function UsersTable({ users, isPending, isError, onDelete }: UsersTableProps) {
+export default function UsersTable({ users, isPending, isError, onDelete, onEdit }: UsersTableProps) {
   if (isError) {
     return <p className="text-sm text-red-500">Failed to load users</p>;
   }
@@ -34,7 +36,12 @@ export default function UsersTable({ users, isPending, isError, onDelete }: User
                 <td className="px-4 py-3"><Skeleton className="h-4 w-48" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-5 w-14 rounded" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
-                <td className="px-4 py-3 text-right"><Skeleton className="h-7 w-16 ml-auto" /></td>
+                <td className="px-4 py-3 text-right">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <Skeleton className="h-7 w-7" />
+                    <Skeleton className="h-7 w-16" />
+                  </div>
+                </td>
               </tr>
             ))
           ) : users.length === 0 ? (
@@ -63,9 +70,14 @@ export default function UsersTable({ users, isPending, isError, onDelete }: User
                   {new Date(user.createdAt).toLocaleDateString()}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <Button variant="destructive" size="sm" onClick={() => onDelete(user)}>
-                    Delete
-                  </Button>
+                  <div className="flex items-center justify-end gap-1.5">
+                    <Button variant="outline" size="icon-sm" aria-label="Edit" onClick={() => onEdit(user)}>
+                      <Pencil />
+                    </Button>
+                    <Button variant="destructive" size="sm" onClick={() => onDelete(user)}>
+                      Delete
+                    </Button>
+                  </div>
                 </td>
               </tr>
             ))
