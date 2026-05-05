@@ -83,11 +83,8 @@ router.patch("/:id", ...requireAdminChain, async (req, res) => {
 
   if (password && password.trim().length > 0) {
     const ctx = await auth.$context;
-    const hashedPassword = await ctx.password.hash(password);
-    await prisma.account.updateMany({
-      where: { userId: id, providerId: "credential" },
-      data: { password: hashedPassword, updatedAt: now },
-    });
+    const hashedPassword = await ctx.password.hash(password.trim());
+    await ctx.internalAdapter.updatePassword(id, hashedPassword);
   }
 
   res.json(updatedUser);
