@@ -4,6 +4,7 @@ import { useSession } from "./lib/auth-client";
 import { Role } from "@helpdesk/core";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
+import TicketsPage from "./pages/TicketsPage";
 import UsersPage from "./pages/UsersPage";
 
 function ProtectedLayout() {
@@ -37,6 +38,7 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route element={<ProtectedLayout />}>
         <Route path="/" element={<HomePage />} />
+        <Route path="/tickets" element={<TicketsPage />} />
         <Route element={<AdminLayout />}>
           <Route path="/users" element={<UsersPage />} />
         </Route>

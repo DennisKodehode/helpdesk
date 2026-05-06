@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TicketStatus, TicketCategory } from "./types";
 
 export const userSchema = z.object({
   id: z.string(),
@@ -34,3 +35,16 @@ export const inboundEmailSchema = z.object({
 });
 
 export type InboundEmailData = z.infer<typeof inboundEmailSchema>;
+
+export const ticketSchema = z.object({
+  id: z.number(),
+  fromName: z.string(),
+  fromEmail: z.string(),
+  subject: z.string(),
+  status: z.nativeEnum(TicketStatus),
+  category: z.nativeEnum(TicketCategory).nullable(),
+  assignedToId: z.string().nullable(),
+  createdAt: z.string(),
+});
+
+export type Ticket = z.infer<typeof ticketSchema>;

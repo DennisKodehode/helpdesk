@@ -3,6 +3,7 @@ import cors from "cors";
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
 import usersRouter from "./routes/users";
+import ticketsRouter from "./routes/tickets";
 import webhooksRouter from "./routes/webhooks";
 import { requireWebhookSecret } from "./middleware/webhook-middleware";
 
@@ -18,6 +19,7 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api/users", usersRouter);
+app.use("/api/tickets", ticketsRouter);
 app.use("/api/webhooks", requireWebhookSecret, webhooksRouter);
 
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
