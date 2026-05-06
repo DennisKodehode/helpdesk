@@ -4,12 +4,9 @@ import { Role, createUserSchema, updateUserSchema } from "@helpdesk/core";
 import { auth } from "../lib/auth";
 import { prisma } from "../lib/prisma";
 import { requireAdminChain } from "../middleware/auth-middleware";
+import { firstIssue } from "../lib/validation";
 
 const router = Router();
-
-function firstIssue(error: { issues: { message: string }[] }) {
-  return error.issues[0].message;
-}
 
 router.get("/", ...requireAdminChain, async (_req, res) => {
   const users = await prisma.user.findMany({
