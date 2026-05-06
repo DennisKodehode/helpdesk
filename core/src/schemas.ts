@@ -48,3 +48,18 @@ export const ticketSchema = z.object({
 });
 
 export type Ticket = z.infer<typeof ticketSchema>;
+
+export const TICKET_SORT_FIELDS = [
+  "subject",
+  "fromName",
+  "status",
+  "category",
+  "createdAt",
+] as const;
+
+export type TicketSortField = (typeof TICKET_SORT_FIELDS)[number];
+
+export const ticketSortSchema = z.object({
+  sortBy: z.enum(TICKET_SORT_FIELDS).optional(),
+  sortOrder: z.enum(["asc", "desc"]).optional(),
+});

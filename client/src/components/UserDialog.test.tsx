@@ -307,7 +307,10 @@ describe("edit mode", () => {
       renderEdit();
 
       await screen.findByDisplayValue("alice@example.com");
-      await user.type(screen.getByLabelText("Password"), "newpassword123");
+      const passwordInput = screen.getByLabelText("Password");
+      await user.click(passwordInput);
+      await waitFor(() => expect(document.activeElement).toBe(passwordInput));
+      await user.type(passwordInput, "newpassword123");
       await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
       await waitFor(() => {

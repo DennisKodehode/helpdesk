@@ -1,3 +1,12 @@
+import {
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+  type ColumnDef,
+  type SortingState,
+  type OnChangeFn,
+} from "@tanstack/react-table";
+import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { type Ticket, TicketStatus, TicketCategory } from "@helpdesk/core";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -5,7 +14,11 @@ interface TicketsTableProps {
   tickets: Ticket[];
   isPending: boolean;
   isError: boolean;
+  sorting: SortingState;
+  onSortingChange: OnChangeFn<SortingState>;
 }
+
+const BADGE_BASE = "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium";
 
 const STATUS_STYLES: Record<TicketStatus, string> = {
   [TicketStatus.open]: "bg-amber-100 text-amber-700",
@@ -17,9 +30,105 @@ const CATEGORY_LABELS: Record<TicketCategory, string> = {
   [TicketCategory.general_question]: "General",
   [TicketCategory.technical_question]: "Technical",
   [TicketCategory.refund_request]: "Refund",
+  [TicketCategory.billing_inquiry]: "Billing",
+  [TicketCategory.feature_request]: "Feature",
 };
 
-export default function TicketsTable({ tickets, isPending, isError }: TicketsTableProps) {
+const columns: ColumnDef<Ticket>[] = [
+  {
+    id: "subject",
+    accessorKey: "subject",
+    header: "Subject",
+    cell: ({ row }) => (
+      <span className="text-sm font-medium text-gray-900 block max-w-xs truncate">
+        {row.original.subject}
+      </span>
+    ),
+  },
+  {
+    id: "fromName",
+    accessorKey: "fromName",
+    header: "From",
+    cell: ({ row }) => (
+      <div>
+        <p className="text-sm font-medium text-gray-900">{row.original.fromName}</p>
+        <p className="text-xs text-gray-500">{row.original.fromEmail}</p>
+      </div>
+    ),
+  },
+  {
+    id: "status",
+    accessorKey: "status",
+    header: "Status",
+    cell: ({ row }) => (
+      <span className={`${BADGE_BASE} ${STATUS_STYLES[row.original.status]}`}>
+        {row.original.status}
+      </span>
+    ),
+  },
+  {
+    id: "category",
+    accessorKey: "category",
+    header: "Category",
+    cell: ({ row }) =>
+      row.original.category ? (
+        <span className={`${BADGE_BASE} bg-blue-100 text-blue-700`}>
+          {CATEGORY_LABELS[row.original.category]}
+        </span>
+      ) : (
+        <span className="text-sm text-gray-400">—</span>
+      ),
+  },
+  {
+    id: "createdAt",
+    accessorKey: "createdAt",
+    header: "Received",
+    cell: ({ row }) => (
+      <span className="text-sm text-gray-500">
+        {new Date(row.original.createdAt).toLocaleDateString()}
+      </span>
+    ),
+  },
+];
+
+function SortIcon({ isSorted }: { isSorted: false | "asc" | "desc" }) {
+  if (isSorted === "asc") return <ChevronUp className="inline-block ml-1 size-3" />;
+  if (isSorted === "desc") return <ChevronDown className="inline-block ml-1 size-3" />;
+  return <ChevronsUpDown className="inline-block ml-1 size-3 text-gray-300" />;
+}
+
+function SkeletonRows() {
+  return (
+    <>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <tr key={`skeleton-${i}`}>
+          <td className="px-4 py-3"><Skeleton className="h-4 w-48" /></td>
+          <td className="px-4 py-3"><Skeleton className="h-4 w-36" /></td>
+          <td className="px-4 py-3"><Skeleton className="h-5 w-16 rounded" /></td>
+          <td className="px-4 py-3"><Skeleton className="h-5 w-16 rounded" /></td>
+          <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
+export default function TicketsTable({
+  tickets,
+  isPending,
+  isError,
+  sorting,
+  onSortingChange,
+}: TicketsTableProps) {
+  const table = useReactTable({
+    data: tickets,
+    columns,
+    state: { sorting },
+    onSortingChange,
+    manualSorting: true,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
   if (isError) {
     return <p className="text-sm text-red-500">Failed to load tickets</p>;
   }
@@ -28,58 +137,38 @@ export default function TicketsTable({ tickets, isPending, isError }: TicketsTab
     <div className="rounded-lg border border-gray-200 overflow-hidden">
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
-          <tr>
-            {["Subject", "From", "Status", "Category", "Received"].map((h) => (
-              <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {h}
-              </th>
-            ))}
-          </tr>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <tr key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
+                <th
+                  key={header.id}
+                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                  onClick={header.column.getToggleSortingHandler()}
+                >
+                  {flexRender(header.column.columnDef.header, header.getContext())}
+                  <SortIcon isSorted={header.column.getIsSorted()} />
+                </th>
+              ))}
+            </tr>
+          ))}
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
           {isPending ? (
-            Array.from({ length: 5 }).map((_, i) => (
-              <tr key={i}>
-                <td className="px-4 py-3"><Skeleton className="h-4 w-48" /></td>
-                <td className="px-4 py-3"><Skeleton className="h-4 w-36" /></td>
-                <td className="px-4 py-3"><Skeleton className="h-5 w-16 rounded" /></td>
-                <td className="px-4 py-3"><Skeleton className="h-5 w-16 rounded" /></td>
-                <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
-              </tr>
-            ))
+            <SkeletonRows />
           ) : tickets.length === 0 ? (
             <tr>
-              <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
+              <td colSpan={columns.length} className="px-4 py-8 text-center text-sm text-gray-500">
                 No tickets yet
               </td>
             </tr>
           ) : (
-            tickets.map((ticket) => (
-              <tr key={ticket.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 text-sm font-medium text-gray-900 max-w-xs truncate">
-                  {ticket.subject}
-                </td>
-                <td className="px-4 py-3">
-                  <p className="text-sm font-medium text-gray-900">{ticket.fromName}</p>
-                  <p className="text-xs text-gray-500">{ticket.fromEmail}</p>
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${STATUS_STYLES[ticket.status as TicketStatus]}`}>
-                    {ticket.status}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  {ticket.category ? (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
-                      {CATEGORY_LABELS[ticket.category as TicketCategory]}
-                    </span>
-                  ) : (
-                    <span className="text-sm text-gray-400">—</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-500">
-                  {new Date(ticket.createdAt).toLocaleDateString()}
-                </td>
+            table.getRowModel().rows.map((row) => (
+              <tr key={row.id} className="hover:bg-gray-50">
+                {row.getVisibleCells().map((cell) => (
+                  <td key={cell.id} className="px-4 py-3">
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
+                ))}
               </tr>
             ))
           )}

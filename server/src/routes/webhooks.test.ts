@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import request from "supertest";
 import app from "../app";
 import { prisma } from "../lib/prisma";
+import { TicketStatus } from "@helpdesk/core";
 
 const VALID_HEADERS = { "x-webhook-secret": process.env.WEBHOOK_SECRET! };
 const VALID_BODY = {
@@ -65,12 +66,12 @@ describe("POST /api/webhooks/inbound-email", () => {
     expect(res.body.fromEmail).toBe(VALID_BODY.fromEmail);
     expect(res.body.subject).toBe(VALID_BODY.subject);
     expect(res.body.body).toBe(VALID_BODY.body);
-    expect(res.body.status).toBe("open");
+    expect(res.body.status).toBe(TicketStatus.open);
 
     createdId = res.body.id;
     const inDb = await prisma.ticket.findUnique({ where: { id: createdId } });
     expect(inDb).not.toBeNull();
-    expect(inDb!.status).toBe("open");
+    expect(inDb!.status).toBe(TicketStatus.open);
   });
 
   it("defaults subject to '(no subject)' when omitted", async () => {
