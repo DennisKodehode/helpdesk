@@ -20,7 +20,7 @@ router.post("/inbound-email", async (req, res) => {
   const { fromName, fromEmail, subject, body } = result.data;
 
   const ticket = await prisma.ticket.create({
-    data: { fromName, fromEmail, subject, body, status: TicketStatus.open },
+    data: { fromName, fromEmail, subject, body: body ?? "", status: TicketStatus.open },
   });
 
   res.status(201).json(ticket);

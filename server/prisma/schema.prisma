@@ -22,8 +22,9 @@ model User {
   updatedAt     DateTime
   role          Role      @default(agent)
   deletedAt     DateTime?
-  sessions      Session[]
-  accounts      Account[]
+  sessions        Session[]
+  accounts        Account[]
+  assignedTickets Ticket[]
 
   @@map("user")
 }
@@ -73,15 +74,17 @@ model Verification {
 }
 
 model Ticket {
-  id        Int      @id @default(autoincrement())
-  fromName  String
-  fromEmail String
-  subject   String
-  body      String
-  status    String   @default("open")
-  category  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  fromName     String
+  fromEmail    String
+  subject      String
+  body         String
+  status       String   @default("open")
+  category     String?
+  assignedToId String?
+  assignedTo   User?    @relation(fields: [assignedToId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@map("ticket")
 }
