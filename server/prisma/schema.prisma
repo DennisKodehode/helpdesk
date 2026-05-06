@@ -71,3 +71,17 @@ model Verification {
 
   @@map("verification")
 }
+
+model Ticket {
+  id        Int      @id @default(autoincrement())
+  fromName  String
+  fromEmail String
+  subject   String
+  body      String
+  status    String   @default("open")
+  category  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("ticket")
+}

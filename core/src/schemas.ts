@@ -25,3 +25,12 @@ export const updateUserSchema = z.object({
 });
 
 export type UpdateUserData = z.infer<typeof updateUserSchema>;
+
+export const inboundEmailSchema = z.object({
+  fromName: z.string().min(1),
+  fromEmail: z.email("Invalid email address"),
+  subject: z.string().default("(no subject)"),
+  body: z.string().default(""),
+});
+
+export type InboundEmailData = z.infer<typeof inboundEmailSchema>;
