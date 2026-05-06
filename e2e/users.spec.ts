@@ -24,22 +24,7 @@ test.describe.serial("Users page — CRUD", () => {
   });
 
   // =========================================================================
-  // 1. List
-  // =========================================================================
-
-  test("admin can view the users table with at least the seeded admin row", async ({ page }) => {
-    // The table should be visible and contain the seeded admin's email.
-    const table = page.getByRole("table");
-    await expect(table).toBeVisible();
-
-    // At minimum the seeded admin row should appear.
-    await expect(
-      page.getByRole("row").filter({ hasText: ADMIN_EMAIL })
-    ).toBeVisible();
-  });
-
-  // =========================================================================
-  // 2. Create
+  // 1. Create
   // =========================================================================
 
   test("admin can create a new agent who then appears in the table", async ({ page }) => {

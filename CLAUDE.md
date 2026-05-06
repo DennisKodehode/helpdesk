@@ -16,6 +16,8 @@ helpdesk/
 └── package.json                       — workspace root (bun workspaces)
 ```
 
+Each workspace has its own `CLAUDE.md` with implementation details: `client/CLAUDE.md` (auth client, shadcn/ui, component tests) and `server/CLAUDE.md` (Better Auth config, auth middleware, integration tests).
+
 ## Tech stack
 
 | Layer    | Choice                                                             |
@@ -27,23 +29,23 @@ helpdesk/
 | ORM      | Prisma + PostgreSQL                                                |
 | AI       | Anthropic Claude API (classification, suggested replies, summaries)|
 | Email    | Resend (outbound replies + inbound webhook for ticket creation)    |
-| Testing  | Vitest (unit/component), Playwright (E2E)                         |
+| Testing  | Vitest (component + integration), Playwright (E2E)                |
 | Deploy   | Railway + Docker                                                   |
 
 ## Key files
 
 | File | Purpose |
 | ---- | ------- |
-| `server/src/index.ts` | Express entry point; mounts Better Auth at `/api/auth/*splat` |
-| `server/src/lib/auth.ts` | Better Auth instance (Prisma adapter, email+password, role field) |
-| `server/src/middleware/auth-middleware.ts` | `requireAuth`, `requireAdmin`, `requireAdminChain` — session validation and role enforcement |
-| `server/prisma/schema.prisma` | Full schema: User, Session, Account, Verification, Ticket, Reply |
-| `server/prisma/seed.ts` | Seeds the admin user (run via `bun run db:seed` from `server/`) |
+| `server/src/index.ts` | Entry point — starts the server |
+| `server/src/app.ts` | Express app (middleware, routes, error handler) — importable by tests |
+| `server/src/lib/auth.ts` | Better Auth instance |
+| `server/src/middleware/auth-middleware.ts` | `requireAuth`, `requireAdmin`, `requireAdminChain` |
+| `server/prisma/schema.prisma` | Full schema: User, Session, Account, Verification, Ticket |
+| `server/prisma/seed.ts` | Seeds the admin user (`bun run db:seed` from `server/`) |
 | `client/src/App.tsx` | Route tree: `ProtectedLayout` (auth) → `AdminLayout` (role) |
-| `client/src/components/Navbar.tsx` | Reads session directly (no props); shows "Users" link for admins only |
-| `client/src/lib/auth-client.ts` | Better Auth React client (signIn, signOut, signUp, useSession) |
-| `client/src/pages/UsersPage.tsx` | Admin-only user management page (`/users`) |
+| `client/src/lib/auth-client.ts` | Better Auth React client (signIn, signOut, useSession) |
 | `core/src/types.ts` | Shared enums: Role, TicketStatus, TicketCategory |
+| `core/src/schemas.ts` | Shared Zod schemas: createUserSchema, updateUserSchema, inboundEmailSchema |
 
 ## Commands
 
@@ -51,18 +53,15 @@ helpdesk/
 # Start everything (client + server)
 bun run dev                          # from helpdesk/
 
-# Database
-bun run db:migrate                   # run migrations (from server/)
+# Database (from server/)
+bun run db:migrate                   # run migrations
 bun run db:push                      # push schema without migration (dev only)
 bun run db:generate                  # regenerate Prisma client after schema change
 bun run db:studio                    # open Prisma Studio
 
-# Component tests
-bun run test                         # from client/ — run once
-bun run test:watch                   # from client/ — watch mode
-
-# E2E tests
-bun run test:e2e                     # run Playwright tests (resets test DB first)
+# Tests
+bun run test                         # component tests (from client/) or integration tests (from server/)
+bun run test:e2e                     # run Playwright tests — resets test DB first
 bun run test:e2e:ui                  # Playwright UI mode
 ```
 
@@ -76,111 +75,65 @@ BETTER_AUTH_SECRET=<random secret>
 BETTER_AUTH_URL=http://localhost:3000
 CLIENT_URL=http://localhost:5173
 SEED_ADMIN_EMAIL=admin@example.com
-SEED_ADMIN_PASSWORD=<min 12 chars — seed.ts throws if shorter>
+SEED_ADMIN_PASSWORD=<min 12 chars>
+WEBHOOK_SECRET=<random secret>
 ```
 
-PostgreSQL runs locally (not Docker) — no docker-compose. Both `helpdesk` (dev) and `helpdesk_test` (E2E) are databases on the same local instance at `localhost:5432`.
+PostgreSQL runs locally (not Docker). Both `helpdesk` (dev) and `helpdesk_test` (E2E + server tests) are databases on the same local instance at `localhost:5432`.
 
 For E2E tests, copy `server/.env.test.example` → `server/.env.test` and `client/.env.example` → `client/.env`.
 
-## Authentication
+## Authentication overview
 
-### Server (`server/src/lib/auth.ts`)
-
-Better Auth is configured with:
-- **Prisma adapter** — sessions stored in the database, not JWTs
-- **Email + password only** — `disableSignUp: true` (no self-registration; agents are created by admins only)
-- **`role` additional field** — `type: "string"`, `defaultValue: "agent"`, `input: false` (never writable from client input)
-- **`trustedOrigins`** — set to `CLIENT_URL` env var; required for cross-origin cookie auth
-
-Mounted in `index.ts` via `toNodeHandler(auth)` at `/api/auth/*splat`. CORS is configured with `credentials: true` to allow the session cookie to flow.
-
-### Client (`client/src/lib/auth-client.ts`)
-
-`baseURL` reads from `import.meta.env.VITE_API_URL` (set in `client/.env`) — auth requests bypass the Vite proxy and go directly to the server. Exports used across the app: `signIn`, `signOut`, `signUp`, `useSession`.
-
-`useSession()` returns `{ data: session | null, isPending: boolean, error }` — check `isPending` before acting on `data`.
-
-### Route protection pattern
-
-`App.tsx` uses two nested layout components: `ProtectedLayout` (redirects to `/login` if unauthenticated) and `AdminLayout` (redirects to `/` if not admin). New protected routes go inside `ProtectedLayout`; admin-only routes go inside `AdminLayout`.
-
-**Role type cast**: `session.user.role` is not in the Better Auth client types (it's an `additionalField` only typed server-side). Access it with `(session.user as Record<string, unknown>).role` and compare using `Role.admin` / `Role.agent` — never use raw strings.
-
-### Navbar
-
-`Navbar` calls `useSession()` directly — no props needed. It conditionally renders a "Users" nav link when `role === "admin"`.
-
-### Server-side session validation
-
-Use middleware from `server/src/middleware/auth-middleware.ts`:
-- `requireAuth` — validates session cookie, returns 401 if missing, attaches `req.user` / `req.session`
-- `requireAdminChain` — composed `[requireAuth, requireAdmin]`; use this for all admin-only routes
+Better Auth handles all `/api/auth/*` routes via `toNodeHandler(auth)`. Sessions are database-stored (not JWTs). Self-registration is disabled — agents are created by admins only. The `role` field defaults to `"agent"` and is never writable from client input. See `client/CLAUDE.md` and `server/CLAUDE.md` for implementation details.
 
 ## Conventions
 
 - **Ports**: server on `3000`, client on `5173`. Vite proxies `/api` → `localhost:3000`.
-- **Auth**: Better Auth handles all `/api/auth/*` routes. Use `useSession()` on the client.
 - **Roles**: `admin` is seeded at deploy time. Agents are created by admins. `role` defaults to `"agent"` — never accept it as user input.
 - **Ticket transitions**: `open → resolved` (agent); `resolved → closed` (auto after 48h, or admin force-close); no skipping `open → closed`.
-- **Shared types**: always import `Role`, `TicketStatus`, `TicketCategory` from `@helpdesk/core`. All three are TypeScript string enums — use their values (`Role.admin`, `TicketStatus.open`, `TicketCategory.refund_request`) everywhere in source files, tests, and server routes. Never use raw strings like `"admin"` or `"open"` directly.
-- **Validation**: Define Zod schemas in `core/src/schemas.ts` and export them from `@helpdesk/core` so client and server share the same schema. On the server, parse with `schema.safeParse(req.body)`; use `firstIssue(result.error)` from `server/src/lib/validation.ts` to extract the first error message and return `400` with `{ error: firstIssue(result.error) }`. On the client, use **react-hook-form** with `standardSchemaResolver(schema)` from `@hookform/resolvers/standard-schema` — not `zodResolver`, which doesn't support Zod v4 types like `ZodEmail` (`z.email()`).
-- **Error handling**: 4-argument middleware `(err, req, res, next)` at the bottom of `index.ts`.
-- **Data fetching**: always use **axios** for HTTP requests and **TanStack Query** for server state. Use `useQuery` for reads and `useMutation` for writes; invalidate the relevant query key in `onSuccess`. Never use `fetch` directly or manage loading/error state manually with `useState` + `useEffect`. `QueryClientProvider` is already wired up in `client/src/main.tsx`.
+- **Shared types**: always import `Role`, `TicketStatus`, `TicketCategory` from `@helpdesk/core`. All three are TypeScript string enums — use their values (`Role.admin`, `TicketStatus.open`, `TicketCategory.refund_request`) everywhere. Never use raw strings.
+- **Validation**: Define Zod schemas in `core/src/schemas.ts`, export from `@helpdesk/core`. On the server, use `firstIssue(result.error)` from `server/src/lib/validation.ts` for 400 responses. On the client, use `standardSchemaResolver(schema)` from `@hookform/resolvers/standard-schema` — not `zodResolver` (incompatible with Zod v4 standalone types like `z.email()`).
+- **Error handling**: 4-argument middleware `(err, req, res, next)` at the bottom of `app.ts`.
+- **Data fetching**: always use **axios** + **TanStack Query**. `useQuery` for reads, `useMutation` for writes; invalidate the relevant query key in `onSuccess`. Never use `fetch` directly or `useState` + `useEffect` for server state.
 
-## shadcn/ui
+## Testing strategy — Testing Trophy model
 
-Installed in `client/` with the default theme. Style: `base-nova`, base color: `neutral`, CSS variables enabled, Tailwind v4 compatible (`tailwind.config` is empty in `components.json`).
-
-- **Add components**: `npx shadcn@latest add <component>` from `client/` — always `npx`, never `bunx` (bunx has fs-extra compatibility issues)
-- **Components land in**: `client/src/components/ui/`
-- **`cn()` helper**: `client/src/lib/utils.ts` — use for merging Tailwind classes
-- **`@` alias**: resolves to `client/src/` — configured in `vite.config.ts`, `tsconfig.json`, and `tsconfig.app.json`
-- **Primitives**: uses `@base-ui/react` as the headless layer (not Radix UI)
-- **Theme**: CSS variables in `client/src/index.css`; dark mode via `.dark` class
-
-## Component Tests (Vitest + React Testing Library)
-
-Component tests live alongside their page/component files as `*.test.tsx`. The test infrastructure is in `client/src/test/`:
-
-| File | Purpose |
-| ---- | ------- |
-| `client/src/test/utils.tsx` | `renderWithProviders` (fresh `QueryClient` + `MemoryRouter` per test) + re-exports all of `@testing-library/react` |
-| `client/src/test/setup.ts` | Imports `@testing-library/jest-dom/vitest` for DOM matchers |
-| `client/vitest.config.ts` | jsdom environment, `@` alias, setup file |
-
-### Writing tests
-
-- Import everything from `../test/utils` — it re-exports `screen`, `waitFor`, `within`, `cleanup`, and `userEvent` so you never need to import directly from `@testing-library/react`.
-- Mock axios at the top of every test file:
-  ```ts
-  vi.mock("axios", () => ({
-    default: { get: vi.fn(), post: vi.fn(), delete: vi.fn(), isAxiosError: vi.fn() },
-  }));
-  ```
-- Call `afterEach(cleanup)` explicitly to prevent DOM leaking between tests.
-- Use `screen.findByText` (async) for content that appears after a query resolves; use `screen.getByText` (sync) only for content already in the DOM.
-- Scope ambiguous queries with `within(screen.getByRole("dialog"))` when the same text appears in both the background page and a dialog.
-- Cover: loading state (skeleton), loaded state, empty state, error state, and each user interaction (open dialog, validation, success, server error).
-
-### Running tests
-
-```bash
-bun run test           # from client/ — run all component tests once
-bun run test:watch     # from client/ — watch mode
 ```
+      [E2E — Playwright]             ← fewest; browser + full-stack flows
+  [Integration — Vitest + supertest] ← server routes tested in-process
+ [Component — Vitest + RTL]          ← most; UI logic in isolation
+    [Static — TypeScript/Zod]        ← free; always active
+```
+
+**Component** (`client/src/**/*.test.tsx`): UI in jsdom, axios mocked. Every new page or component gets these. See `client/CLAUDE.md` for patterns.
+
+**Integration** (`server/src/routes/*.test.ts`): Express app imported directly, supertest, real test DB. Every new route gets these. See `server/CLAUDE.md` for patterns.
+
+**E2E** (`e2e/*.spec.ts`): full browser + live server + real DB. Only for critical full-journey flows. Do not duplicate component test coverage.
+
+| Scenario | Layer |
+| --- | --- |
+| Component renders correct states | Component |
+| Form validation messages | Component |
+| Server returns 401 for missing auth | Integration |
+| Webhook rejects bad secret | Integration |
+| Webhook creates a ticket in DB | Integration |
+| User can log in and reach dashboard | E2E |
+| RBAC redirect (agent → /users → dashboard) | E2E |
+| Admin creates agent who appears in table | E2E |
+| Password change enforced across sessions | E2E |
+| Deleted agent cannot log in | E2E |
 
 ## E2E Tests — always use the playwright-e2e-writer agent
 
 Never write Playwright E2E tests directly. Always delegate to the `playwright-e2e-writer` sub-agent — it has the full test infrastructure context, locator conventions, auth patterns, and quality checklist for this project.
 
-Trigger it after completing a UI feature or when explicitly asked to write E2E tests.
+Trigger it after completing a UI feature or when explicitly asked to write E2E tests. The `playwright-e2e-writer` agent writes **Playwright E2E tests only** — not component tests or server integration tests.
 
 ## Documentation — always use context7
 
-Before writing code that touches any library (Express, Prisma, Better Auth, Vite, React, TanStack Query, Resend, Anthropic SDK, Playwright, Vitest, shadcn/ui), **fetch current docs via context7** using the MCP tools:
+Before writing code that touches any library (Express, Prisma, Better Auth, Vite, React, TanStack Query, Resend, Anthropic SDK, Playwright, Vitest, shadcn/ui), **fetch current docs via context7**:
 
 1. `mcp__context7__resolve-library-id` — resolve the library name to a context7 ID
 2. `mcp__context7__query-docs` — query the docs for the specific topic
-
-This ensures code is based on the current API, not stale training data.
