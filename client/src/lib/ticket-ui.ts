@@ -8,6 +8,12 @@ export const STATUS_STYLES: Record<TicketStatus, string> = {
   [TicketStatus.closed]: "bg-gray-100 text-gray-500",
 };
 
+export const STATUS_LABELS: Record<TicketStatus, string> = {
+  [TicketStatus.open]: "Open",
+  [TicketStatus.resolved]: "Resolved",
+  [TicketStatus.closed]: "Closed",
+};
+
 export const CATEGORY_LABELS: Record<TicketCategory, string> = {
   [TicketCategory.general_question]: "General",
   [TicketCategory.technical_question]: "Technical",

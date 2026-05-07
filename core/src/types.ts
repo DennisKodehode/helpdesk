@@ -16,3 +16,9 @@ export enum TicketCategory {
   billing_inquiry = "billing_inquiry",
   feature_request = "feature_request",
 }
+
+export const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
+  [TicketStatus.open]: [TicketStatus.resolved],
+  [TicketStatus.resolved]: [TicketStatus.closed],
+  [TicketStatus.closed]: [],
+};

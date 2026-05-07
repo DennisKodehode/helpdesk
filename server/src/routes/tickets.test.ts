@@ -320,6 +320,7 @@ describe("GET /api/tickets/:id", () => {
 
 describe("PATCH /api/tickets/:id", () => {
   let authCookie: string;
+  let adminCookie: string;
   let testUserId: string;
   let assigneeId: string;
   let adminId: string;
@@ -355,7 +356,16 @@ describe("PATCH /api/tickets/:id", () => {
     await prisma.user.create({
       data: { id: adminUserId, name: "Patch Admin", email: "test-patch-admin@example.com", emailVerified: true, role: "admin", createdAt: now, updatedAt: now },
     });
+    await prisma.account.create({
+      data: { id: generateId(), accountId: adminUserId, providerId: "credential", userId: adminUserId, password: hashedPassword, createdAt: now, updatedAt: now },
+    });
     adminId = adminUserId;
+
+    const adminSignInRes = await request(app)
+      .post("/api/auth/sign-in/email")
+      .send({ email: "test-patch-admin@example.com", password: "Testpassword1!" });
+    const adminCookies = adminSignInRes.headers["set-cookie"] as string[] | string;
+    adminCookie = Array.isArray(adminCookies) ? adminCookies.join("; ") : adminCookies;
   });
 
   afterAll(async () => {
@@ -363,6 +373,8 @@ describe("PATCH /api/tickets/:id", () => {
     await prisma.account.deleteMany({ where: { userId: testUserId } });
     await prisma.user.delete({ where: { id: testUserId } });
     await prisma.user.delete({ where: { id: assigneeId } });
+    await prisma.session.deleteMany({ where: { userId: adminId } });
+    await prisma.account.deleteMany({ where: { userId: adminId } });
     await prisma.user.delete({ where: { id: adminId } });
   });
 
@@ -391,11 +403,11 @@ describe("PATCH /api/tickets/:id", () => {
     expect(res.body.error).toBeTypeOf("string");
   });
 
-  it("returns 400 when body is missing assignedToId", async () => {
+  it("returns 400 when body has an invalid status value", async () => {
     const res = await request(app)
       .patch(`/api/tickets/${ticketId}`)
       .set("Cookie", authCookie)
-      .send({});
+      .send({ status: "invalid_status" });
     expect(res.status).toBe(400);
     expect(res.body.error).toBeTypeOf("string");
   });
@@ -448,5 +460,76 @@ describe("PATCH /api/tickets/:id", () => {
     expect(res.status).toBe(200);
     expect(res.body.assignedToId).toBeNull();
     expect(res.body.assignedTo).toBeNull();
+  });
+
+  it("returns 200 and changes status from open to resolved", async () => {
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", authCookie)
+      .send({ status: TicketStatus.resolved });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe(TicketStatus.resolved);
+  });
+
+  it("returns 422 when status transition is invalid (open → closed)", async () => {
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", authCookie)
+      .send({ status: TicketStatus.closed });
+    expect(res.status).toBe(422);
+    expect(res.body.error).toBeTypeOf("string");
+  });
+
+  it("returns 422 when ticket is already closed (terminal state)", async () => {
+    await prisma.ticket.update({ where: { id: ticketId }, data: { status: TicketStatus.closed } });
+
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", authCookie)
+      .send({ status: TicketStatus.resolved });
+    expect(res.status).toBe(422);
+    expect(res.body.error).toBeTypeOf("string");
+  });
+
+  it("returns 403 when agent tries to close a resolved ticket", async () => {
+    await prisma.ticket.update({ where: { id: ticketId }, data: { status: TicketStatus.resolved } });
+
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", authCookie)
+      .send({ status: TicketStatus.closed });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBeTypeOf("string");
+  });
+
+  it("returns 200 when admin closes a resolved ticket", async () => {
+    await prisma.ticket.update({ where: { id: ticketId }, data: { status: TicketStatus.resolved } });
+
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", adminCookie)
+      .send({ status: TicketStatus.closed });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe(TicketStatus.closed);
+  });
+
+  it("returns 200 and sets the category", async () => {
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", authCookie)
+      .send({ category: TicketCategory.billing_inquiry });
+    expect(res.status).toBe(200);
+    expect(res.body.category).toBe(TicketCategory.billing_inquiry);
+  });
+
+  it("returns 200 and clears the category", async () => {
+    await prisma.ticket.update({ where: { id: ticketId }, data: { category: TicketCategory.refund_request } });
+
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", authCookie)
+      .send({ category: null });
+    expect(res.status).toBe(200);
+    expect(res.body.category).toBeNull();
   });
 });

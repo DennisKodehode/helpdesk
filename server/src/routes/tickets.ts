@@ -2,7 +2,7 @@ import { Router } from "express";
 import { Prisma } from "../generated/prisma/client";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth-middleware";
-import { ticketSortSchema, assignTicketSchema, Role } from "@helpdesk/core";
+import { ticketSortSchema, updateTicketSchema, Role, TicketStatus, VALID_TRANSITIONS } from "@helpdesk/core";
 import { firstIssue } from "../lib/validation";
 
 const router = Router();
@@ -99,7 +99,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
     return;
   }
 
-  const result = assignTicketSchema.safeParse(req.body);
+  const result = updateTicketSchema.safeParse(req.body);
   if (!result.success) {
     res.status(400).json({ error: firstIssue(result.error) });
     return;
@@ -111,7 +111,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
     return;
   }
 
-  if (result.data.assignedToId !== null) {
+  if (result.data.assignedToId !== undefined && result.data.assignedToId !== null) {
     const user = await prisma.user.findFirst({
       where: { id: result.data.assignedToId, role: Role.agent, deletedAt: null },
     });
@@ -121,9 +121,26 @@ router.patch("/:id", requireAuth, async (req, res) => {
     }
   }
 
+  if (result.data.status !== undefined) {
+    const newStatus = result.data.status;
+    const validNext = VALID_TRANSITIONS[ticket.status as TicketStatus];
+    if (!validNext.includes(newStatus)) {
+      res.status(422).json({ error: `Invalid status transition: ${ticket.status} → ${newStatus}` });
+      return;
+    }
+    if (newStatus === TicketStatus.closed && req.user!.role !== Role.admin) {
+      res.status(403).json({ error: "Only admins can close tickets" });
+      return;
+    }
+  }
+
   const updated = await prisma.ticket.update({
     where: { id },
-    data: { assignedToId: result.data.assignedToId },
+    data: {
+      ...(result.data.assignedToId !== undefined && { assignedToId: result.data.assignedToId }),
+      ...(result.data.status !== undefined && { status: result.data.status }),
+      ...(result.data.category !== undefined && { category: result.data.category }),
+    },
     select: {
       id: true,
       fromName: true,

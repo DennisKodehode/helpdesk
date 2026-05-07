@@ -102,8 +102,10 @@ export const paginatedTicketsSchema = z.object({
 
 export type PaginatedTickets = z.infer<typeof paginatedTicketsSchema>;
 
-export const assignTicketSchema = z.object({
-  assignedToId: z.string().nullable(),
+export const updateTicketSchema = z.object({
+  assignedToId: z.string().nullable().optional(),
+  status: z.enum(TicketStatus).optional(),
+  category: z.enum(TicketCategory).nullable().optional(),
 });
 
-export type AssignTicketData = z.infer<typeof assignTicketSchema>;
+export type UpdateTicketData = z.infer<typeof updateTicketSchema>;

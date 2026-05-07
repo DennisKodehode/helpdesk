@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { renderWithProviders, screen, waitFor, cleanup } from "../test/utils";
 import TicketDetailPage from "./TicketDetailPage";
 import { TicketStatus, TicketCategory, type TicketDetail, type Agent } from "@helpdesk/core";
+import { useSession } from "@/lib/auth-client";
 
 vi.mock("axios", () => ({
   default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn(), isAxiosError: vi.fn() },
@@ -13,6 +14,10 @@ vi.mock("react-router", async (importOriginal) => {
   const mod = await importOriginal<typeof import("react-router")>();
   return { ...mod, useParams: () => ({ id: "42" }) };
 });
+
+vi.mock("@/lib/auth-client", () => ({
+  useSession: vi.fn(),
+}));
 
 const mockTicket: TicketDetail = {
   id: 42,
@@ -40,9 +45,14 @@ function mockGetResponses(ticket = mockTicket, agents = mockAgents) {
   });
 }
 
+function mockSession(role = "agent") {
+  vi.mocked(useSession).mockReturnValue({ data: { user: { role } } } as ReturnType<typeof useSession>);
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetResponses();
+  mockSession("agent");
 });
 
 afterEach(cleanup);
@@ -62,16 +72,48 @@ describe("loaded state", () => {
     expect(await screen.findByRole("heading", { name: "My printer is on fire" })).toBeInTheDocument();
   });
 
-  it("renders the status badge", async () => {
+  it("shows the current status in the status select", async () => {
     renderWithProviders(<TicketDetailPage />);
     await screen.findByRole("heading", { name: "My printer is on fire" });
-    expect(screen.getByText(TicketStatus.open)).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /change ticket status/i })).toHaveTextContent("Open");
   });
 
-  it("renders the category badge", async () => {
+  it("shows the current category in the category select", async () => {
     renderWithProviders(<TicketDetailPage />);
     await screen.findByRole("heading", { name: "My printer is on fire" });
-    expect(screen.getByText("Technical")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /change ticket category/i })).toHaveTextContent("Technical");
+  });
+
+  it("shows None placeholder when category is null", async () => {
+    mockGetResponses({ ...mockTicket, category: null });
+    renderWithProviders(<TicketDetailPage />);
+    await screen.findByRole("heading", { name: "My printer is on fire" });
+    expect(screen.getByRole("combobox", { name: /change ticket category/i })).toHaveTextContent(/none/i);
+  });
+
+  it("shows a static status badge (no select) when ticket is closed", async () => {
+    mockGetResponses({ ...mockTicket, status: TicketStatus.closed });
+    renderWithProviders(<TicketDetailPage />);
+    await screen.findByRole("heading", { name: "My printer is on fire" });
+    expect(screen.queryByRole("combobox", { name: /change ticket status/i })).not.toBeInTheDocument();
+    expect(screen.getByText("Closed")).toBeInTheDocument();
+  });
+
+  it("shows a static status badge for resolved ticket when user is not admin", async () => {
+    mockGetResponses({ ...mockTicket, status: TicketStatus.resolved });
+    mockSession("agent");
+    renderWithProviders(<TicketDetailPage />);
+    await screen.findByRole("heading", { name: "My printer is on fire" });
+    expect(screen.queryByRole("combobox", { name: /change ticket status/i })).not.toBeInTheDocument();
+    expect(screen.getByText("Resolved")).toBeInTheDocument();
+  });
+
+  it("shows status select for resolved ticket when user is admin", async () => {
+    mockGetResponses({ ...mockTicket, status: TicketStatus.resolved });
+    mockSession("admin");
+    renderWithProviders(<TicketDetailPage />);
+    await screen.findByRole("heading", { name: "My printer is on fire" });
+    expect(screen.getByRole("combobox", { name: /change ticket status/i })).toBeInTheDocument();
   });
 
   it("renders from name and email", async () => {
@@ -93,7 +135,7 @@ describe("loaded state", () => {
     expect(screen.getByRole("link", { name: /back to tickets/i })).toBeInTheDocument();
   });
 
-  it("shows the current assignee name in the select trigger", async () => {
+  it("shows the current assignee name in the assign select trigger", async () => {
     renderWithProviders(<TicketDetailPage />);
     await screen.findByRole("heading", { name: "My printer is on fire" });
     expect(screen.getByRole("combobox", { name: /assign ticket/i })).toHaveTextContent("Bob Agent");
@@ -103,15 +145,7 @@ describe("loaded state", () => {
     mockGetResponses({ ...mockTicket, assignedToId: null, assignedTo: null });
     renderWithProviders(<TicketDetailPage />);
     await screen.findByRole("heading", { name: "My printer is on fire" });
-    const trigger = screen.getByRole("combobox", { name: /assign ticket/i });
-    expect(trigger).toHaveTextContent(/unassigned/i);
-  });
-
-  it("hides category badge when category is null", async () => {
-    mockGetResponses({ ...mockTicket, category: null });
-    renderWithProviders(<TicketDetailPage />);
-    await screen.findByRole("heading", { name: "My printer is on fire" });
-    expect(screen.queryByText("Technical")).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /assign ticket/i })).toHaveTextContent(/unassigned/i);
   });
 
   it("shows fallback text when body is empty", async () => {
@@ -132,6 +166,58 @@ describe("loaded state", () => {
     renderWithProviders(<TicketDetailPage />);
     await waitFor(() => {
       expect(axios.get).toHaveBeenCalledWith("/api/agents");
+    });
+  });
+});
+
+describe("status interaction", () => {
+  it("calls PATCH with the new status when status is changed", async () => {
+    vi.mocked(axios.patch).mockResolvedValue({
+      data: { ...mockTicket, status: TicketStatus.resolved },
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<TicketDetailPage />);
+    await screen.findByRole("heading", { name: "My printer is on fire" });
+
+    await user.click(screen.getByRole("combobox", { name: /change ticket status/i }));
+    await user.click(await screen.findByRole("option", { name: "Resolved" }));
+
+    await waitFor(() => {
+      expect(axios.patch).toHaveBeenCalledWith("/api/tickets/42", { status: TicketStatus.resolved });
+    });
+  });
+});
+
+describe("category interaction", () => {
+  it("calls PATCH with the selected category", async () => {
+    vi.mocked(axios.patch).mockResolvedValue({
+      data: { ...mockTicket, category: TicketCategory.billing_inquiry },
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<TicketDetailPage />);
+    await screen.findByRole("heading", { name: "My printer is on fire" });
+
+    await user.click(screen.getByRole("combobox", { name: /change ticket category/i }));
+    await user.click(await screen.findByRole("option", { name: "Billing" }));
+
+    await waitFor(() => {
+      expect(axios.patch).toHaveBeenCalledWith("/api/tickets/42", { category: TicketCategory.billing_inquiry });
+    });
+  });
+
+  it("calls PATCH with null when None is selected", async () => {
+    vi.mocked(axios.patch).mockResolvedValue({
+      data: { ...mockTicket, category: null },
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<TicketDetailPage />);
+    await screen.findByRole("heading", { name: "My printer is on fire" });
+
+    await user.click(screen.getByRole("combobox", { name: /change ticket category/i }));
+    await user.click(await screen.findByRole("option", { name: /none/i }));
+
+    await waitFor(() => {
+      expect(axios.patch).toHaveBeenCalledWith("/api/tickets/42", { category: null });
     });
   });
 });
