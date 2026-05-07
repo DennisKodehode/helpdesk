@@ -1,25 +1,59 @@
 import { useParams } from "react-router";
 import { Link } from "@/components/ui/link";
 import axios from "axios";
-import { useQuery } from "@tanstack/react-query";
-import { type TicketDetail } from "@helpdesk/core";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { type TicketDetail, type Agent } from "@helpdesk/core";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft } from "lucide-react";
 import { BADGE_BASE, STATUS_STYLES, CATEGORY_LABELS } from "@/lib/ticket-ui";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
 
 async function fetchTicket(id: string): Promise<TicketDetail> {
   const { data } = await axios.get<TicketDetail>(`/api/tickets/${id}`);
   return data;
 }
 
+async function fetchAgents(): Promise<Agent[]> {
+  const { data } = await axios.get<Agent[]>("/api/agents");
+  return data;
+}
+
 export default function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const queryClient = useQueryClient();
 
   const { data: ticket, isPending, isError } = useQuery({
     queryKey: ["ticket", id],
     queryFn: () => fetchTicket(id!),
     enabled: !!id,
   });
+
+  const { data: agents = [] } = useQuery({
+    queryKey: ["agents"],
+    queryFn: fetchAgents,
+  });
+
+  const assignMutation = useMutation({
+    mutationFn: (assignedToId: string | null) =>
+      axios.patch(`/api/tickets/${id}`, { assignedToId }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["ticket", id] }),
+  });
+
+  // While a mutation is in-flight, show the optimistic value immediately
+  const currentAssigneeId = assignMutation.isPending && assignMutation.variables !== undefined
+    ? assignMutation.variables
+    : ticket?.assignedToId ?? null;
+
+  // Resolve agent name from the agents list; fall back to ticket.assignedTo.name
+  // (available from the detail response before the users list loads)
+  const displayAgentName = currentAssigneeId
+    ? (agents.find(a => a.id === currentAssigneeId)?.name ?? ticket?.assignedTo?.name ?? null)
+    : null;
 
   return (
     <main className="p-8 max-w-3xl mx-auto">
@@ -71,15 +105,25 @@ export default function TicketDetailPage() {
               <dd className="text-gray-900">{new Date(ticket.createdAt).toLocaleString()}</dd>
             </div>
             <div>
-              <dt className="text-gray-500 font-medium">Assigned to</dt>
-              {ticket.assignedTo ? (
-                <>
-                  <dd className="text-gray-900">{ticket.assignedTo.name}</dd>
-                  <dd className="text-gray-500">{ticket.assignedTo.email}</dd>
-                </>
-              ) : (
-                <dd className="text-gray-400 italic">Unassigned</dd>
-              )}
+              <dt className="text-gray-500 font-medium mb-1">Assigned to</dt>
+              <dd>
+                <Select
+                  value={currentAssigneeId ?? ""}
+                  onValueChange={(value) => assignMutation.mutate(value || null)}
+                >
+                  <SelectTrigger aria-label="Assign ticket">
+                    <span data-slot="select-value" className="flex flex-1 text-left">
+                      {displayAgentName ?? <span className="text-muted-foreground">Unassigned</span>}
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Unassigned</SelectItem>
+                    {agents.map(agent => (
+                      <SelectItem key={agent.id} value={agent.id}>{agent.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </dd>
             </div>
           </dl>
 

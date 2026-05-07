@@ -11,6 +11,14 @@ export const userSchema = z.object({
 
 export type User = z.infer<typeof userSchema>;
 
+export const agentSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+});
+
+export type Agent = z.infer<typeof agentSchema>;
+
 export const createUserSchema = z.object({
   name: z.string().trim().min(3, "Name must be at least 3 characters"),
   email: z.email("Invalid email address"),
@@ -93,3 +101,9 @@ export const paginatedTicketsSchema = z.object({
 });
 
 export type PaginatedTickets = z.infer<typeof paginatedTicketsSchema>;
+
+export const assignTicketSchema = z.object({
+  assignedToId: z.string().nullable(),
+});
+
+export type AssignTicketData = z.infer<typeof assignTicketSchema>;

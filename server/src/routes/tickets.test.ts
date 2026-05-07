@@ -317,3 +317,136 @@ describe("GET /api/tickets/:id", () => {
     expect(res.body.error).toBeTypeOf("string");
   });
 });
+
+describe("PATCH /api/tickets/:id", () => {
+  let authCookie: string;
+  let testUserId: string;
+  let assigneeId: string;
+  let adminId: string;
+  let ticketId: number;
+
+  beforeAll(async () => {
+    const ctx = await auth.$context;
+    const hashedPassword = await ctx.password.hash("Testpassword1!");
+    const now = new Date();
+
+    const actorId = generateId();
+    await prisma.user.create({
+      data: { id: actorId, name: "Patch Actor", email: "test-patch-actor@example.com", emailVerified: true, role: "agent", createdAt: now, updatedAt: now },
+    });
+    await prisma.account.create({
+      data: { id: generateId(), accountId: actorId, providerId: "credential", userId: actorId, password: hashedPassword, createdAt: now, updatedAt: now },
+    });
+    testUserId = actorId;
+
+    const signInRes = await request(app)
+      .post("/api/auth/sign-in/email")
+      .send({ email: "test-patch-actor@example.com", password: "Testpassword1!" });
+    const cookies = signInRes.headers["set-cookie"] as string[] | string;
+    authCookie = Array.isArray(cookies) ? cookies.join("; ") : cookies;
+
+    const assigneeUserId = generateId();
+    await prisma.user.create({
+      data: { id: assigneeUserId, name: "Assignee Agent", email: "test-patch-assignee@example.com", emailVerified: true, role: "agent", createdAt: now, updatedAt: now },
+    });
+    assigneeId = assigneeUserId;
+
+    const adminUserId = generateId();
+    await prisma.user.create({
+      data: { id: adminUserId, name: "Patch Admin", email: "test-patch-admin@example.com", emailVerified: true, role: "admin", createdAt: now, updatedAt: now },
+    });
+    adminId = adminUserId;
+  });
+
+  afterAll(async () => {
+    await prisma.session.deleteMany({ where: { userId: testUserId } });
+    await prisma.account.deleteMany({ where: { userId: testUserId } });
+    await prisma.user.delete({ where: { id: testUserId } });
+    await prisma.user.delete({ where: { id: assigneeId } });
+    await prisma.user.delete({ where: { id: adminId } });
+  });
+
+  beforeEach(async () => {
+    const ticket = await prisma.ticket.create({
+      data: { fromName: "Patch Test", fromEmail: "patch@example.com", subject: "Patch subject", body: "" },
+    });
+    ticketId = ticket.id;
+  });
+
+  afterEach(async () => {
+    await prisma.ticket.deleteMany({ where: { id: ticketId } });
+  });
+
+  it("returns 401 when not authenticated", async () => {
+    const res = await request(app).patch(`/api/tickets/${ticketId}`).send({ assignedToId: assigneeId });
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 400 for invalid ticket ID", async () => {
+    const res = await request(app)
+      .patch("/api/tickets/abc")
+      .set("Cookie", authCookie)
+      .send({ assignedToId: assigneeId });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeTypeOf("string");
+  });
+
+  it("returns 400 when body is missing assignedToId", async () => {
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", authCookie)
+      .send({});
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeTypeOf("string");
+  });
+
+  it("returns 404 when ticket does not exist", async () => {
+    const res = await request(app)
+      .patch("/api/tickets/999999999")
+      .set("Cookie", authCookie)
+      .send({ assignedToId: assigneeId });
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBeTypeOf("string");
+  });
+
+  it("returns 404 when assignedToId references an admin user", async () => {
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", authCookie)
+      .send({ assignedToId: adminId });
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBeTypeOf("string");
+  });
+
+  it("returns 404 when assignedToId references a non-existent user", async () => {
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", authCookie)
+      .send({ assignedToId: "nonexistent-user-id" });
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBeTypeOf("string");
+  });
+
+  it("assigns the ticket to a user and returns updated ticket", async () => {
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", authCookie)
+      .send({ assignedToId: assigneeId });
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(ticketId);
+    expect(res.body.assignedToId).toBe(assigneeId);
+    expect(res.body.assignedTo).toMatchObject({ id: assigneeId, name: "Assignee Agent", email: "test-patch-assignee@example.com" });
+  });
+
+  it("unassigns the ticket when assignedToId is null", async () => {
+    await prisma.ticket.update({ where: { id: ticketId }, data: { assignedToId: assigneeId } });
+
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", authCookie)
+      .send({ assignedToId: null });
+    expect(res.status).toBe(200);
+    expect(res.body.assignedToId).toBeNull();
+    expect(res.body.assignedTo).toBeNull();
+  });
+});

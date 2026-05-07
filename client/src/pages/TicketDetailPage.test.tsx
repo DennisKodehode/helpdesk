@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import axios from "axios";
+import userEvent from "@testing-library/user-event";
 import { renderWithProviders, screen, waitFor, cleanup } from "../test/utils";
 import TicketDetailPage from "./TicketDetailPage";
-import { TicketStatus, TicketCategory, type TicketDetail } from "@helpdesk/core";
+import { TicketStatus, TicketCategory, type TicketDetail, type Agent } from "@helpdesk/core";
 
 vi.mock("axios", () => ({
-  default: { get: vi.fn(), post: vi.fn(), delete: vi.fn(), isAxiosError: vi.fn() },
+  default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn(), isAxiosError: vi.fn() },
 }));
 
 vi.mock("react-router", async (importOriginal) => {
@@ -27,9 +28,21 @@ const mockTicket: TicketDetail = {
   updatedAt: "2024-01-15T11:00:00Z",
 };
 
+const mockAgents: Agent[] = [
+  { id: "agent-1", name: "Bob Agent", email: "bob@example.com" },
+  { id: "agent-2", name: "Carol Agent", email: "carol@example.com" },
+];
+
+function mockGetResponses(ticket = mockTicket, agents = mockAgents) {
+  vi.mocked(axios.get).mockImplementation((url: string) => {
+    if (url === "/api/agents") return Promise.resolve({ data: agents });
+    return Promise.resolve({ data: ticket });
+  });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(axios.get).mockResolvedValue({ data: mockTicket });
+  mockGetResponses();
 });
 
 afterEach(cleanup);
@@ -80,38 +93,75 @@ describe("loaded state", () => {
     expect(screen.getByRole("link", { name: /back to tickets/i })).toBeInTheDocument();
   });
 
-  it("renders assigned agent name and email", async () => {
+  it("shows the current assignee name in the select trigger", async () => {
     renderWithProviders(<TicketDetailPage />);
     await screen.findByRole("heading", { name: "My printer is on fire" });
-    expect(screen.getByText("Bob Agent")).toBeInTheDocument();
-    expect(screen.getByText("bob@example.com")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /assign ticket/i })).toHaveTextContent("Bob Agent");
   });
 
-  it("shows Unassigned when assignedTo is null", async () => {
-    vi.mocked(axios.get).mockResolvedValue({ data: { ...mockTicket, assignedToId: null, assignedTo: null } });
+  it("shows Unassigned placeholder when assignedTo is null", async () => {
+    mockGetResponses({ ...mockTicket, assignedToId: null, assignedTo: null });
     renderWithProviders(<TicketDetailPage />);
     await screen.findByRole("heading", { name: "My printer is on fire" });
-    expect(screen.getByText("Unassigned")).toBeInTheDocument();
+    const trigger = screen.getByRole("combobox", { name: /assign ticket/i });
+    expect(trigger).toHaveTextContent(/unassigned/i);
   });
 
   it("hides category badge when category is null", async () => {
-    vi.mocked(axios.get).mockResolvedValue({ data: { ...mockTicket, category: null } });
+    mockGetResponses({ ...mockTicket, category: null });
     renderWithProviders(<TicketDetailPage />);
     await screen.findByRole("heading", { name: "My printer is on fire" });
     expect(screen.queryByText("Technical")).not.toBeInTheDocument();
   });
 
   it("shows fallback text when body is empty", async () => {
-    vi.mocked(axios.get).mockResolvedValue({ data: { ...mockTicket, body: "" } });
+    mockGetResponses({ ...mockTicket, body: "" });
     renderWithProviders(<TicketDetailPage />);
     await screen.findByRole("heading", { name: "My printer is on fire" });
     expect(screen.getByText("(no message body)")).toBeInTheDocument();
   });
 
-  it("fetches from the correct endpoint", async () => {
+  it("fetches from the correct ticket endpoint", async () => {
     renderWithProviders(<TicketDetailPage />);
     await waitFor(() => {
       expect(axios.get).toHaveBeenCalledWith("/api/tickets/42");
+    });
+  });
+
+  it("fetches the agents list", async () => {
+    renderWithProviders(<TicketDetailPage />);
+    await waitFor(() => {
+      expect(axios.get).toHaveBeenCalledWith("/api/agents");
+    });
+  });
+});
+
+describe("assign interaction", () => {
+  it("calls PATCH with the selected agent id", async () => {
+    vi.mocked(axios.patch).mockResolvedValue({ data: { ...mockTicket, assignedToId: "agent-2", assignedTo: { id: "agent-2", name: "Carol Agent", email: "carol@example.com" } } });
+    const user = userEvent.setup();
+    renderWithProviders(<TicketDetailPage />);
+    await screen.findByRole("heading", { name: "My printer is on fire" });
+
+    await user.click(screen.getByRole("combobox", { name: /assign ticket/i }));
+    await user.click(await screen.findByRole("option", { name: "Carol Agent" }));
+
+    await waitFor(() => {
+      expect(axios.patch).toHaveBeenCalledWith("/api/tickets/42", { assignedToId: "agent-2" });
+    });
+  });
+
+  it("calls PATCH with null when Unassigned is selected", async () => {
+    vi.mocked(axios.patch).mockResolvedValue({ data: { ...mockTicket, assignedToId: null, assignedTo: null } });
+    const user = userEvent.setup();
+    renderWithProviders(<TicketDetailPage />);
+    await screen.findByRole("heading", { name: "My printer is on fire" });
+
+    await user.click(screen.getByRole("combobox", { name: /assign ticket/i }));
+    await user.click(await screen.findByRole("option", { name: /unassigned/i }));
+
+    await waitFor(() => {
+      expect(axios.patch).toHaveBeenCalledWith("/api/tickets/42", { assignedToId: null });
     });
   });
 });

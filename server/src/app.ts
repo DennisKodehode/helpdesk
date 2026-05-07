@@ -2,6 +2,7 @@ import express, { type ErrorRequestHandler, type RequestHandler } from "express"
 import cors from "cors";
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
+import agentsRouter from "./routes/agents";
 import usersRouter from "./routes/users";
 import ticketsRouter from "./routes/tickets";
 import webhooksRouter from "./routes/webhooks";
@@ -18,6 +19,7 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
+app.use("/api/agents", agentsRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/tickets", ticketsRouter);
 app.use("/api/webhooks", requireWebhookSecret, webhooksRouter);
