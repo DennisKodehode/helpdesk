@@ -4,6 +4,7 @@ import { generateId } from "better-auth";
 import app from "../app";
 import { auth } from "../lib/auth";
 import { prisma } from "../lib/prisma";
+import { TicketStatus, TicketCategory } from "@helpdesk/core";
 
 describe("GET /api/tickets", () => {
   it("returns 401 when not authenticated", async () => {
@@ -108,12 +109,88 @@ describe("GET /api/tickets — sorting", () => {
     expect(ids.indexOf(createdTicketIds[0])).toBeLessThan(ids.indexOf(createdTicketIds[1]));
   });
 
+  it("filters by status", async () => {
+    const openTicket = await prisma.ticket.create({
+      data: { fromName: "Filter Test", fromEmail: "filter@example.com", subject: "Open ticket", body: "", status: TicketStatus.open },
+    });
+    const resolvedTicket = await prisma.ticket.create({
+      data: { fromName: "Filter Test", fromEmail: "filter@example.com", subject: "Resolved ticket", body: "", status: TicketStatus.resolved },
+    });
+    createdTicketIds.push(openTicket.id, resolvedTicket.id);
+
+    const res = await request(app)
+      .get(`/api/tickets?status=${TicketStatus.open}`)
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body as { id: number }[]).map((t) => t.id);
+    expect(ids).toContain(openTicket.id);
+    expect(ids).not.toContain(resolvedTicket.id);
+  });
+
+  it("filters by category", async () => {
+    const technicalTicket = await prisma.ticket.create({
+      data: { fromName: "Filter Test", fromEmail: "filter@example.com", subject: "Technical ticket", body: "", category: TicketCategory.technical_question },
+    });
+    const refundTicket = await prisma.ticket.create({
+      data: { fromName: "Filter Test", fromEmail: "filter@example.com", subject: "Refund ticket", body: "", category: TicketCategory.refund_request },
+    });
+    createdTicketIds.push(technicalTicket.id, refundTicket.id);
+
+    const res = await request(app)
+      .get(`/api/tickets?category=${TicketCategory.technical_question}`)
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body as { id: number }[]).map((t) => t.id);
+    expect(ids).toContain(technicalTicket.id);
+    expect(ids).not.toContain(refundTicket.id);
+  });
+
+  it("filters by search term across subject, fromName, and fromEmail", async () => {
+    const matchTicket = await prisma.ticket.create({
+      data: { fromName: "Unique Person", fromEmail: "unique@example.com", subject: "Unique subject", body: "" },
+    });
+    const noMatchTicket = await prisma.ticket.create({
+      data: { fromName: "Other Person", fromEmail: "other@example.com", subject: "Other subject", body: "" },
+    });
+    createdTicketIds.push(matchTicket.id, noMatchTicket.id);
+
+    const res = await request(app)
+      .get("/api/tickets?search=unique")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body as { id: number }[]).map((t) => t.id);
+    expect(ids).toContain(matchTicket.id);
+    expect(ids).not.toContain(noMatchTicket.id);
+  });
+
+  it("search is case-insensitive", async () => {
+    const ticket = await prisma.ticket.create({
+      data: { fromName: "Alice Smith", fromEmail: "alice@example.com", subject: "Printer on fire", body: "" },
+    });
+    createdTicketIds.push(ticket.id);
+
+    const res = await request(app)
+      .get("/api/tickets?search=PRINTER")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body as { id: number }[]).map((t) => t.id);
+    expect(ids).toContain(ticket.id);
+  });
+
+  it("returns 400 for an invalid status value", async () => {
+    const res = await request(app)
+      .get("/api/tickets?status=pending")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeTypeOf("string");
+  });
+
   it("returns 400 for an invalid sortBy value", async () => {
     const res = await request(app)
       .get("/api/tickets?sortBy=INVALID")
       .set("Cookie", authCookie);
     expect(res.status).toBe(400);
-    expect(res.body.error).toBeDefined();
+    expect(res.body.error).toBeTypeOf("string");
   });
 
   it("returns 400 for an invalid sortOrder value", async () => {
@@ -121,6 +198,6 @@ describe("GET /api/tickets — sorting", () => {
       .get("/api/tickets?sortBy=subject&sortOrder=sideways")
       .set("Cookie", authCookie);
     expect(res.status).toBe(400);
-    expect(res.body.error).toBeDefined();
+    expect(res.body.error).toBeTypeOf("string");
   });
 });

@@ -25,7 +25,7 @@ describe("POST /api/webhooks/inbound-email", () => {
   it("returns 401 when x-webhook-secret header is missing", async () => {
     const res = await request(app).post("/api/webhooks/inbound-email").send(VALID_BODY);
     expect(res.status).toBe(401);
-    expect(res.body.error).toBeDefined();
+    expect(res.body.error).toBeTypeOf("string");
   });
 
   it("returns 401 when x-webhook-secret is wrong", async () => {
@@ -42,7 +42,7 @@ describe("POST /api/webhooks/inbound-email", () => {
       .set(VALID_HEADERS)
       .send({ fromEmail: "alice@example.com" });
     expect(res.status).toBe(400);
-    expect(res.body.error).toBeDefined();
+    expect(res.body.error).toBeTypeOf("string");
   });
 
   it("returns 400 when fromEmail is not a valid email", async () => {

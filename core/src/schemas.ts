@@ -41,8 +41,8 @@ export const ticketSchema = z.object({
   fromName: z.string(),
   fromEmail: z.string(),
   subject: z.string(),
-  status: z.nativeEnum(TicketStatus),
-  category: z.nativeEnum(TicketCategory).nullable(),
+  status: z.enum(TicketStatus),
+  category: z.enum(TicketCategory).nullable(),
   assignedToId: z.string().nullable(),
   createdAt: z.string(),
 });
@@ -62,4 +62,7 @@ export type TicketSortField = (typeof TICKET_SORT_FIELDS)[number];
 export const ticketSortSchema = z.object({
   sortBy: z.enum(TICKET_SORT_FIELDS).optional(),
   sortOrder: z.enum(["asc", "desc"]).optional(),
+  status: z.enum(TicketStatus).optional(),
+  category: z.enum(TicketCategory).optional(),
+  search: z.string().optional(),
 });

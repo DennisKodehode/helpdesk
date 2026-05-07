@@ -52,6 +52,7 @@ Component tests live alongside their page/component files as `*.test.tsx`. The t
 - Use `screen.findByText` (async) for content that appears after a query resolves; use `screen.getByText` (sync) only for content already in the DOM.
 - Scope ambiguous queries with `within(screen.getByRole("dialog"))` when the same text appears in both the background page and a dialog.
 - Cover: loading state (skeleton), loaded state, empty state, error state, and each user interaction (open dialog, validation, success, server error).
+- **Assert on what the user sees, not just on API calls.** After any interaction that changes visible UI state (selecting a dropdown, submitting a form), assert on the rendered output — e.g., `expect(trigger).toHaveTextContent("Open")` — not only that `axios.get` was called with the right params. Mock call assertions alone won't catch bugs where the label map is missing or rendering is broken.
 
 ### Running tests
 

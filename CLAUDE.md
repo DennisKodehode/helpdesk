@@ -63,6 +63,9 @@ bun run db:studio                    # open Prisma Studio
 bun run test                         # component tests (from client/) or integration tests (from server/)
 bun run test:e2e                     # run Playwright tests — resets test DB first
 bun run test:e2e:ui                  # Playwright UI mode
+
+# TypeScript type-checking (use bunx, not npx — npx tsc fails in this project)
+bunx tsc --noEmit                    # from any workspace directory
 ```
 
 ## Environment
@@ -105,6 +108,8 @@ Better Auth handles all `/api/auth/*` routes via `toNodeHandler(auth)`. Sessions
  [Component — Vitest + RTL]          ← most; UI logic in isolation
     [Static — TypeScript/Zod]        ← free; always active
 ```
+
+**Never tailor tests to pass.** If a test fails, fix the code — never rewrite the test to accommodate broken or inaccessible code. A passing test suite that was bent to fit the implementation provides false confidence. Specifically: never use array indexing (`getAllByRole(...)[0]`) to work around missing accessible labels — add the label to the component instead so the test can query by name.
 
 **Component** (`client/src/**/*.test.tsx`): UI in jsdom, axios mocked. Every new page or component gets these. See `client/CLAUDE.md` for patterns.
 
