@@ -227,3 +227,93 @@ describe("GET /api/tickets — sorting", () => {
     expect(res.body.error).toBeTypeOf("string");
   });
 });
+
+describe("GET /api/tickets/:id", () => {
+  let authCookie: string;
+  let testUserId: string;
+  let ticketId: number;
+
+  beforeAll(async () => {
+    const ctx = await auth.$context;
+    const hashedPassword = await ctx.password.hash("Testpassword1!");
+    const id = generateId();
+    const now = new Date();
+
+    await prisma.user.create({
+      data: { id, name: "Detail Test Agent", email: "test-detail@example.com", emailVerified: true, role: "agent", createdAt: now, updatedAt: now },
+    });
+    await prisma.account.create({
+      data: { id: generateId(), accountId: id, providerId: "credential", userId: id, password: hashedPassword, createdAt: now, updatedAt: now },
+    });
+    testUserId = id;
+
+    const signInRes = await request(app)
+      .post("/api/auth/sign-in/email")
+      .send({ email: "test-detail@example.com", password: "Testpassword1!" });
+
+    const cookies = signInRes.headers["set-cookie"] as string[] | string;
+    authCookie = Array.isArray(cookies) ? cookies.join("; ") : cookies;
+  });
+
+  afterAll(async () => {
+    await prisma.session.deleteMany({ where: { userId: testUserId } });
+    await prisma.account.deleteMany({ where: { userId: testUserId } });
+    await prisma.user.delete({ where: { id: testUserId } });
+  });
+
+  beforeEach(async () => {
+    const ticket = await prisma.ticket.create({
+      data: {
+        fromName: "Carol White",
+        fromEmail: "carol@example.com",
+        subject: "Printer on fire",
+        body: "My printer caught fire, please help.",
+        status: TicketStatus.open,
+        category: TicketCategory.technical_question,
+      },
+    });
+    ticketId = ticket.id;
+  });
+
+  afterEach(async () => {
+    await prisma.ticket.deleteMany({ where: { id: ticketId } });
+  });
+
+  it("returns 401 when not authenticated", async () => {
+    const res = await request(app).get(`/api/tickets/${ticketId}`);
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 200 with all ticket fields", async () => {
+    const res = await request(app)
+      .get(`/api/tickets/${ticketId}`)
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(ticketId);
+    expect(res.body.fromName).toBe("Carol White");
+    expect(res.body.fromEmail).toBe("carol@example.com");
+    expect(res.body.subject).toBe("Printer on fire");
+    expect(res.body.body).toBe("My printer caught fire, please help.");
+    expect(res.body.status).toBe(TicketStatus.open);
+    expect(res.body.category).toBe(TicketCategory.technical_question);
+    expect(res.body.assignedTo).toBeNull();
+    expect(typeof res.body.createdAt).toBe("string");
+    expect(typeof res.body.updatedAt).toBe("string");
+  });
+
+  it("returns 404 when ticket does not exist", async () => {
+    const res = await request(app)
+      .get("/api/tickets/999999999")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBeTypeOf("string");
+  });
+
+  it("returns 400 for a non-numeric ID", async () => {
+    const res = await request(app)
+      .get("/api/tickets/abc")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeTypeOf("string");
+  });
+});

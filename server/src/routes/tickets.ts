@@ -60,4 +60,36 @@ router.get("/", requireAuth, async (req, res) => {
   res.json({ data, total, page, pageSize });
 });
 
+router.get("/:id", requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid ticket ID" });
+    return;
+  }
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      fromName: true,
+      fromEmail: true,
+      subject: true,
+      body: true,
+      status: true,
+      category: true,
+      assignedToId: true,
+      assignedTo: { select: { id: true, name: true, email: true } },
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  res.json(ticket);
+});
+
 export default router;

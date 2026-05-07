@@ -1,4 +1,5 @@
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
+import { Link } from "@/components/ui/link";
 import { signOut, useSession } from "../lib/auth-client";
 import { Role } from "@helpdesk/core";
 
@@ -14,17 +15,17 @@ export default function Navbar() {
 
   return (
     <nav className="h-14 border-b border-gray-200 bg-white flex items-center justify-between px-6">
-      <Link to="/" className="text-sm font-semibold text-gray-900 hover:text-gray-600 transition-colors">Helpdesk</Link>
+      <Link to="/" className="text-sm font-semibold text-gray-900 hover:text-gray-600">Helpdesk</Link>
       <div className="flex items-center gap-4">
         {!isPending && (
-          <Link to="/tickets" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+          <Link to="/tickets" className="text-sm text-gray-600 hover:text-gray-900">
             Tickets
           </Link>
         )}
         {!isPending && role === Role.admin && (
           <Link
             to="/users"
-            className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+            className="text-sm text-gray-600 hover:text-gray-900"
           >
             Users
           </Link>

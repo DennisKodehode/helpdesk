@@ -7,8 +7,10 @@ import {
   type OnChangeFn,
 } from "@tanstack/react-table";
 import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
-import { type Ticket, TicketStatus, TicketCategory } from "@helpdesk/core";
+import { Link } from "@/components/ui/link";
+import { type Ticket } from "@helpdesk/core";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BADGE_BASE, STATUS_STYLES, CATEGORY_LABELS } from "@/lib/ticket-ui";
 
 interface TicketsTableProps {
   tickets: Ticket[];
@@ -18,21 +20,6 @@ interface TicketsTableProps {
   onSortingChange: OnChangeFn<SortingState>;
 }
 
-const BADGE_BASE = "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium";
-
-const STATUS_STYLES: Record<TicketStatus, string> = {
-  [TicketStatus.open]: "bg-amber-100 text-amber-700",
-  [TicketStatus.resolved]: "bg-green-100 text-green-700",
-  [TicketStatus.closed]: "bg-gray-100 text-gray-500",
-};
-
-const CATEGORY_LABELS: Record<TicketCategory, string> = {
-  [TicketCategory.general_question]: "General",
-  [TicketCategory.technical_question]: "Technical",
-  [TicketCategory.refund_request]: "Refund",
-  [TicketCategory.billing_inquiry]: "Billing",
-  [TicketCategory.feature_request]: "Feature",
-};
 
 const columns: ColumnDef<Ticket>[] = [
   {
@@ -40,9 +27,12 @@ const columns: ColumnDef<Ticket>[] = [
     accessorKey: "subject",
     header: "Subject",
     cell: ({ row }) => (
-      <span className="text-sm font-medium text-gray-900 block max-w-xs truncate">
+      <Link
+        to={`/tickets/${row.original.id}`}
+        className="text-sm font-medium text-gray-900 hover:text-blue-600 hover:underline block max-w-xs truncate"
+      >
         {row.original.subject}
-      </span>
+      </Link>
     ),
   },
   {

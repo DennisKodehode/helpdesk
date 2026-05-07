@@ -49,6 +49,22 @@ export const ticketSchema = z.object({
 
 export type Ticket = z.infer<typeof ticketSchema>;
 
+export const ticketDetailSchema = z.object({
+  id: z.number(),
+  fromName: z.string(),
+  fromEmail: z.string(),
+  subject: z.string(),
+  body: z.string(),
+  status: z.enum(TicketStatus),
+  category: z.enum(TicketCategory).nullable(),
+  assignedToId: z.string().nullable(),
+  assignedTo: z.object({ id: z.string(), name: z.string(), email: z.string() }).nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type TicketDetail = z.infer<typeof ticketDetailSchema>;
+
 export const TICKET_SORT_FIELDS = [
   "subject",
   "fromName",
