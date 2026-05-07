@@ -74,8 +74,11 @@ describe("GET /api/tickets — sorting", () => {
   it("returns 200 with default sort (createdAt desc)", async () => {
     const res = await request(app).get("/api/tickets").set("Cookie", authCookie);
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
-    const ids = (res.body as { id: number }[]).map((t) => t.id);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(typeof res.body.total).toBe("number");
+    expect(res.body.page).toBe(1);
+    expect(res.body.pageSize).toBe(10);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
     expect(ids.indexOf(createdTicketIds[1])).toBeLessThan(ids.indexOf(createdTicketIds[0]));
   });
 
@@ -84,7 +87,7 @@ describe("GET /api/tickets — sorting", () => {
       .get("/api/tickets?sortBy=subject&sortOrder=asc")
       .set("Cookie", authCookie);
     expect(res.status).toBe(200);
-    const ids = (res.body as { id: number }[]).map((t) => t.id);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
     // createdTicketIds[0] = "Apple subject", should appear before createdTicketIds[1] = "ZZZ subject"
     expect(ids.indexOf(createdTicketIds[0])).toBeLessThan(ids.indexOf(createdTicketIds[1]));
   });
@@ -94,7 +97,7 @@ describe("GET /api/tickets — sorting", () => {
       .get("/api/tickets?sortBy=subject&sortOrder=desc")
       .set("Cookie", authCookie);
     expect(res.status).toBe(200);
-    const ids = (res.body as { id: number }[]).map((t) => t.id);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
     // createdTicketIds[1] = "Zebra subject", should appear before createdTicketIds[0] = "AAA subject"
     expect(ids.indexOf(createdTicketIds[1])).toBeLessThan(ids.indexOf(createdTicketIds[0]));
   });
@@ -104,9 +107,32 @@ describe("GET /api/tickets — sorting", () => {
       .get("/api/tickets?sortBy=fromName&sortOrder=asc")
       .set("Cookie", authCookie);
     expect(res.status).toBe(200);
-    const ids = (res.body as { id: number }[]).map((t) => t.id);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
     // createdTicketIds[0] = "Alice Smith", should appear before createdTicketIds[1] = "Zara Jones"
     expect(ids.indexOf(createdTicketIds[0])).toBeLessThan(ids.indexOf(createdTicketIds[1]));
+  });
+
+  it("returns only the requested page of results", async () => {
+    const res = await request(app)
+      .get("/api/tickets?page=1&pageSize=1")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.page).toBe(1);
+    expect(res.body.pageSize).toBe(1);
+    expect(res.body.total).toBeGreaterThanOrEqual(2);
+  });
+
+  it("returns second page of results", async () => {
+    const page1 = await request(app)
+      .get("/api/tickets?sortBy=createdAt&sortOrder=desc&page=1&pageSize=1")
+      .set("Cookie", authCookie);
+    const page2 = await request(app)
+      .get("/api/tickets?sortBy=createdAt&sortOrder=desc&page=2&pageSize=1")
+      .set("Cookie", authCookie);
+    expect(page1.status).toBe(200);
+    expect(page2.status).toBe(200);
+    expect(page1.body.data[0].id).not.toBe(page2.body.data[0].id);
   });
 
   it("filters by status", async () => {
@@ -122,7 +148,7 @@ describe("GET /api/tickets — sorting", () => {
       .get(`/api/tickets?status=${TicketStatus.open}`)
       .set("Cookie", authCookie);
     expect(res.status).toBe(200);
-    const ids = (res.body as { id: number }[]).map((t) => t.id);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
     expect(ids).toContain(openTicket.id);
     expect(ids).not.toContain(resolvedTicket.id);
   });
@@ -140,7 +166,7 @@ describe("GET /api/tickets — sorting", () => {
       .get(`/api/tickets?category=${TicketCategory.technical_question}`)
       .set("Cookie", authCookie);
     expect(res.status).toBe(200);
-    const ids = (res.body as { id: number }[]).map((t) => t.id);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
     expect(ids).toContain(technicalTicket.id);
     expect(ids).not.toContain(refundTicket.id);
   });
@@ -158,7 +184,7 @@ describe("GET /api/tickets — sorting", () => {
       .get("/api/tickets?search=unique")
       .set("Cookie", authCookie);
     expect(res.status).toBe(200);
-    const ids = (res.body as { id: number }[]).map((t) => t.id);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
     expect(ids).toContain(matchTicket.id);
     expect(ids).not.toContain(noMatchTicket.id);
   });
@@ -173,7 +199,7 @@ describe("GET /api/tickets — sorting", () => {
       .get("/api/tickets?search=PRINTER")
       .set("Cookie", authCookie);
     expect(res.status).toBe(200);
-    const ids = (res.body as { id: number }[]).map((t) => t.id);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
     expect(ids).toContain(ticket.id);
   });
 

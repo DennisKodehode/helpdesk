@@ -3,28 +3,33 @@ import userEvent from "@testing-library/user-event";
 import axios from "axios";
 import { renderWithProviders, screen, waitFor, cleanup } from "../test/utils";
 import TicketsPage from "./TicketsPage";
-import { TicketStatus, TicketCategory, type Ticket } from "@helpdesk/core";
+import { TicketStatus, TicketCategory, type PaginatedTickets } from "@helpdesk/core";
 
 vi.mock("axios", () => ({
   default: { get: vi.fn(), post: vi.fn(), delete: vi.fn(), isAxiosError: vi.fn() },
 }));
 
-const mockTickets: Ticket[] = [
-  {
-    id: 1,
-    fromName: "Alice",
-    fromEmail: "alice@example.com",
-    subject: "Test ticket",
-    status: TicketStatus.open,
-    category: null,
-    assignedToId: null,
-    createdAt: "2024-01-15T00:00:00Z",
-  },
-];
+const mockPage: PaginatedTickets = {
+  data: [
+    {
+      id: 1,
+      fromName: "Alice",
+      fromEmail: "alice@example.com",
+      subject: "Test ticket",
+      status: TicketStatus.open,
+      category: null,
+      assignedToId: null,
+      createdAt: "2024-01-15T00:00:00Z",
+    },
+  ],
+  total: 1,
+  page: 1,
+  pageSize: 10,
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(axios.get).mockResolvedValue({ data: mockTickets });
+  vi.mocked(axios.get).mockResolvedValue({ data: mockPage });
 });
 
 afterEach(cleanup);
@@ -34,7 +39,7 @@ describe("TicketsPage", () => {
     renderWithProviders(<TicketsPage />);
     await waitFor(() => {
       expect(axios.get).toHaveBeenCalledWith("/api/tickets", {
-        params: { sortBy: "createdAt", sortOrder: "desc" },
+        params: { sortBy: "createdAt", sortOrder: "desc", page: 1, pageSize: 10 },
       });
     });
   });
@@ -66,7 +71,7 @@ describe("TicketsPage", () => {
 
     await waitFor(() => {
       expect(axios.get).toHaveBeenLastCalledWith("/api/tickets", {
-        params: { sortBy: "subject", sortOrder: "asc" },
+        params: { sortBy: "subject", sortOrder: "asc", page: 1, pageSize: 10 },
       });
     });
   });
@@ -84,7 +89,7 @@ describe("TicketsPage", () => {
 
     await waitFor(() => {
       expect(axios.get).toHaveBeenLastCalledWith("/api/tickets", {
-        params: expect.objectContaining({ status: TicketStatus.open }),
+        params: expect.objectContaining({ status: TicketStatus.open, page: 1, pageSize: 10 }),
       });
     });
   });
@@ -99,7 +104,7 @@ describe("TicketsPage", () => {
 
     await waitFor(() => {
       expect(axios.get).toHaveBeenLastCalledWith("/api/tickets", {
-        params: expect.objectContaining({ search: "Alice" }),
+        params: expect.objectContaining({ search: "Alice", page: 1, pageSize: 10 }),
       });
     }, { timeout: 1000 });
   });
@@ -117,7 +122,38 @@ describe("TicketsPage", () => {
 
     await waitFor(() => {
       expect(axios.get).toHaveBeenLastCalledWith("/api/tickets", {
-        params: expect.objectContaining({ category: TicketCategory.technical_question }),
+        params: expect.objectContaining({ category: TicketCategory.technical_question, page: 1, pageSize: 10 }),
+      });
+    });
+  });
+
+  it("shows pagination controls", async () => {
+    renderWithProviders(<TicketsPage />);
+    await screen.findByText("Test ticket");
+    expect(screen.getByRole("button", { name: /previous page/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /next page/i })).toBeInTheDocument();
+    expect(screen.getByText(/page 1 of 1/i)).toBeInTheDocument();
+  });
+
+  it("disables Previous on the first page", async () => {
+    renderWithProviders(<TicketsPage />);
+    await screen.findByText("Test ticket");
+    expect(screen.getByRole("button", { name: /previous page/i })).toBeDisabled();
+  });
+
+  it("navigates to next page when Next is clicked", async () => {
+    const user = userEvent.setup();
+    vi.mocked(axios.get).mockResolvedValue({
+      data: { ...mockPage, total: 25, page: 1 },
+    });
+    renderWithProviders(<TicketsPage />);
+    await screen.findByText("Test ticket");
+
+    await user.click(screen.getByRole("button", { name: /next page/i }));
+
+    await waitFor(() => {
+      expect(axios.get).toHaveBeenLastCalledWith("/api/tickets", {
+        params: expect.objectContaining({ page: 2, pageSize: 10 }),
       });
     });
   });

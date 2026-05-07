@@ -14,7 +14,7 @@ router.get("/", requireAuth, async (req, res) => {
     return;
   }
 
-  const { sortBy = "createdAt", sortOrder = "desc", status, category, search } = result.data;
+  const { sortBy = "createdAt", sortOrder = "desc", status, category, search, page, pageSize } = result.data;
 
   const nullableFields = new Set(["category"]);
   const orderBy = nullableFields.has(sortBy)
@@ -35,22 +35,29 @@ router.get("/", requireAuth, async (req, res) => {
     }),
   };
 
-  const tickets = await prisma.ticket.findMany({
-    where,
-    orderBy,
-    select: {
-      id: true,
-      fromName: true,
-      fromEmail: true,
-      subject: true,
-      status: true,
-      category: true,
-      assignedToId: true,
-      createdAt: true,
-    },
-  });
+  const select = {
+    id: true,
+    fromName: true,
+    fromEmail: true,
+    subject: true,
+    status: true,
+    category: true,
+    assignedToId: true,
+    createdAt: true,
+  };
 
-  res.json(tickets);
+  const [data, total] = await Promise.all([
+    prisma.ticket.findMany({
+      where,
+      orderBy,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select,
+    }),
+    prisma.ticket.count({ where }),
+  ]);
+
+  res.json({ data, total, page, pageSize });
 });
 
 export default router;

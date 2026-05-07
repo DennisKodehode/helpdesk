@@ -11,7 +11,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { type Ticket, type TicketSortField, TicketStatus, TicketCategory } from "@helpdesk/core";
+import { type PaginatedTickets, type TicketSortField, TicketStatus, TicketCategory } from "@helpdesk/core";
+
+const PAGE_SIZE = 10;
 
 const STATUS_LABELS: Record<string, string> = {
   "": "All statuses",
@@ -43,15 +45,18 @@ async function fetchTickets(
   sortOrder: "asc" | "desc",
   status: TicketStatus | "",
   category: TicketCategory | "",
-  search: string
-): Promise<Ticket[]> {
-  const { data } = await axios.get<Ticket[]>("/api/tickets", {
+  search: string,
+  page: number
+): Promise<PaginatedTickets> {
+  const { data } = await axios.get<PaginatedTickets>("/api/tickets", {
     params: {
       sortBy,
       sortOrder,
       ...(status && { status }),
       ...(category && { category }),
       ...(search.trim() && { search: search.trim() }),
+      page,
+      pageSize: PAGE_SIZE,
     },
   });
   return data;
@@ -62,16 +67,33 @@ export default function TicketsPage() {
   const [statusFilter, setStatusFilter] = useState<TicketStatus | "">("");
   const [categoryFilter, setCategoryFilter] = useState<TicketCategory | "">("");
   const [searchInput, setSearchInput] = useState("");
+  const [page, setPage] = useState(1);
   const debouncedSearch = useDebounce(searchInput, 300);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
 
   const sortBy = (sorting[0]?.id ?? "createdAt") as TicketSortField;
   const sortOrder = sorting[0]?.desc === false ? "asc" : "desc";
 
-  const { data: tickets = [], isPending, isError } = useQuery({
-    queryKey: ["tickets", sortBy, sortOrder, statusFilter, categoryFilter, debouncedSearch],
-    queryFn: () => fetchTickets(sortBy, sortOrder, statusFilter, categoryFilter, debouncedSearch),
+  const { data, isPending, isError } = useQuery({
+    queryKey: ["tickets", sortBy, sortOrder, statusFilter, categoryFilter, debouncedSearch, page],
+    queryFn: () => fetchTickets(sortBy, sortOrder, statusFilter, categoryFilter, debouncedSearch, page),
     placeholderData: keepPreviousData,
   });
+
+  const tickets = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const handleSortingChange = (updater: SortingState | ((prev: SortingState) => SortingState)) => {
+    setSorting(updater);
+    setPage(1);
+  };
+
+  const start = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const end = Math.min(page * PAGE_SIZE, total);
 
   return (
     <main className="p-8">
@@ -88,7 +110,7 @@ export default function TicketsPage() {
           className="h-8 w-72 text-sm"
         />
 
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as TicketStatus | "")}>
+        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v as TicketStatus | ""); setPage(1); }}>
           <SelectTrigger aria-label="Status" size="sm" className="w-36">
             <SelectValue>{(v: string | null) => STATUS_LABELS[v ?? ""]}</SelectValue>
           </SelectTrigger>
@@ -100,7 +122,7 @@ export default function TicketsPage() {
           </SelectContent>
         </Select>
 
-        <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as TicketCategory | "")}>
+        <Select value={categoryFilter} onValueChange={(v) => { setCategoryFilter(v as TicketCategory | ""); setPage(1); }}>
           <SelectTrigger aria-label="Category" size="sm" className="w-40">
             <SelectValue>{(v: string | null) => CATEGORY_LABELS[v ?? ""]}</SelectValue>
           </SelectTrigger>
@@ -120,8 +142,35 @@ export default function TicketsPage() {
         isPending={isPending}
         isError={isError}
         sorting={sorting}
-        onSortingChange={setSorting}
+        onSortingChange={handleSortingChange}
       />
+
+      <div className="flex items-center justify-between mt-4">
+        <p className="text-sm text-gray-500">
+          {total > 0 ? `${start}–${end} of ${total}` : ""}
+        </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setPage((p) => p - 1)}
+            disabled={page === 1}
+            aria-label="Previous page"
+            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Previous
+          </button>
+          <span className="text-sm text-gray-700">
+            Page {page} of {totalPages}
+          </span>
+          <button
+            onClick={() => setPage((p) => p + 1)}
+            disabled={page >= totalPages}
+            aria-label="Next page"
+            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Next
+          </button>
+        </div>
+      </div>
     </main>
   );
 }
