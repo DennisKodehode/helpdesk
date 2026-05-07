@@ -2,7 +2,7 @@ import { useParams } from "react-router";
 import { Link } from "@/components/ui/link";
 import axios from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { type TicketDetail, type Agent, Role, TicketStatus, TicketCategory, VALID_TRANSITIONS } from "@helpdesk/core";
+import { type TicketDetail, type Agent, Role, TicketStatus, TicketCategory, VALID_TRANSITIONS, ADMIN_VALID_TRANSITIONS } from "@helpdesk/core";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft } from "lucide-react";
 import { BADGE_BASE, STATUS_STYLES, STATUS_LABELS, CATEGORY_LABELS } from "@/lib/ticket-ui";
@@ -41,24 +41,25 @@ export default function TicketDetailPage() {
     queryFn: fetchAgents,
   });
 
-  const invalidateTicket = () => queryClient.invalidateQueries({ queryKey: ["ticket", id] });
+  const updateCache = (response: { data: TicketDetail }) =>
+    queryClient.setQueryData(["ticket", id], response.data);
 
   const assignMutation = useMutation({
     mutationFn: (assignedToId: string | null) =>
-      axios.patch(`/api/tickets/${id}`, { assignedToId }),
-    onSuccess: invalidateTicket,
+      axios.patch<TicketDetail>(`/api/tickets/${id}`, { assignedToId }),
+    onSuccess: updateCache,
   });
 
   const statusMutation = useMutation({
     mutationFn: (status: TicketStatus) =>
-      axios.patch(`/api/tickets/${id}`, { status }),
-    onSuccess: invalidateTicket,
+      axios.patch<TicketDetail>(`/api/tickets/${id}`, { status }),
+    onSuccess: updateCache,
   });
 
   const categoryMutation = useMutation({
     mutationFn: (category: TicketCategory | null) =>
-      axios.patch(`/api/tickets/${id}`, { category }),
-    onSuccess: invalidateTicket,
+      axios.patch<TicketDetail>(`/api/tickets/${id}`, { category }),
+    onSuccess: updateCache,
   });
 
   const currentAssigneeId =
@@ -83,9 +84,7 @@ export default function TicketDetailPage() {
   ) as TicketCategory | null;
 
   const validNextStatuses = ticket
-    ? VALID_TRANSITIONS[ticket.status as TicketStatus].filter(
-        s => s !== TicketStatus.closed || isAdmin
-      )
+    ? (isAdmin ? ADMIN_VALID_TRANSITIONS : VALID_TRANSITIONS)[ticket.status as TicketStatus]
     : [];
 
   return (

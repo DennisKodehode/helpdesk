@@ -19,6 +19,12 @@ export enum TicketCategory {
 
 export const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   [TicketStatus.open]: [TicketStatus.resolved],
-  [TicketStatus.resolved]: [TicketStatus.closed],
+  [TicketStatus.resolved]: [],
   [TicketStatus.closed]: [],
+};
+
+export const ADMIN_VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
+  [TicketStatus.open]: [TicketStatus.resolved, TicketStatus.closed],
+  [TicketStatus.resolved]: [TicketStatus.open, TicketStatus.closed],
+  [TicketStatus.closed]: [TicketStatus.open],
 };

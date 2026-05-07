@@ -471,12 +471,12 @@ describe("PATCH /api/tickets/:id", () => {
     expect(res.body.status).toBe(TicketStatus.resolved);
   });
 
-  it("returns 422 when status transition is invalid (open → closed)", async () => {
+  it("returns 403 when non-admin tries to close an open ticket", async () => {
     const res = await request(app)
       .patch(`/api/tickets/${ticketId}`)
       .set("Cookie", authCookie)
       .send({ status: TicketStatus.closed });
-    expect(res.status).toBe(422);
+    expect(res.status).toBe(403);
     expect(res.body.error).toBeTypeOf("string");
   });
 
@@ -511,6 +511,48 @@ describe("PATCH /api/tickets/:id", () => {
       .send({ status: TicketStatus.closed });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe(TicketStatus.closed);
+  });
+
+  it("returns 200 when admin closes an open ticket directly", async () => {
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", adminCookie)
+      .send({ status: TicketStatus.closed });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe(TicketStatus.closed);
+  });
+
+  it("returns 200 when admin reopens a resolved ticket", async () => {
+    await prisma.ticket.update({ where: { id: ticketId }, data: { status: TicketStatus.resolved } });
+
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", adminCookie)
+      .send({ status: TicketStatus.open });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe(TicketStatus.open);
+  });
+
+  it("returns 200 when admin reopens a closed ticket", async () => {
+    await prisma.ticket.update({ where: { id: ticketId }, data: { status: TicketStatus.closed } });
+
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", adminCookie)
+      .send({ status: TicketStatus.open });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe(TicketStatus.open);
+  });
+
+  it("returns 422 when agent tries an invalid transition (resolved → open)", async () => {
+    await prisma.ticket.update({ where: { id: ticketId }, data: { status: TicketStatus.resolved } });
+
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", authCookie)
+      .send({ status: TicketStatus.open });
+    expect(res.status).toBe(422);
+    expect(res.body.error).toBeTypeOf("string");
   });
 
   it("returns 200 and sets the category", async () => {

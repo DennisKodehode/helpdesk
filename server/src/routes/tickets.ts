@@ -2,7 +2,7 @@ import { Router } from "express";
 import { Prisma } from "../generated/prisma/client";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth-middleware";
-import { ticketSortSchema, updateTicketSchema, Role, TicketStatus, VALID_TRANSITIONS } from "@helpdesk/core";
+import { ticketSortSchema, updateTicketSchema, Role, TicketStatus, VALID_TRANSITIONS, ADMIN_VALID_TRANSITIONS } from "@helpdesk/core";
 import { firstIssue } from "../lib/validation";
 
 const router = Router();
@@ -123,13 +123,15 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
   if (result.data.status !== undefined) {
     const newStatus = result.data.status;
-    const validNext = VALID_TRANSITIONS[ticket.status as TicketStatus];
+    const isUserAdmin = req.user!.role === Role.admin;
+    const transitions = isUserAdmin ? ADMIN_VALID_TRANSITIONS : VALID_TRANSITIONS;
+    const validNext = transitions[ticket.status as TicketStatus];
     if (!validNext.includes(newStatus)) {
-      res.status(422).json({ error: `Invalid status transition: ${ticket.status} → ${newStatus}` });
-      return;
-    }
-    if (newStatus === TicketStatus.closed && req.user!.role !== Role.admin) {
-      res.status(403).json({ error: "Only admins can close tickets" });
+      if (newStatus === TicketStatus.closed) {
+        res.status(403).json({ error: "Only admins can close tickets" });
+      } else {
+        res.status(422).json({ error: `Invalid status transition: ${ticket.status} → ${newStatus}` });
+      }
       return;
     }
   }

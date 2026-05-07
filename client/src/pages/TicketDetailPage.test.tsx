@@ -91,12 +91,20 @@ describe("loaded state", () => {
     expect(screen.getByRole("combobox", { name: /change ticket category/i })).toHaveTextContent(/none/i);
   });
 
-  it("shows a static status badge (no select) when ticket is closed", async () => {
+  it("shows a static status badge (no select) when ticket is closed and user is not admin", async () => {
     mockGetResponses({ ...mockTicket, status: TicketStatus.closed });
     renderWithProviders(<TicketDetailPage />);
     await screen.findByRole("heading", { name: "My printer is on fire" });
     expect(screen.queryByRole("combobox", { name: /change ticket status/i })).not.toBeInTheDocument();
     expect(screen.getByText("Closed")).toBeInTheDocument();
+  });
+
+  it("shows status select for closed ticket when user is admin", async () => {
+    mockGetResponses({ ...mockTicket, status: TicketStatus.closed });
+    mockSession("admin");
+    renderWithProviders(<TicketDetailPage />);
+    await screen.findByRole("heading", { name: "My printer is on fire" });
+    expect(screen.getByRole("combobox", { name: /change ticket status/i })).toBeInTheDocument();
   });
 
   it("shows a static status badge for resolved ticket when user is not admin", async () => {
@@ -114,6 +122,17 @@ describe("loaded state", () => {
     renderWithProviders(<TicketDetailPage />);
     await screen.findByRole("heading", { name: "My printer is on fire" });
     expect(screen.getByRole("combobox", { name: /change ticket status/i })).toBeInTheDocument();
+  });
+
+  it("shows Closed as an option for admin on an open ticket", async () => {
+    mockGetResponses({ ...mockTicket, status: TicketStatus.open });
+    mockSession("admin");
+    const user = userEvent.setup();
+    renderWithProviders(<TicketDetailPage />);
+    await screen.findByRole("heading", { name: "My printer is on fire" });
+
+    await user.click(screen.getByRole("combobox", { name: /change ticket status/i }));
+    expect(await screen.findByRole("option", { name: "Closed" })).toBeInTheDocument();
   });
 
   it("renders from name and email", async () => {
