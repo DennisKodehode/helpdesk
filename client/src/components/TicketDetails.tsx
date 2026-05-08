@@ -1,3 +1,4 @@
+import DOMPurify from "dompurify";
 import { type TicketDetail } from "@helpdesk/core";
 
 interface Props {
@@ -23,9 +24,16 @@ export default function TicketDetails({ ticket }: Props) {
 
       <div className="border-t border-gray-100 pt-4">
         <h2 className="mb-2">Message</h2>
-        <div className="bg-white rounded-lg border border-gray-200 p-4 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
-          {ticket.body || <span className="text-gray-400 italic">(no message body)</span>}
-        </div>
+        {(ticket.bodyHtml ?? ticket.body) ? (
+          <div
+            className="bg-white rounded-lg border border-gray-200 p-4 text-sm text-gray-800 leading-relaxed"
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(ticket.bodyHtml ?? ticket.body.replace(/\n/g, "<br>")) }}
+          />
+        ) : (
+          <div className="bg-white rounded-lg border border-gray-200 p-4 text-sm">
+            <span className="text-gray-400 italic">(no message body)</span>
+          </div>
+        )}
       </div>
     </>
   );

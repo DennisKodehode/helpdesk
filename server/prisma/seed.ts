@@ -15,14 +15,14 @@ if (password.length < 8) {
 }
 
 async function seed() {
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await prisma.user.findUnique({ where: { email: email! } });
   if (existing) {
     console.log(`Admin already exists: ${email}`);
     return;
   }
 
   const ctx = await auth.$context;
-  const hashedPassword = await ctx.password.hash(password);
+  const hashedPassword = await ctx.password.hash(password!);
 
   const id = generateId();
   const now = new Date();
@@ -31,7 +31,7 @@ async function seed() {
     data: {
       id,
       name: "Admin",
-      email,
+      email: email!,
       emailVerified: true,
       role: Role.admin,
       createdAt: now,

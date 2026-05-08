@@ -12,7 +12,7 @@ router.post("/inbound-email", async (req, res) => {
     return;
   }
 
-  const { fromName, fromEmail, subject, body } = result.data;
+  const { fromName, fromEmail, subject, body, bodyHtml } = result.data;
 
   const existingTicket = await prisma.ticket.findFirst({
     where: {
@@ -29,6 +29,7 @@ router.post("/inbound-email", async (req, res) => {
         authorId: null,
         senderType: SenderType.customer,
         body: body ?? "",
+        bodyHtml: bodyHtml ?? null,
       },
     });
     res.status(201).json({ type: "reply", reply });
@@ -36,7 +37,7 @@ router.post("/inbound-email", async (req, res) => {
   }
 
   const ticket = await prisma.ticket.create({
-    data: { fromName, fromEmail, subject, body: body ?? "", status: TicketStatus.open },
+    data: { fromName, fromEmail, subject, body: body ?? "", bodyHtml: bodyHtml ?? null, status: TicketStatus.open },
   });
 
   res.status(201).json({ type: "ticket", ticket });

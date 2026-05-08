@@ -75,6 +75,7 @@ router.get("/:id", requireAuth, async (req, res) => {
       fromEmail: true,
       subject: true,
       body: true,
+      bodyHtml: true,
       status: true,
       category: true,
       assignedToId: true,
@@ -149,6 +150,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
       fromEmail: true,
       subject: true,
       body: true,
+      bodyHtml: true,
       status: true,
       category: true,
       assignedToId: true,
@@ -166,6 +168,7 @@ const REPLY_SELECT = {
   ticketId: true,
   senderType: true,
   body: true,
+  bodyHtml: true,
   author: { select: { id: true, name: true } },
   createdAt: true,
 } as const;

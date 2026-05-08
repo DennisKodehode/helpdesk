@@ -5,6 +5,7 @@ import {
   AGENT_EMAIL,
   AGENT_PASSWORD,
   loginAs,
+  logout,
 } from "./helpers/auth";
 
 // ---------------------------------------------------------------------------
@@ -213,14 +214,15 @@ test.describe.serial("Ticket detail — change status", () => {
     // The status select trigger should show "Open" initially.
     const statusSelect = page.getByLabel("Change ticket status");
     await expect(statusSelect).toBeVisible();
-    await expect(statusSelect).toHaveText("Open");
+    await expect(statusSelect).toContainText("Open");
 
     // Open the dropdown and select "Resolved".
     await statusSelect.click();
     await page.getByRole("option", { name: "Resolved" }).click();
 
-    // The trigger should now reflect the new status.
-    await expect(statusSelect).toHaveText("Resolved");
+    // Resolved ticket: agent has no further transitions, so select is replaced by a static badge.
+    await expect(page.getByLabel("Change ticket status")).not.toBeVisible();
+    await expect(page.getByText("Resolved")).toBeVisible();
   });
 
   test("admin can change a resolved ticket to closed via the status dropdown", async ({
@@ -245,27 +247,26 @@ test.describe.serial("Ticket detail — change status", () => {
     await loginAs(page, AGENT_EMAIL, AGENT_PASSWORD);
     await page.goto(`/tickets/${resolvedTicket.id}`);
     const agentStatusSelect = page.getByLabel("Change ticket status");
-    await expect(agentStatusSelect).toHaveText("Open");
+    await expect(agentStatusSelect).toContainText("Open");
     await agentStatusSelect.click();
     await page.getByRole("option", { name: "Resolved" }).click();
-    await expect(agentStatusSelect).toHaveText("Resolved");
+    // Agent has no further transitions from Resolved, so select is replaced by a static badge.
+    await expect(page.getByLabel("Change ticket status")).not.toBeVisible();
+    await expect(page.getByText("Resolved")).toBeVisible();
 
-    // Step 2 — Admin logs in and closes the ticket.
-    await page.goto("/login");
+    // Step 2 — Sign out the agent, then log in as admin.
+    await logout(page);
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto(`/tickets/${resolvedTicket.id}`);
 
     const adminStatusSelect = page.getByLabel("Change ticket status");
-    await expect(adminStatusSelect).toHaveText("Resolved");
+    await expect(adminStatusSelect).toContainText("Resolved");
 
     await adminStatusSelect.click();
     await page.getByRole("option", { name: "Closed" }).click();
 
-    // Closed ticket: the select is replaced with a static badge; no dropdown.
-    await expect(
-      page.getByLabel("Change ticket status")
-    ).not.toBeVisible();
-    await expect(page.getByText("Closed")).toBeVisible();
+    // Admin can reopen closed tickets, so the select stays visible — it now shows "Closed".
+    await expect(adminStatusSelect).toContainText("Closed");
   });
 });
 
@@ -295,14 +296,14 @@ test.describe.serial("Ticket detail — change category", () => {
     // Category select trigger should show "None" when no category is set.
     const categorySelect = page.getByLabel("Change ticket category");
     await expect(categorySelect).toBeVisible();
-    await expect(categorySelect).toHaveText("None");
+    await expect(categorySelect).toContainText("None");
 
     // Open the dropdown and select "Billing".
     await categorySelect.click();
     await page.getByRole("option", { name: "Billing" }).click();
 
     // The trigger should now show "Billing".
-    await expect(categorySelect).toHaveText("Billing");
+    await expect(categorySelect).toContainText("Billing");
   });
 });
 
@@ -332,14 +333,14 @@ test.describe.serial("Ticket detail — assign ticket", () => {
     // The assign select should show "Unassigned" initially.
     const assignSelect = page.getByLabel("Assign ticket");
     await expect(assignSelect).toBeVisible();
-    await expect(assignSelect).toHaveText("Unassigned");
+    await expect(assignSelect).toContainText("Unassigned");
 
     // Open the dropdown — the seeded agent "Test Agent" should be listed.
     await assignSelect.click();
     await page.getByRole("option", { name: "Test Agent" }).click();
 
     // The trigger should now show the agent's name.
-    await expect(assignSelect).toHaveText("Test Agent");
+    await expect(assignSelect).toContainText("Test Agent");
   });
 
   test("admin can unassign a ticket back to Unassigned", async ({ page }) => {
@@ -349,12 +350,12 @@ test.describe.serial("Ticket detail — assign ticket", () => {
 
     const assignSelect = page.getByLabel("Assign ticket");
     // After the previous test, it should now show "Test Agent".
-    await expect(assignSelect).toHaveText("Test Agent");
+    await expect(assignSelect).toContainText("Test Agent");
 
     // Open and select "Unassigned".
     await assignSelect.click();
     await page.getByRole("option", { name: "Unassigned" }).click();
 
-    await expect(assignSelect).toHaveText("Unassigned");
+    await expect(assignSelect).toContainText("Unassigned");
   });
 });

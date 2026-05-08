@@ -9,12 +9,12 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD, loginAs, logout, submitLoginForm } from ".
 // ---------------------------------------------------------------------------
 
 const NEW_AGENT = {
-  name: "Test Agent",
+  name: "Carol User",
   email: "testagent@example.com",
   password: "Password123!",
 };
 
-const UPDATED_NAME = "Test Agent Renamed";
+const UPDATED_NAME = "Carol User Renamed";
 
 test.describe.serial("Users page — CRUD", () => {
   test.beforeEach(async ({ page }) => {

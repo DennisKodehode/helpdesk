@@ -40,4 +40,11 @@ describe("TicketDetails", () => {
     renderWithProviders(<TicketDetails ticket={{ ...mockTicket, body: "" }} />);
     expect(screen.getByText("(no message body)")).toBeInTheDocument();
   });
+
+  it("strips script tags from HTML body", () => {
+    const body = "<script>window.__xss=1</script><p>Safe content</p>";
+    renderWithProviders(<TicketDetails ticket={{ ...mockTicket, body }} />);
+    expect(document.querySelector("script")).toBeNull();
+    expect(screen.getByText("Safe content")).toBeInTheDocument();
+  });
 });

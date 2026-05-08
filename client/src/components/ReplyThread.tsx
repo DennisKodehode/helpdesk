@@ -1,3 +1,4 @@
+import DOMPurify from "dompurify";
 import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
 import { type TicketDetail, type Reply, SenderType } from "@helpdesk/core";
@@ -30,14 +31,13 @@ export default function ReplyThread({ ticket }: Props) {
           className={`flex flex-col gap-1 ${reply.senderType === SenderType.agent ? "items-end" : "items-start"}`}
         >
           <div
-            className={`max-w-[85%] rounded-lg border p-3 text-sm whitespace-pre-wrap leading-relaxed ${
+            className={`max-w-[85%] rounded-lg border p-3 text-sm leading-relaxed ${
               reply.senderType === SenderType.agent
                 ? "bg-blue-50 border-blue-200 text-blue-900"
                 : "bg-gray-50 border-gray-200 text-gray-800"
             }`}
-          >
-            {reply.body}
-          </div>
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(reply.bodyHtml ?? reply.body.replace(/\n/g, "<br>")) }}
+          />
           <p className="text-xs text-gray-400">
             {reply.senderType === SenderType.agent
               ? (reply.author?.name ?? "Agent")

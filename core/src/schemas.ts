@@ -36,12 +36,13 @@ export const updateUserSchema = z.object({
 export type UpdateUserData = z.infer<typeof updateUserSchema>;
 
 export const inboundEmailSchema = z.object({
-  fromName: z.string().trim().min(1),
-  fromEmail: z.email("Invalid email address"),
-  subject: z.string().trim()
+  fromName: z.string().trim().min(1).max(255),
+  fromEmail: z.email("Invalid email address").max(255),
+  subject: z.string().trim().max(255)
     .transform(s => s.replace(/^(\s*(re|fwd?|fw)(\[\d+\])?:\s*)+/gi, "").trim() || "(no subject)")
     .default("(no subject)"),
-  body: z.string().optional(),
+  body: z.string().max(10_000).optional(),
+  bodyHtml: z.string().max(50_000).optional(),
 });
 
 export type InboundEmailData = z.infer<typeof inboundEmailSchema>;
@@ -65,6 +66,7 @@ export const ticketDetailSchema = z.object({
   fromEmail: z.string(),
   subject: z.string(),
   body: z.string(),
+  bodyHtml: z.string().nullable(),
   status: z.enum(TicketStatus),
   category: z.enum(TicketCategory).nullable(),
   assignedToId: z.string().nullable(),
@@ -117,6 +119,7 @@ export const replySchema = z.object({
   ticketId: z.number(),
   senderType: z.enum(SenderType),
   body: z.string(),
+  bodyHtml: z.string().nullable(),
   author: z.object({ id: z.string(), name: z.string() }).nullable(),
   createdAt: z.string(),
 });
@@ -124,7 +127,7 @@ export const replySchema = z.object({
 export type Reply = z.infer<typeof replySchema>;
 
 export const createReplySchema = z.object({
-  body: z.string().trim().min(1, "Reply cannot be empty"),
+  body: z.string().trim().min(1, "Reply cannot be empty").max(10_000),
 });
 
 export type CreateReplyData = z.infer<typeof createReplySchema>;

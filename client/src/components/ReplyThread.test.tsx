@@ -48,4 +48,22 @@ describe("ReplyThread", () => {
     expect(within(thread).getByText("We are looking into it.")).toBeInTheDocument();
     expect(within(thread).getByText(/Bob Agent/)).toBeInTheDocument();
   });
+
+  it("strips event handler attributes from reply body HTML", async () => {
+    const replies: Reply[] = [
+      {
+        id: 1,
+        ticketId: 42,
+        senderType: SenderType.customer,
+        body: '<img src="x" onerror="window.__xss=1"> Safe reply',
+        author: null,
+        createdAt: "2024-01-15T12:00:00Z",
+      },
+    ];
+    vi.mocked(axios.get).mockResolvedValue({ data: replies });
+    renderWithProviders(<ReplyThread ticket={mockTicket} />);
+    await screen.findByRole("list", { name: /reply thread/i });
+    expect(document.querySelector("[onerror]")).toBeNull();
+    expect(screen.getByText(/Safe reply/)).toBeInTheDocument();
+  });
 });

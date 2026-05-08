@@ -99,6 +99,7 @@ model Ticket {
   fromEmail    String
   subject      String
   body         String
+  bodyHtml     String?
   status       TicketStatus   @default(open)
   category     TicketCategory?
   assignedToId String?
@@ -118,6 +119,7 @@ model Reply {
   author     User?     @relation(fields: [authorId], references: [id])
   senderType SenderType @default(agent)
   body       String
+  bodyHtml   String?
   createdAt  DateTime  @default(now())
 
   @@map("reply")
