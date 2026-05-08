@@ -131,3 +131,8 @@ export const createReplySchema = z.object({
 });
 
 export type CreateReplyData = z.infer<typeof createReplySchema>;
+
+export const polishReplySchema = z.object({
+  body: z.string().trim().min(1, "Reply cannot be empty").max(10_000),
+  refinementNote: z.string().trim().max(500).optional(),
+});

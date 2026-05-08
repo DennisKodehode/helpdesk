@@ -1,3 +1,4 @@
+import { useState } from "react";
 import axios from "axios";
 import { useForm } from "react-hook-form";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
@@ -6,6 +7,7 @@ import { type CreateReplyData, type Reply, createReplySchema } from "@helpdesk/c
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import FieldError from "@/components/ui/FieldError";
+import ErrorAlert from "@/components/ui/ErrorAlert";
 
 interface Props {
   ticketId: string;
@@ -18,6 +20,8 @@ export default function ReplyForm({ ticketId }: Props) {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<CreateReplyData>({
     resolver: standardSchemaResolver(createReplySchema),
@@ -28,7 +32,24 @@ export default function ReplyForm({ ticketId }: Props) {
       axios.post<Reply>(`/api/tickets/${ticketId}/replies`, data),
     onSuccess: () => {
       reset();
+      setIsPolished(false);
+      setRefinementNote("");
       queryClient.invalidateQueries({ queryKey: ["ticket-replies", ticketId] });
+    },
+  });
+
+  const bodyValue = watch("body");
+
+  const [isPolished, setIsPolished] = useState(false);
+  const [refinementNote, setRefinementNote] = useState("");
+
+  const polishMutation = useMutation({
+    mutationFn: ({ body, refinementNote }: { body: string; refinementNote?: string }) =>
+      axios.post<{ body: string }>(`/api/tickets/${ticketId}/polish-reply`, { body, refinementNote }),
+    onSuccess: ({ data }) => {
+      setValue("body", data.body, { shouldValidate: true, shouldDirty: true });
+      setIsPolished(true);
+      setRefinementNote("");
     },
   });
 
@@ -49,9 +70,42 @@ export default function ReplyForm({ ticketId }: Props) {
         {...register("body")}
       />
       <FieldError message={errors.body?.message} />
-      <Button type="submit" disabled={mutation.isPending} className="mt-1">
-        {mutation.isPending ? "Sending…" : "Send Reply"}
-      </Button>
+      {polishMutation.isError && (
+        <ErrorAlert message="Failed to polish reply. Please try again." />
+      )}
+      {isPolished && (
+        <Textarea
+          className="resize-y field-sizing-fixed"
+          placeholder="Not quite right? Describe what to improve…"
+          rows={2}
+          value={refinementNote}
+          onChange={e => setRefinementNote(e.target.value)}
+        />
+      )}
+      <div className="flex items-center gap-2 mt-1">
+        {isPolished ? (
+          <Button
+            type="button"
+            variant={refinementNote.trim() ? "default" : "outline"}
+            disabled={!refinementNote.trim() || polishMutation.isPending}
+            onClick={() => polishMutation.mutate({ body: bodyValue, refinementNote })}
+          >
+            {polishMutation.isPending ? "Refining…" : "Refine"}
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!bodyValue?.trim() || polishMutation.isPending}
+            onClick={() => polishMutation.mutate({ body: bodyValue })}
+          >
+            {polishMutation.isPending ? "Polishing…" : "Polish"}
+          </Button>
+        )}
+        <Button type="submit" disabled={mutation.isPending || !bodyValue?.trim()}>
+          {mutation.isPending ? "Sending…" : "Send Reply"}
+        </Button>
+      </div>
     </form>
   );
 }

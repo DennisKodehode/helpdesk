@@ -14,9 +14,11 @@
     "db:seed": "bun prisma/seed.ts"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.70",
     "@helpdesk/core": "workspace:*",
     "@prisma/adapter-pg": "^7.0.0",
     "@prisma/client": "^7.0.0",
+    "ai": "^6.0.176",
     "better-auth": "~1.2.9",
     "cors": "^2.8.5",
     "express": "^5.1.0",

@@ -38,7 +38,7 @@ export default function UserDialog({ user, open, onOpenChange }: UserDialogProps
       : { name: "", email: "", password: "" },
   });
 
-  const mutation = useMutation({
+  const saveUserMutation = useMutation({
     mutationFn: (data: CreateUserData | UpdateUserData) =>
       isEdit
         ? axios.patch(`/api/users/${user!.id}`, data)
@@ -67,7 +67,7 @@ export default function UserDialog({ user, open, onOpenChange }: UserDialogProps
           <DialogTitle>{isEdit ? "Edit Agent" : "Add Agent"}</DialogTitle>
         </DialogHeader>
         <form
-          onSubmit={handleSubmit((data) => mutation.mutate(data))}
+          onSubmit={handleSubmit((data) => saveUserMutation.mutate(data))}
           noValidate
           className="flex flex-col gap-4 mt-2"
         >
@@ -107,8 +107,8 @@ export default function UserDialog({ user, open, onOpenChange }: UserDialogProps
             <FieldError message={errors.password?.message} />
           </div>
           <DialogFooter className="mt-2">
-            <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending
+            <Button type="submit" disabled={saveUserMutation.isPending}>
+              {saveUserMutation.isPending
                 ? isEdit ? "Saving..." : "Creating..."
                 : isEdit ? "Save Changes" : "Create Agent"}
             </Button>
