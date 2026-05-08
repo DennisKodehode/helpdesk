@@ -163,6 +163,24 @@ describe("POST /api/users", () => {
     expect(res.body.role).toBe(Role.agent);
     createdId = res.body.id;
   });
+
+  it("creates a fresh account when the email was previously used by a deleted user", async () => {
+    const createRes = await request(app).post("/api/users").set("Cookie", adminCookie)
+      .send({ name: "Old Agent", email: "reused-email-users@example.com", password: "password123" });
+    expect(createRes.status).toBe(201);
+    const oldId = createRes.body.id;
+
+    await request(app).delete(`/api/users/${oldId}`).set("Cookie", adminCookie);
+
+    const res = await request(app).post("/api/users").set("Cookie", adminCookie)
+      .send({ name: "New Agent", email: "reused-email-users@example.com", password: "password123" });
+    expect(res.status).toBe(201);
+    expect(res.body.id).not.toBe(oldId);
+    expect(res.body.email).toBe("reused-email-users@example.com");
+
+    await prisma.user.deleteMany({ where: { id: oldId } });
+    createdId = res.body.id;
+  });
 });
 
 // ─── DELETE /api/users/:id ────────────────────────────────────────────────────
@@ -226,6 +244,27 @@ describe("DELETE /api/users/:id", () => {
 
     const inDb = await prisma.user.findUnique({ where: { id: targetId } });
     expect(inDb?.deletedAt).not.toBeNull();
+  });
+
+  it("scrubs the email to deleted-{id}@deleted.invalid on delete", async () => {
+    await request(app).delete(`/api/users/${targetId}`).set("Cookie", adminCookie);
+
+    const inDb = await prisma.user.findUnique({ where: { id: targetId } });
+    expect(inDb?.email).toBe(`deleted-${targetId}@deleted.invalid`);
+  });
+
+  it("unassigns all tickets assigned to the deleted user", async () => {
+    const ticket = await prisma.ticket.create({
+      data: { fromName: "Customer", fromEmail: "customer@example.com", subject: "Help", body: "Please help", assignedToId: targetId },
+    });
+
+    const res = await request(app).delete(`/api/users/${targetId}`).set("Cookie", adminCookie);
+    expect(res.status).toBe(204);
+
+    const updated = await prisma.ticket.findUnique({ where: { id: ticket.id } });
+    expect(updated?.assignedToId).toBeNull();
+
+    await prisma.ticket.delete({ where: { id: ticket.id } });
   });
 });
 

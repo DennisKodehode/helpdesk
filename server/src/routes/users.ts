@@ -24,10 +24,13 @@ router.post("/", ...requireAdminChain, async (req, res) => {
     return;
   }
   const { name, email, password } = result.data;
-  const existing = await prisma.user.findFirst({ where: { email, deletedAt: null } });
-  if (existing) {
+  const existing = await prisma.user.findFirst({ where: { email } });
+  if (existing && !existing.deletedAt) {
     res.status(409).json({ error: "Email already in use" });
     return;
+  }
+  if (existing?.deletedAt) {
+    await prisma.user.update({ where: { id: existing.id }, data: { email: `deleted-${existing.id}@deleted.invalid` } });
   }
   const ctx = await auth.$context;
   const hashedPassword = await ctx.password.hash(password);
@@ -38,15 +41,7 @@ router.post("/", ...requireAdminChain, async (req, res) => {
     select: { id: true, name: true, email: true, role: true, createdAt: true },
   });
   await prisma.account.create({
-    data: {
-      id: generateId(),
-      accountId: id,
-      providerId: "credential",
-      userId: id,
-      password: hashedPassword,
-      createdAt: now,
-      updatedAt: now,
-    },
+    data: { id: generateId(), accountId: id, providerId: "credential", userId: id, password: hashedPassword, createdAt: now, updatedAt: now },
   });
   res.status(201).json(user);
 });
@@ -67,7 +62,8 @@ router.delete("/:id", ...requireAdminChain, async (req, res) => {
     return;
   }
   const now = new Date();
-  await prisma.user.update({ where: { id }, data: { deletedAt: now } });
+  await prisma.ticket.updateMany({ where: { assignedToId: id }, data: { assignedToId: null } });
+  await prisma.user.update({ where: { id }, data: { email: `deleted-${id}@deleted.invalid`, deletedAt: now } });
   await prisma.session.deleteMany({ where: { userId: id } });
   await prisma.account.deleteMany({ where: { userId: id } });
   res.status(204).send();
