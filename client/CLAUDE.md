@@ -35,8 +35,25 @@ Installed with the default theme. Style: `base-nova`, base color: `neutral`, CSS
 | --------- | ---- | ------- |
 | `ErrorAlert` | `@/components/ui/ErrorAlert` | Query-level / page-level errors (e.g. "Failed to load tickets"). Renders with `role="alert"` so screen readers announce it. |
 | `FieldError` | `@/components/ui/FieldError` | Form field validation errors from React Hook Form. Accepts `message?: string` and renders nothing when undefined. |
+| `BackLink` | `@/components/ui/BackLink` | Back-navigation link with left arrow icon. Props: `to: string`, `label: string`. |
+| `PageHeader` | `@/components/ui/PageHeader` | Page title bar. Props: `title: string`, `action?: React.ReactNode` (renders a button or other element on the right). |
 
 Never use raw `<p className="text-xs text-red-500">` or inline `role="alert"` blocks — always use these components.
+
+## Page and component structure
+
+**Pages are layout-only.** A page file owns:
+- Data fetching (`useQuery`, `useMutation`) and the loading/error/empty states that come with it
+- UI state that drives child components (filters, dialog targets, pagination)
+- The top-level `<main>` wrapper and structural layout divs
+
+A page file does **not** contain raw JSX for distinct content sections. Every named section of a page (ticket details, reply thread, sidebar metadata, filters bar, etc.) is a dedicated component. If you find yourself writing `<h1>`, `<dl>`, `<form>`, or multi-element content blocks directly inside a page, extract them.
+
+**Component folder layout:**
+- `components/ui/` — generic, reusable primitives (shadcn components + project-wide helpers like `ErrorAlert`, `PageHeader`)
+- `components/` root — feature-specific components, named with a domain prefix (`Ticket*`, `User*`, `Reply*`)
+
+**h2 base style:** `h2` elements automatically receive `text-sm font-medium text-gray-500` from `@layer base` in `index.css`. Do not repeat those classes inline — only add spacing overrides like `className="mb-2"` when needed.
 
 ## Component tests (Vitest + React Testing Library)
 
@@ -62,6 +79,7 @@ Component tests live alongside their page/component files as `*.test.tsx`. The t
 - Scope ambiguous queries with `within(screen.getByRole("dialog"))` when the same text appears in both the background page and a dialog.
 - Cover: loading state (skeleton), loaded state, empty state, error state, and each user interaction (open dialog, validation, success, server error).
 - **Assert on what the user sees, not just on API calls.** After any interaction that changes visible UI state (selecting a dropdown, submitting a form), assert on the rendered output — e.g., `expect(trigger).toHaveTextContent("Open")` — not only that `axios.get` was called with the right params. Mock call assertions alone won't catch bugs where the label map is missing or rendering is broken.
+- **Tests follow the component that owns the behavior, not the page that uses it.** When a component is extracted from a page, move its tests to the component's own test file. Page tests cover only page-level concerns: data fetching, loading/error states, layout, and navigation.
 
 ### Running tests
 

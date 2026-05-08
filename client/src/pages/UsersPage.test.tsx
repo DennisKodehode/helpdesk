@@ -211,19 +211,6 @@ describe("delete user", () => {
     expect(within(dialog).getByText(/bob@example\.com/)).toBeInTheDocument();
   });
 
-  it("closes the dialog when Cancel is clicked", async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<UsersPage />);
-
-    await screen.findByText("Alice Smith");
-    await user.click(screen.getByRole("button", { name: "Delete" }));
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
-
-    await waitFor(() => {
-      expect(screen.queryByRole("heading", { name: "Delete user?" })).not.toBeInTheDocument();
-    });
-  });
-
   it("calls the API and refetches after confirming delete", async () => {
     const user = userEvent.setup();
     vi.mocked(axios.delete).mockResolvedValue({});

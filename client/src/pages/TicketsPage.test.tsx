@@ -127,20 +127,6 @@ describe("TicketsPage", () => {
     });
   });
 
-  it("shows pagination controls", async () => {
-    renderWithProviders(<TicketsPage />);
-    await screen.findByText("Test ticket");
-    expect(screen.getByRole("button", { name: /previous page/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /next page/i })).toBeInTheDocument();
-    expect(screen.getByText(/page 1 of 1/i)).toBeInTheDocument();
-  });
-
-  it("disables Previous on the first page", async () => {
-    renderWithProviders(<TicketsPage />);
-    await screen.findByText("Test ticket");
-    expect(screen.getByRole("button", { name: /previous page/i })).toBeDisabled();
-  });
-
   it("navigates to next page when Next is clicked", async () => {
     const user = userEvent.setup();
     vi.mocked(axios.get).mockResolvedValue({

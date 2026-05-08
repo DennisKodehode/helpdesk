@@ -2,15 +2,10 @@ import { useState } from "react";
 import axios from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import PageHeader from "@/components/ui/PageHeader";
 import UserDialog from "@/components/UserDialog";
 import UsersTable from "@/components/UsersTable";
+import DeleteUserDialog from "@/components/DeleteUserDialog";
 import { type User } from "@helpdesk/core";
 
 async function fetchUsers(): Promise<User[]> {
@@ -38,10 +33,10 @@ export default function UsersPage() {
 
   return (
     <main className="p-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Users</h1>
-        <Button onClick={() => setDialogTarget("create")}>Add Agent</Button>
-      </div>
+      <PageHeader
+        title="Users"
+        action={<Button onClick={() => setDialogTarget("create")}>Add Agent</Button>}
+      />
 
       <UsersTable
         users={users}
@@ -58,38 +53,12 @@ export default function UsersPage() {
         onOpenChange={(open) => { if (!open) setDialogTarget(null); }}
       />
 
-      <Dialog
-        open={!!deleteTarget}
-        onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null);
-        }}
-      >
-        <DialogContent showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle>Delete user?</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-gray-500 mt-1">
-            <strong className="text-gray-900">{deleteTarget?.name}</strong> (
-            {deleteTarget?.email}) will be removed and lose access immediately.
-          </p>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeleteTarget(null)}
-              disabled={deleteMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
-              disabled={deleteMutation.isPending}
-            >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeleteUserDialog
+        deleteTarget={deleteTarget}
+        isDeleting={deleteMutation.isPending}
+        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </main>
   );
 }

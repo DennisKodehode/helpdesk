@@ -36,45 +36,6 @@ describe("session redirect", () => {
     renderLogin();
     expect(screen.queryByText("Sign in")).not.toBeInTheDocument();
   });
-
-  it("renders the login form when there is no session", () => {
-    renderLogin();
-    expect(screen.getByLabelText("Email")).toBeInTheDocument();
-    expect(screen.getByLabelText("Password")).toBeInTheDocument();
-  });
-});
-
-describe("validation", () => {
-  it("shows 'Invalid email address' when email is empty", async () => {
-    const user = userEvent.setup();
-    renderLogin();
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
-    expect(await screen.findByText("Invalid email address")).toBeInTheDocument();
-  });
-
-  it("shows 'Invalid email address' for a bad email format", async () => {
-    const user = userEvent.setup();
-    renderLogin();
-    await user.type(screen.getByLabelText("Email"), "notanemail");
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
-    expect(await screen.findByText("Invalid email address")).toBeInTheDocument();
-  });
-
-  it("shows 'Password is required' when password is empty", async () => {
-    const user = userEvent.setup();
-    renderLogin();
-    await user.type(screen.getByLabelText("Email"), "user@example.com");
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
-    expect(await screen.findByText("Password is required")).toBeInTheDocument();
-  });
-
-  it("does not call signIn when the form is invalid", async () => {
-    const user = userEvent.setup();
-    renderLogin();
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
-    await screen.findByText("Invalid email address");
-    expect(mockSignIn).not.toHaveBeenCalled();
-  });
 });
 
 describe("successful sign-in", () => {
@@ -109,18 +70,5 @@ describe("server errors", () => {
     await user.type(screen.getByLabelText("Password"), "wrongpass");
     await user.click(screen.getByRole("button", { name: "Sign in" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Invalid credentials");
-  });
-});
-
-describe("pending state", () => {
-  it("disables the button and shows 'Signing in…' while the request is in-flight", async () => {
-    mockSignIn.mockReturnValue(new Promise(() => {}));
-    const user = userEvent.setup();
-    renderLogin();
-    await user.type(screen.getByLabelText("Email"), "user@example.com");
-    await user.type(screen.getByLabelText("Password"), "secret123");
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
-    const button = await screen.findByRole("button", { name: "Signing in…" });
-    expect(button).toBeDisabled();
   });
 });
