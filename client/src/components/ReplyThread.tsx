@@ -17,12 +17,13 @@ export default function ReplyThread({ ticket }: Props) {
     queryFn: () => fetchReplies(ticket.id),
   });
 
-  if (replies.length === 0) {
-    return <p className="text-sm text-gray-400 italic">No replies yet</p>;
-  }
-
   return (
-    <ul className="space-y-3" aria-label="Reply thread">
+    <div className="border-t border-gray-100 pt-4 space-y-3">
+      <h2>Replies</h2>
+      {replies.length === 0 ? (
+        <p className="text-sm text-gray-400 italic">No replies yet</p>
+      ) : (
+      <ul className="space-y-3" aria-label="Reply thread">
       {replies.map(reply => (
         <li
           key={reply.id}
@@ -46,6 +47,8 @@ export default function ReplyThread({ ticket }: Props) {
           </p>
         </li>
       ))}
-    </ul>
+      </ul>
+      )}
+    </div>
   );
 }
