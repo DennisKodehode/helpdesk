@@ -127,6 +127,9 @@
   html {
     @apply font-sans;
     }
+  h2 {
+    @apply text-sm font-medium text-gray-500;
+    }
 }
 
 input:-webkit-autofill,

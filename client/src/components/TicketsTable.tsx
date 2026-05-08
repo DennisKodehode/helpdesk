@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-table";
 import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { Link } from "@/components/ui/link";
+import ErrorAlert from "@/components/ui/ErrorAlert";
 import { type Ticket } from "@helpdesk/core";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BADGE_BASE, STATUS_STYLES, CATEGORY_LABELS } from "@/lib/ticket-ui";
@@ -120,7 +121,7 @@ export default function TicketsTable({
   });
 
   if (isError) {
-    return <p className="text-sm text-red-500">Failed to load tickets</p>;
+    return <ErrorAlert message="Failed to load tickets" />;
   }
 
   return (

@@ -1,4 +1,5 @@
 import { Role, type User } from "@helpdesk/core";
+import ErrorAlert from "@/components/ui/ErrorAlert";
 import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,7 +14,7 @@ interface UsersTableProps {
 
 export default function UsersTable({ users, isPending, isError, onDelete, onEdit }: UsersTableProps) {
   if (isError) {
-    return <p className="text-sm text-red-500">Failed to load users</p>;
+    return <ErrorAlert message="Failed to load users" />;
   }
 
   return (

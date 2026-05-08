@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { TicketStatus, TicketCategory } from "./types";
+import { TicketStatus, TicketCategory, SenderType } from "./types";
 
 export const userSchema = z.object({
   id: z.string(),
@@ -38,7 +38,9 @@ export type UpdateUserData = z.infer<typeof updateUserSchema>;
 export const inboundEmailSchema = z.object({
   fromName: z.string().trim().min(1),
   fromEmail: z.email("Invalid email address"),
-  subject: z.string().trim().default("(no subject)"),
+  subject: z.string().trim()
+    .transform(s => s.replace(/^(\s*(re|fwd?|fw)(\[\d+\])?:\s*)+/gi, "").trim() || "(no subject)")
+    .default("(no subject)"),
   body: z.string().optional(),
 });
 
@@ -109,3 +111,20 @@ export const updateTicketSchema = z.object({
 });
 
 export type UpdateTicketData = z.infer<typeof updateTicketSchema>;
+
+export const replySchema = z.object({
+  id: z.number(),
+  ticketId: z.number(),
+  senderType: z.enum(SenderType),
+  body: z.string(),
+  author: z.object({ id: z.string(), name: z.string() }).nullable(),
+  createdAt: z.string(),
+});
+
+export type Reply = z.infer<typeof replySchema>;
+
+export const createReplySchema = z.object({
+  body: z.string().trim().min(1, "Reply cannot be empty"),
+});
+
+export type CreateReplyData = z.infer<typeof createReplySchema>;

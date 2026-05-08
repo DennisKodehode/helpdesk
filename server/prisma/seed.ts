@@ -10,8 +10,8 @@ const password = process.env.SEED_ADMIN_PASSWORD;
 if (!email || !password) {
   throw new Error("SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD must be set in .env");
 }
-if (password.length < 12) {
-  throw new Error("SEED_ADMIN_PASSWORD must be at least 12 characters");
+if (password.length < 8) {
+  throw new Error("SEED_ADMIN_PASSWORD must be at least 8 characters");
 }
 
 async function seed() {

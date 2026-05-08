@@ -575,3 +575,170 @@ describe("PATCH /api/tickets/:id", () => {
     expect(res.body.category).toBeNull();
   });
 });
+
+describe("GET /api/tickets/:id/replies", () => {
+  let authCookie: string;
+  let testUserId: string;
+  let ticketId: number;
+
+  beforeAll(async () => {
+    const ctx = await auth.$context;
+    const hashedPassword = await ctx.password.hash("Testpassword1!");
+    const id = generateId();
+    const now = new Date();
+
+    await prisma.user.create({
+      data: { id, name: "Replies Get Agent", email: "test-replies-get@example.com", emailVerified: true, role: "agent", createdAt: now, updatedAt: now },
+    });
+    await prisma.account.create({
+      data: { id: generateId(), accountId: id, providerId: "credential", userId: id, password: hashedPassword, createdAt: now, updatedAt: now },
+    });
+    testUserId = id;
+
+    const signInRes = await request(app)
+      .post("/api/auth/sign-in/email")
+      .send({ email: "test-replies-get@example.com", password: "Testpassword1!" });
+    const cookies = signInRes.headers["set-cookie"] as string[] | string;
+    authCookie = Array.isArray(cookies) ? cookies.join("; ") : cookies;
+  });
+
+  afterAll(async () => {
+    await prisma.session.deleteMany({ where: { userId: testUserId } });
+    await prisma.account.deleteMany({ where: { userId: testUserId } });
+    await prisma.user.delete({ where: { id: testUserId } });
+  });
+
+  beforeEach(async () => {
+    const ticket = await prisma.ticket.create({
+      data: { fromName: "Replies Test", fromEmail: "replies@example.com", subject: "Reply subject", body: "" },
+    });
+    ticketId = ticket.id;
+  });
+
+  afterEach(async () => {
+    await prisma.reply.deleteMany({ where: { ticketId } });
+    await prisma.ticket.delete({ where: { id: ticketId } });
+  });
+
+  it("returns 401 when not authenticated", async () => {
+    const res = await request(app).get(`/api/tickets/${ticketId}/replies`);
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 404 when ticket does not exist", async () => {
+    const res = await request(app)
+      .get("/api/tickets/999999999/replies")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBeTypeOf("string");
+  });
+
+  it("returns 200 with an empty array when no replies exist", async () => {
+    const res = await request(app)
+      .get(`/api/tickets/${ticketId}/replies`)
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it("returns replies ordered by createdAt asc", async () => {
+    const now = new Date();
+    const earlier = new Date(now.getTime() - 1000);
+    const first = await prisma.reply.create({
+      data: { ticketId, authorId: testUserId, senderType: "agent", body: "First reply", createdAt: earlier },
+    });
+    const second = await prisma.reply.create({
+      data: { ticketId, authorId: testUserId, senderType: "agent", body: "Second reply", createdAt: now },
+    });
+
+    const res = await request(app)
+      .get(`/api/tickets/${ticketId}/replies`)
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body).toHaveLength(2);
+    expect(res.body[0].id).toBe(first.id);
+    expect(res.body[1].id).toBe(second.id);
+  });
+});
+
+describe("POST /api/tickets/:id/replies", () => {
+  let authCookie: string;
+  let testUserId: string;
+  let ticketId: number;
+
+  beforeAll(async () => {
+    const ctx = await auth.$context;
+    const hashedPassword = await ctx.password.hash("Testpassword1!");
+    const id = generateId();
+    const now = new Date();
+
+    await prisma.user.create({
+      data: { id, name: "Replies Post Agent", email: "test-replies-post@example.com", emailVerified: true, role: "agent", createdAt: now, updatedAt: now },
+    });
+    await prisma.account.create({
+      data: { id: generateId(), accountId: id, providerId: "credential", userId: id, password: hashedPassword, createdAt: now, updatedAt: now },
+    });
+    testUserId = id;
+
+    const signInRes = await request(app)
+      .post("/api/auth/sign-in/email")
+      .send({ email: "test-replies-post@example.com", password: "Testpassword1!" });
+    const cookies = signInRes.headers["set-cookie"] as string[] | string;
+    authCookie = Array.isArray(cookies) ? cookies.join("; ") : cookies;
+  });
+
+  afterAll(async () => {
+    await prisma.session.deleteMany({ where: { userId: testUserId } });
+    await prisma.account.deleteMany({ where: { userId: testUserId } });
+    await prisma.user.delete({ where: { id: testUserId } });
+  });
+
+  beforeEach(async () => {
+    const ticket = await prisma.ticket.create({
+      data: { fromName: "Post Reply Test", fromEmail: "postreply@example.com", subject: "Post reply subject", body: "" },
+    });
+    ticketId = ticket.id;
+  });
+
+  afterEach(async () => {
+    await prisma.reply.deleteMany({ where: { ticketId } });
+    await prisma.ticket.delete({ where: { id: ticketId } });
+  });
+
+  it("returns 401 when not authenticated", async () => {
+    const res = await request(app).post(`/api/tickets/${ticketId}/replies`).send({ body: "Hello" });
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 400 for an empty body", async () => {
+    const res = await request(app)
+      .post(`/api/tickets/${ticketId}/replies`)
+      .set("Cookie", authCookie)
+      .send({ body: "" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeTypeOf("string");
+  });
+
+  it("returns 404 when ticket does not exist", async () => {
+    const res = await request(app)
+      .post("/api/tickets/999999999/replies")
+      .set("Cookie", authCookie)
+      .send({ body: "Hello" });
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBeTypeOf("string");
+  });
+
+  it("returns 201 and creates a reply with senderType agent and author info", async () => {
+    const res = await request(app)
+      .post(`/api/tickets/${ticketId}/replies`)
+      .set("Cookie", authCookie)
+      .send({ body: "This is my reply." });
+    expect(res.status).toBe(201);
+    expect(res.body.ticketId).toBe(ticketId);
+    expect(res.body.body).toBe("This is my reply.");
+    expect(res.body.senderType).toBe("agent");
+    expect(res.body.author).toMatchObject({ id: testUserId, name: "Replies Post Agent" });
+    expect(typeof res.body.createdAt).toBe("string");
+  });
+});

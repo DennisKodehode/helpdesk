@@ -40,12 +40,13 @@ Each workspace has its own `CLAUDE.md` with implementation details: `client/CLAU
 | `server/src/app.ts` | Express app (middleware, routes, error handler) — importable by tests |
 | `server/src/lib/auth.ts` | Better Auth instance |
 | `server/src/middleware/auth-middleware.ts` | `requireAuth`, `requireAdmin`, `requireAdminChain` |
-| `server/prisma/schema.prisma` | Full schema: User, Session, Account, Verification, Ticket |
+| `server/prisma/schema.prisma` | Full schema: User, Session, Account, Verification, Ticket, Reply |
 | `server/prisma/seed.ts` | Seeds the admin user (`bun run db:seed` from `server/`) |
+| `server/prisma/seed-dev.ts` | Seeds dev data: one agent + 8 sample tickets (`bun prisma/seed-dev.ts` from `server/`) |
 | `client/src/App.tsx` | Route tree: `ProtectedLayout` (auth) → `AdminLayout` (role) |
 | `client/src/lib/auth-client.ts` | Better Auth React client (signIn, signOut, useSession) |
-| `core/src/types.ts` | Shared enums: Role, TicketStatus, TicketCategory |
-| `core/src/schemas.ts` | Shared Zod schemas: createUserSchema, updateUserSchema, inboundEmailSchema |
+| `core/src/types.ts` | Shared enums: Role, TicketStatus, TicketCategory, SenderType |
+| `core/src/schemas.ts` | Shared Zod schemas: ticket schemas, reply schemas, user schemas, inboundEmailSchema |
 
 ## Commands
 
@@ -54,10 +55,11 @@ Each workspace has its own `CLAUDE.md` with implementation details: `client/CLAU
 bun run dev                          # from helpdesk/
 
 # Database (from server/)
-bun run db:migrate                   # run migrations
-bun run db:push                      # push schema without migration (dev only)
+bun run db:migrate                   # create + apply a new migration (always use this, never db:push)
 bun run db:generate                  # regenerate Prisma client after schema change
 bun run db:studio                    # open Prisma Studio
+bun run db:seed                      # seed admin user
+bun prisma/seed-dev.ts               # seed dev agent + sample tickets (run after db:seed)
 
 # Tests
 bun run test                         # component tests (from client/) or integration tests (from server/)
@@ -78,7 +80,7 @@ BETTER_AUTH_SECRET=<random secret>
 BETTER_AUTH_URL=http://localhost:3000
 CLIENT_URL=http://localhost:5173
 SEED_ADMIN_EMAIL=admin@example.com
-SEED_ADMIN_PASSWORD=<min 12 chars>
+SEED_ADMIN_PASSWORD=<min 8 chars>
 WEBHOOK_SECRET=<random secret>
 ```
 
@@ -95,7 +97,7 @@ Better Auth handles all `/api/auth/*` routes via `toNodeHandler(auth)`. Sessions
 - **Ports**: server on `3000`, client on `5173`. Vite proxies `/api` → `localhost:3000`.
 - **Roles**: `admin` is seeded at deploy time. Agents are created by admins. `role` defaults to `"agent"` — never accept it as user input.
 - **Ticket transitions**: `open → resolved` (agent); `resolved → closed` (auto after 48h, or admin force-close); no skipping `open → closed`.
-- **Shared types**: always import `Role`, `TicketStatus`, `TicketCategory` from `@helpdesk/core`. All three are TypeScript string enums — use their values (`Role.admin`, `TicketStatus.open`, `TicketCategory.refund_request`) everywhere. Never use raw strings.
+- **Shared types**: always import `Role`, `TicketStatus`, `TicketCategory`, `SenderType` from `@helpdesk/core`. All are TypeScript string enums — use their values (`Role.admin`, `TicketStatus.open`, `TicketCategory.refund_request`, `SenderType.agent`) everywhere. Never use raw strings.
 - **Validation**: Define Zod schemas in `core/src/schemas.ts`, export from `@helpdesk/core`. On the server, use `firstIssue(result.error)` from `server/src/lib/validation.ts` for 400 responses. On the client, use `standardSchemaResolver(schema)` from `@hookform/resolvers/standard-schema` — not `zodResolver` (incompatible with Zod v4 standalone types like `z.email()`).
 - **Error handling**: 4-argument middleware `(err, req, res, next)` at the bottom of `app.ts`.
 - **Data fetching**: always use **axios** + **TanStack Query**. `useQuery` for reads, `useMutation` for writes; invalidate the relevant query key in `onSuccess`. Never use `fetch` directly or `useState` + `useEffect` for server state.

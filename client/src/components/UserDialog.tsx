@@ -1,10 +1,10 @@
-import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { createUserSchema, updateUserSchema, type CreateUserData, type UpdateUserData, type User } from "@helpdesk/core";
 import axios from "axios";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import FieldError from "@/components/ui/FieldError";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -33,12 +33,10 @@ export default function UserDialog({ user, open, onOpenChange }: UserDialogProps
     formState: { errors },
   } = useForm<CreateUserData | UpdateUserData>({
     resolver: standardSchemaResolver(isEdit ? updateUserSchema : createUserSchema),
-    defaultValues: { name: "", email: "", password: "" },
+    defaultValues: user
+      ? { name: user.name, email: user.email, password: "" }
+      : { name: "", email: "", password: "" },
   });
-
-  useEffect(() => {
-    if (user) reset({ name: user.name, email: user.email, password: "" });
-  }, [user, reset]);
 
   const mutation = useMutation({
     mutationFn: (data: CreateUserData | UpdateUserData) =>
@@ -82,9 +80,7 @@ export default function UserDialog({ user, open, onOpenChange }: UserDialogProps
               data-invalid={errors.name ? "" : undefined}
               {...register("name")}
             />
-            {errors.name && (
-              <p className="text-xs text-red-500">{errors.name.message}</p>
-            )}
+            <FieldError message={errors.name?.message} />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="email">Email</Label>
@@ -96,9 +92,7 @@ export default function UserDialog({ user, open, onOpenChange }: UserDialogProps
               data-invalid={errors.email ? "" : undefined}
               {...register("email")}
             />
-            {errors.email && (
-              <p className="text-xs text-red-500">{errors.email.message}</p>
-            )}
+            <FieldError message={errors.email?.message} />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="password">Password</Label>
@@ -110,9 +104,7 @@ export default function UserDialog({ user, open, onOpenChange }: UserDialogProps
               data-invalid={errors.password ? "" : undefined}
               {...register("password")}
             />
-            {errors.password && (
-              <p className="text-xs text-red-500">{errors.password.message}</p>
-            )}
+            <FieldError message={errors.password?.message} />
           </div>
           <DialogFooter className="mt-2">
             <Button type="submit" disabled={mutation.isPending}>

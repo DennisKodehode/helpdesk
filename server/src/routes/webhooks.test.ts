@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import request from "supertest";
 import app from "../app";
 import { prisma } from "../lib/prisma";
-import { TicketStatus } from "@helpdesk/core";
+import { TicketStatus, SenderType } from "@helpdesk/core";
 
 const VALID_HEADERS = { "x-webhook-secret": process.env.WEBHOOK_SECRET! };
 const VALID_BODY = {
@@ -13,12 +13,17 @@ const VALID_BODY = {
 };
 
 describe("POST /api/webhooks/inbound-email", () => {
-  let createdId: number | undefined;
+  let createdTicketId: number | undefined;
+  let createdReplyId: number | undefined;
 
   afterEach(async () => {
-    if (createdId !== undefined) {
-      await prisma.ticket.delete({ where: { id: createdId } });
-      createdId = undefined;
+    if (createdReplyId !== undefined) {
+      await prisma.reply.deleteMany({ where: { id: createdReplyId } });
+      createdReplyId = undefined;
+    }
+    if (createdTicketId !== undefined) {
+      await prisma.ticket.delete({ where: { id: createdTicketId } });
+      createdTicketId = undefined;
     }
   });
 
@@ -54,24 +59,23 @@ describe("POST /api/webhooks/inbound-email", () => {
     expect(res.body.error).toMatch(/email/i);
   });
 
-  it("returns 201 and creates a ticket with status 'open'", async () => {
+  it("returns 201 and creates a new ticket when no existing ticket matches the email", async () => {
     const res = await request(app)
       .post("/api/webhooks/inbound-email")
       .set(VALID_HEADERS)
       .send(VALID_BODY);
 
     expect(res.status).toBe(201);
-    expect(res.body.id).toBeDefined();
-    expect(res.body.fromName).toBe(VALID_BODY.fromName);
-    expect(res.body.fromEmail).toBe(VALID_BODY.fromEmail);
-    expect(res.body.subject).toBe(VALID_BODY.subject);
-    expect(res.body.body).toBe(VALID_BODY.body);
-    expect(res.body.status).toBe(TicketStatus.open);
+    expect(res.body.type).toBe("ticket");
+    expect(res.body.ticket.fromName).toBe(VALID_BODY.fromName);
+    expect(res.body.ticket.fromEmail).toBe(VALID_BODY.fromEmail);
+    expect(res.body.ticket.subject).toBe(VALID_BODY.subject);
+    expect(res.body.ticket.body).toBe(VALID_BODY.body);
+    expect(res.body.ticket.status).toBe(TicketStatus.open);
 
-    createdId = res.body.id;
-    const inDb = await prisma.ticket.findUnique({ where: { id: createdId } });
+    createdTicketId = res.body.ticket.id;
+    const inDb = await prisma.ticket.findUnique({ where: { id: createdTicketId } });
     expect(inDb).not.toBeNull();
-    expect(inDb!.status).toBe(TicketStatus.open);
   });
 
   it("defaults subject to '(no subject)' when omitted", async () => {
@@ -82,8 +86,86 @@ describe("POST /api/webhooks/inbound-email", () => {
       .send(bodyWithoutSubject);
 
     expect(res.status).toBe(201);
-    expect(res.body.subject).toBe("(no subject)");
+    expect(res.body.type).toBe("ticket");
+    expect(res.body.ticket.subject).toBe("(no subject)");
 
-    createdId = res.body.id;
+    createdTicketId = res.body.ticket.id;
+  });
+
+  it.each([
+    ["Re: Hello", "Hello"],
+    ["RE: Hello", "Hello"],
+    ["Fwd: Hello", "Hello"],
+    ["FW: Hello", "Hello"],
+    ["Re: Re: Hello", "Hello"],
+    ["Re[2]: Hello", "Hello"],
+    ["Fwd: Re: Hello", "Hello"],
+  ])("strips '%s' to '%s'", async (rawSubject, cleanSubject) => {
+    const res = await request(app)
+      .post("/api/webhooks/inbound-email")
+      .set(VALID_HEADERS)
+      .send({ ...VALID_BODY, fromEmail: "strip-test@example.com", subject: rawSubject });
+
+    expect(res.status).toBe(201);
+    expect(res.body.ticket.subject).toBe(cleanSubject);
+
+    createdTicketId = res.body.ticket.id;
+  });
+
+  it("creates a customer reply on the existing open ticket when fromEmail matches", async () => {
+    const existing = await prisma.ticket.create({
+      data: { fromName: "Alice", fromEmail: "alice@example.com", subject: "Original", body: "First message", status: TicketStatus.open },
+    });
+    createdTicketId = existing.id;
+
+    const res = await request(app)
+      .post("/api/webhooks/inbound-email")
+      .set(VALID_HEADERS)
+      .send({ ...VALID_BODY, subject: "Re: Original", body: "Follow-up message" });
+
+    expect(res.status).toBe(201);
+    expect(res.body.type).toBe("reply");
+    expect(res.body.reply.ticketId).toBe(existing.id);
+    expect(res.body.reply.senderType).toBe(SenderType.customer);
+    expect(res.body.reply.body).toBe("Follow-up message");
+
+    createdReplyId = res.body.reply.id;
+  });
+
+  it("creates a customer reply on a resolved ticket (not yet closed)", async () => {
+    const existing = await prisma.ticket.create({
+      data: { fromName: "Alice", fromEmail: "alice@example.com", subject: "Original", body: "First message", status: TicketStatus.resolved },
+    });
+    createdTicketId = existing.id;
+
+    const res = await request(app)
+      .post("/api/webhooks/inbound-email")
+      .set(VALID_HEADERS)
+      .send({ ...VALID_BODY, body: "Actually I have another question" });
+
+    expect(res.status).toBe(201);
+    expect(res.body.type).toBe("reply");
+    expect(res.body.reply.ticketId).toBe(existing.id);
+    expect(res.body.reply.senderType).toBe(SenderType.customer);
+
+    createdReplyId = res.body.reply.id;
+  });
+
+  it("creates a new ticket when the only existing ticket from that email is closed", async () => {
+    const existing = await prisma.ticket.create({
+      data: { fromName: "Alice", fromEmail: "alice@example.com", subject: "Old issue", body: "Resolved long ago", status: TicketStatus.closed },
+    });
+
+    const res = await request(app)
+      .post("/api/webhooks/inbound-email")
+      .set(VALID_HEADERS)
+      .send(VALID_BODY);
+
+    expect(res.status).toBe(201);
+    expect(res.body.type).toBe("ticket");
+    expect(res.body.ticket.id).not.toBe(existing.id);
+
+    createdTicketId = res.body.ticket.id;
+    await prisma.ticket.delete({ where: { id: existing.id } });
   });
 });

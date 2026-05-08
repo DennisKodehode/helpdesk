@@ -52,6 +52,7 @@ export default function UsersPage() {
       />
 
       <UserDialog
+        key={dialogTarget === "create" ? "create" : (dialogTarget?.id ?? "closed")}
         open={dialogTarget !== null}
         user={dialogTarget === "create" ? null : dialogTarget}
         onOpenChange={(open) => { if (!open) setDialogTarget(null); }}

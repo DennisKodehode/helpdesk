@@ -39,6 +39,7 @@ model User {
   sessions        Session[]
   accounts        Account[]
   assignedTickets Ticket[]
+  replies         Reply[]
 
   @@map("user")
 }
@@ -87,6 +88,11 @@ model Verification {
   @@map("verification")
 }
 
+enum SenderType {
+  agent
+  customer
+}
+
 model Ticket {
   id           Int      @id @default(autoincrement())
   fromName     String
@@ -99,6 +105,20 @@ model Ticket {
   assignedTo   User?    @relation(fields: [assignedToId], references: [id])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  replies      Reply[]
 
   @@map("ticket")
+}
+
+model Reply {
+  id         Int       @id @default(autoincrement())
+  ticketId   Int
+  ticket     Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId   String?
+  author     User?     @relation(fields: [authorId], references: [id])
+  senderType SenderType @default(agent)
+  body       String
+  createdAt  DateTime  @default(now())
+
+  @@map("reply")
 }

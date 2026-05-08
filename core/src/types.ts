@@ -17,6 +17,11 @@ export enum TicketCategory {
   feature_request = "feature_request",
 }
 
+export enum SenderType {
+  agent = "agent",
+  customer = "customer",
+}
+
 export const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   [TicketStatus.open]: [TicketStatus.resolved],
   [TicketStatus.resolved]: [],

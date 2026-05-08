@@ -29,6 +29,15 @@ Installed with the default theme. Style: `base-nova`, base color: `neutral`, CSS
 - **Primitives**: uses `@base-ui/react` as the headless layer (not Radix UI)
 - **Theme**: CSS variables in `client/src/index.css`; dark mode via `.dark` class
 
+## Shared UI components
+
+| Component | Path | Use for |
+| --------- | ---- | ------- |
+| `ErrorAlert` | `@/components/ui/ErrorAlert` | Query-level / page-level errors (e.g. "Failed to load tickets"). Renders with `role="alert"` so screen readers announce it. |
+| `FieldError` | `@/components/ui/FieldError` | Form field validation errors from React Hook Form. Accepts `message?: string` and renders nothing when undefined. |
+
+Never use raw `<p className="text-xs text-red-500">` or inline `role="alert"` blocks — always use these components.
+
 ## Component tests (Vitest + React Testing Library)
 
 Component tests live alongside their page/component files as `*.test.tsx`. The test infrastructure is in `client/src/test/`:
@@ -45,7 +54,7 @@ Component tests live alongside their page/component files as `*.test.tsx`. The t
 - Mock axios at the top of every test file:
   ```ts
   vi.mock("axios", () => ({
-    default: { get: vi.fn(), post: vi.fn(), delete: vi.fn(), isAxiosError: vi.fn() },
+    default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn(), isAxiosError: vi.fn() },
   }));
   ```
 - Call `afterEach(cleanup)` explicitly to prevent DOM leaking between tests.

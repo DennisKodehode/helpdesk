@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ErrorAlert from "@/components/ui/ErrorAlert";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -14,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import FieldError from "@/components/ui/FieldError";
 
 const schema = z.object({
   email: z.string().email("Invalid email address"),
@@ -68,9 +70,7 @@ export default function LoginPage() {
                 aria-invalid={!!errors.email}
                 {...register("email")}
               />
-              {errors.email && (
-                <p className="text-xs text-destructive">{errors.email.message}</p>
-              )}
+              <FieldError message={errors.email?.message} />
             </div>
 
             <div className="space-y-1.5">
@@ -82,19 +82,10 @@ export default function LoginPage() {
                 aria-invalid={!!errors.password}
                 {...register("password")}
               />
-              {errors.password && (
-                <p className="text-xs text-destructive">{errors.password.message}</p>
-              )}
+              <FieldError message={errors.password?.message} />
             </div>
 
-            {serverError && (
-              <p
-                role="alert"
-                className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2"
-              >
-                {serverError}
-              </p>
-            )}
+            {serverError && <ErrorAlert message={serverError} />}
 
             <Button type="submit" disabled={isSubmitting} className="w-full" size="lg">
               {isSubmitting ? "Signing in…" : "Sign in"}

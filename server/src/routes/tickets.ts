@@ -2,7 +2,7 @@ import { Router } from "express";
 import { Prisma } from "../generated/prisma/client";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth-middleware";
-import { ticketSortSchema, updateTicketSchema, Role, TicketStatus, VALID_TRANSITIONS, ADMIN_VALID_TRANSITIONS } from "@helpdesk/core";
+import { ticketSortSchema, updateTicketSchema, createReplySchema, Role, TicketStatus, SenderType, VALID_TRANSITIONS, ADMIN_VALID_TRANSITIONS } from "@helpdesk/core";
 import { firstIssue } from "../lib/validation";
 
 const router = Router();
@@ -159,6 +159,64 @@ router.patch("/:id", requireAuth, async (req, res) => {
   });
 
   res.json(updated);
+});
+
+const REPLY_SELECT = {
+  id: true,
+  ticketId: true,
+  senderType: true,
+  body: true,
+  author: { select: { id: true, name: true } },
+  createdAt: true,
+} as const;
+
+router.get("/:id/replies", requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid ticket ID" });
+    return;
+  }
+
+  const ticket = await prisma.ticket.findUnique({ where: { id } });
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  const replies = await prisma.reply.findMany({
+    where: { ticketId: id },
+    select: REPLY_SELECT,
+    orderBy: { createdAt: "asc" },
+  });
+
+  res.json(replies);
+});
+
+router.post("/:id/replies", requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid ticket ID" });
+    return;
+  }
+
+  const result = createReplySchema.safeParse(req.body);
+  if (!result.success) {
+    res.status(400).json({ error: firstIssue(result.error) });
+    return;
+  }
+
+  const ticket = await prisma.ticket.findUnique({ where: { id } });
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  const reply = await prisma.reply.create({
+    data: { ticketId: id, authorId: req.user!.id, senderType: SenderType.agent, body: result.data.body },
+    select: REPLY_SELECT,
+  });
+
+  res.status(201).json(reply);
 });
 
 export default router;

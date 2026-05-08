@@ -19,6 +19,22 @@ Mounted in `app.ts` via `toNodeHandler(auth)` at `/api/auth/*splat`. CORS is con
 - `requireAuth` — validates session cookie, returns 401 if missing, attaches `req.user` / `req.session`
 - `requireAdminChain` — composed `[requireAuth, requireAdmin]`; use this for all admin-only routes
 
+## Database migrations
+
+Always use `bun run db:migrate` (`prisma migrate dev`) for schema changes — never `db push`. After every migration, also apply it to the test database:
+
+```bash
+bun run db:migrate                    # dev DB — prompts for a migration name
+```
+
+After migrating, replay all migrations on the test DB (get the URL from `server/.env.test`):
+```bash
+PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION="<exact user consent message>" \
+  DATABASE_URL="<test DATABASE_URL>" bunx prisma migrate reset --force
+```
+
+> Prisma 7 blocks `migrate reset` when invoked by an AI without an explicit user consent message. Use the user's exact wording as the env var value.
+
 ## Integration tests (Vitest + supertest)
 
 Integration tests live colocated with their route file as `*.test.ts`. Write them directly — no sub-agent needed.

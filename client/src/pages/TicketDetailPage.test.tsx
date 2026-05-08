@@ -3,7 +3,7 @@ import axios from "axios";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders, screen, waitFor, cleanup } from "../test/utils";
 import TicketDetailPage from "./TicketDetailPage";
-import { TicketStatus, TicketCategory, type TicketDetail, type Agent } from "@helpdesk/core";
+import { TicketStatus, TicketCategory, type TicketDetail, type Agent, type Reply } from "@helpdesk/core";
 import { useSession } from "@/lib/auth-client";
 
 vi.mock("axios", () => ({
@@ -38,15 +38,18 @@ const mockAgents: Agent[] = [
   { id: "agent-2", name: "Carol Agent", email: "carol@example.com" },
 ];
 
-function mockGetResponses(ticket = mockTicket, agents = mockAgents) {
+const mockReplies: Reply[] = [];
+
+function mockGetResponses(ticket = mockTicket, agents = mockAgents, replies = mockReplies) {
   vi.mocked(axios.get).mockImplementation((url: string) => {
     if (url === "/api/agents") return Promise.resolve({ data: agents });
+    if (url === "/api/tickets/42/replies") return Promise.resolve({ data: replies });
     return Promise.resolve({ data: ticket });
   });
 }
 
 function mockSession(role = "agent") {
-  vi.mocked(useSession).mockReturnValue({ data: { user: { role } } } as ReturnType<typeof useSession>);
+  vi.mocked(useSession).mockReturnValue({ data: { user: { role } } } as unknown as ReturnType<typeof useSession>);
 }
 
 beforeEach(() => {
@@ -278,3 +281,4 @@ describe("error state", () => {
     expect(await screen.findByText("Failed to load ticket")).toBeInTheDocument();
   });
 });
+

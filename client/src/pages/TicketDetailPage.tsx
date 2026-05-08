@@ -2,9 +2,20 @@ import { useParams } from "react-router";
 import { Link } from "@/components/ui/link";
 import axios from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { type TicketDetail, type Agent, Role, TicketStatus, TicketCategory, VALID_TRANSITIONS, ADMIN_VALID_TRANSITIONS } from "@helpdesk/core";
+import {
+  type TicketDetail,
+  type Agent,
+  Role,
+  TicketStatus,
+  TicketCategory,
+  VALID_TRANSITIONS,
+  ADMIN_VALID_TRANSITIONS,
+} from "@helpdesk/core";
 import { Skeleton } from "@/components/ui/skeleton";
+import ErrorAlert from "@/components/ui/ErrorAlert";
 import { ArrowLeft } from "lucide-react";
+import ReplyForm from "@/components/ReplyForm";
+import ReplyThread from "@/components/ReplyThread";
 import { BADGE_BASE, STATUS_STYLES, STATUS_LABELS, CATEGORY_LABELS } from "@/lib/ticket-ui";
 import {
   Select,
@@ -107,16 +118,14 @@ export default function TicketDetailPage() {
         </div>
       )}
 
-      {isError && (
-        <p className="text-sm text-red-500">Failed to load ticket</p>
-      )}
+      {isError && <ErrorAlert message="Failed to load ticket" />}
 
       {ticket && (
         <div className="space-y-6">
           <h1 className="text-2xl font-semibold text-gray-900">{ticket.subject}</h1>
 
           <div className="grid grid-cols-[4fr_1fr] gap-8">
-            {/* Left column — sender info + message body */}
+            {/* Left column — sender info + message body + reply thread */}
             <div className="space-y-6">
               <dl className="text-sm space-y-3 border-t border-gray-100 pt-4">
                 <div>
@@ -131,11 +140,19 @@ export default function TicketDetailPage() {
               </dl>
 
               <div className="border-t border-gray-100 pt-4">
-                <h2 className="text-sm font-medium text-gray-500 mb-2">Message</h2>
+                <h2 className="mb-2">Message</h2>
                 <div className="bg-white rounded-lg border border-gray-200 p-4 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
                   {ticket.body || <span className="text-gray-400 italic">(no message body)</span>}
                 </div>
               </div>
+
+              {/* Reply thread */}
+              <div className="border-t border-gray-100 pt-4 space-y-3">
+                <h2>Replies</h2>
+                <ReplyThread ticket={ticket} />
+              </div>
+
+              <ReplyForm ticketId={id!} />
             </div>
 
             {/* Right column — dropdowns */}
