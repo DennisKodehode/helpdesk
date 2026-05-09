@@ -100,6 +100,10 @@ For E2E tests, copy `server/.env.test.example` → `server/.env.test` and `clien
 
 Better Auth handles all `/api/auth/*` routes via `toNodeHandler(auth)`. Sessions are database-stored (not JWTs). Self-registration is disabled — agents are created by admins only. The `role` field defaults to `"agent"` and is never writable from client input. See `client/CLAUDE.md` and `server/CLAUDE.md` for implementation details.
 
+## General approach
+
+This project is developed properly, following best practices. When in doubt, do things the right way — not the quick way. Flag shortcuts or tradeoffs rather than silently taking them.
+
 ## Conventions
 
 - **Ports**: server on `3000`, client on `5173`. Vite proxies `/api` → `localhost:3000`.
@@ -145,6 +149,14 @@ Better Auth handles all `/api/auth/*` routes via `toNodeHandler(auth)`. Sessions
 Never write Playwright E2E tests directly. Always delegate to the `playwright-e2e-writer` sub-agent — it has the full test infrastructure context, locator conventions, auth patterns, and quality checklist for this project.
 
 Trigger it after completing a UI feature or when explicitly asked to write E2E tests. The `playwright-e2e-writer` agent writes **Playwright E2E tests only** — not component tests or server integration tests.
+
+## Error handling in fire-and-forget
+
+Never swallow errors silently with `.catch(() => {})`. Always log them:
+
+```ts
+someAsyncTask().catch((err) => console.error("someAsyncTask failed:", err));
+```
 
 ## Documentation — always use context7
 

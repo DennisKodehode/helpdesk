@@ -2,6 +2,7 @@ import { Router } from "express";
 import { inboundEmailSchema, TicketStatus, SenderType } from "@helpdesk/core";
 import { prisma } from "../lib/prisma";
 import { firstIssue } from "../lib/validation";
+import { classifyTicket } from "../lib/classify-ticket";
 
 const router = Router();
 
@@ -39,6 +40,8 @@ router.post("/inbound-email", async (req, res) => {
   const ticket = await prisma.ticket.create({
     data: { fromName, fromEmail, subject, body: body ?? "", bodyHtml: bodyHtml ?? null, status: TicketStatus.open },
   });
+
+  classifyTicket(ticket).catch((err) => console.error("classifyTicket failed:", err));
 
   res.status(201).json({ type: "ticket", ticket });
 });
