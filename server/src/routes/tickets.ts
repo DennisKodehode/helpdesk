@@ -26,6 +26,7 @@ router.get("/", requireAuth, async (req, res) => {
   const trimmed = search?.trim();
 
   const where: Prisma.TicketWhereInput = {
+    status: { notIn: [TicketStatus.new, TicketStatus.processing] },
     ...(status && { status }),
     ...(category && { category }),
     ...(trimmed && {

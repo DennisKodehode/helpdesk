@@ -58,10 +58,10 @@ describe("GET /api/tickets — sorting", () => {
     const now = new Date();
     const earlier = new Date(now.getTime() - 1000);
     const a = await prisma.ticket.create({
-      data: { fromName: "Alice Smith", fromEmail: "alice@example.com", subject: "Apple subject", body: "", createdAt: earlier },
+      data: { fromName: "Alice Smith", fromEmail: "alice@example.com", subject: "Apple subject", body: "", status: TicketStatus.open, createdAt: earlier },
     });
     const b = await prisma.ticket.create({
-      data: { fromName: "Zara Jones", fromEmail: "zara@example.com", subject: "Zebra subject", body: "", createdAt: now },
+      data: { fromName: "Zara Jones", fromEmail: "zara@example.com", subject: "Zebra subject", body: "", status: TicketStatus.open, createdAt: now },
     });
     createdTicketIds = [a.id, b.id];
   });
@@ -155,10 +155,10 @@ describe("GET /api/tickets — sorting", () => {
 
   it("filters by category", async () => {
     const technicalTicket = await prisma.ticket.create({
-      data: { fromName: "Filter Test", fromEmail: "filter@example.com", subject: "Technical ticket", body: "", category: TicketCategory.technical_question },
+      data: { fromName: "Filter Test", fromEmail: "filter@example.com", subject: "Technical ticket", body: "", status: TicketStatus.open, category: TicketCategory.technical_question },
     });
     const refundTicket = await prisma.ticket.create({
-      data: { fromName: "Filter Test", fromEmail: "filter@example.com", subject: "Refund ticket", body: "", category: TicketCategory.refund_request },
+      data: { fromName: "Filter Test", fromEmail: "filter@example.com", subject: "Refund ticket", body: "", status: TicketStatus.open, category: TicketCategory.refund_request },
     });
     createdTicketIds.push(technicalTicket.id, refundTicket.id);
 
@@ -173,10 +173,10 @@ describe("GET /api/tickets — sorting", () => {
 
   it("filters by search term across subject, fromName, and fromEmail", async () => {
     const matchTicket = await prisma.ticket.create({
-      data: { fromName: "Unique Person", fromEmail: "unique@example.com", subject: "Unique subject", body: "" },
+      data: { fromName: "Unique Person", fromEmail: "unique@example.com", subject: "Unique subject", body: "", status: TicketStatus.open },
     });
     const noMatchTicket = await prisma.ticket.create({
-      data: { fromName: "Other Person", fromEmail: "other@example.com", subject: "Other subject", body: "" },
+      data: { fromName: "Other Person", fromEmail: "other@example.com", subject: "Other subject", body: "", status: TicketStatus.open },
     });
     createdTicketIds.push(matchTicket.id, noMatchTicket.id);
 
@@ -191,7 +191,7 @@ describe("GET /api/tickets — sorting", () => {
 
   it("search is case-insensitive", async () => {
     const ticket = await prisma.ticket.create({
-      data: { fromName: "Alice Smith", fromEmail: "alice@example.com", subject: "Printer on fire", body: "" },
+      data: { fromName: "Alice Smith", fromEmail: "alice@example.com", subject: "Printer on fire", body: "", status: TicketStatus.open },
     });
     createdTicketIds.push(ticket.id);
 
@@ -380,7 +380,7 @@ describe("PATCH /api/tickets/:id", () => {
 
   beforeEach(async () => {
     const ticket = await prisma.ticket.create({
-      data: { fromName: "Patch Test", fromEmail: "patch@example.com", subject: "Patch subject", body: "" },
+      data: { fromName: "Patch Test", fromEmail: "patch@example.com", subject: "Patch subject", body: "", status: TicketStatus.open },
     });
     ticketId = ticket.id;
   });

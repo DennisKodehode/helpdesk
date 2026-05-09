@@ -4,6 +4,8 @@ export enum Role {
 }
 
 export enum TicketStatus {
+  new = "new",
+  processing = "processing",
   open = "open",
   resolved = "resolved",
   closed = "closed",
@@ -23,12 +25,16 @@ export enum SenderType {
 }
 
 export const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
+  [TicketStatus.new]: [],
+  [TicketStatus.processing]: [],
   [TicketStatus.open]: [TicketStatus.resolved],
   [TicketStatus.resolved]: [],
   [TicketStatus.closed]: [],
 };
 
 export const ADMIN_VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
+  [TicketStatus.new]: [],
+  [TicketStatus.processing]: [TicketStatus.open],
   [TicketStatus.open]: [TicketStatus.resolved, TicketStatus.closed],
   [TicketStatus.resolved]: [TicketStatus.open, TicketStatus.closed],
   [TicketStatus.closed]: [TicketStatus.open],

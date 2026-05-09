@@ -73,7 +73,7 @@ describe("POST /api/webhooks/inbound-email", () => {
     expect(res.body.ticket.fromEmail).toBe(VALID_BODY.fromEmail);
     expect(res.body.ticket.subject).toBe(VALID_BODY.subject);
     expect(res.body.ticket.body).toBe(VALID_BODY.body);
-    expect(res.body.ticket.status).toBe(TicketStatus.open);
+    expect(res.body.ticket.status).toBe(TicketStatus.new);
     expect(res.body.ticket.category).toBeNull();
 
     createdTicketId = res.body.ticket.id;

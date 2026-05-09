@@ -4,6 +4,7 @@ import { prisma } from "../lib/prisma";
 import { firstIssue } from "../lib/validation";
 import boss from "../lib/boss";
 import { CLASSIFY_TICKET_QUEUE } from "../lib/classify-ticket";
+import { AUTO_RESOLVE_TICKET_QUEUE } from "../lib/auto-resolve-ticket";
 
 const router = Router();
 
@@ -19,7 +20,7 @@ router.post("/inbound-email", async (req, res) => {
   const existingTicket = await prisma.ticket.findFirst({
     where: {
       fromEmail,
-      status: { in: [TicketStatus.open, TicketStatus.resolved] },
+      status: { in: [TicketStatus.new, TicketStatus.processing, TicketStatus.open, TicketStatus.resolved] },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -39,10 +40,11 @@ router.post("/inbound-email", async (req, res) => {
   }
 
   const ticket = await prisma.ticket.create({
-    data: { fromName, fromEmail, subject, body: body ?? "", bodyHtml: bodyHtml ?? null, status: TicketStatus.open },
+    data: { fromName, fromEmail, subject, body: body ?? "", bodyHtml: bodyHtml ?? null, status: TicketStatus.new },
   });
 
   await boss.send(CLASSIFY_TICKET_QUEUE, { id: ticket.id, subject: ticket.subject, body: ticket.body });
+  await boss.send(AUTO_RESOLVE_TICKET_QUEUE, { id: ticket.id, fromName: ticket.fromName, subject: ticket.subject, body: ticket.body });
 
   res.status(201).json({ type: "ticket", ticket });
 });

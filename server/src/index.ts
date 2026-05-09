@@ -1,14 +1,13 @@
 import app from "./app";
 import boss from "./lib/boss";
-import { CLASSIFY_TICKET_QUEUE, classifyTicketWorker } from "./lib/classify-ticket";
+import { setupQueues } from "./lib/queue";
 
 if (!process.env.WEBHOOK_SECRET) {
   throw new Error("WEBHOOK_SECRET environment variable is not set");
 }
 
 await boss.start();
-await boss.createQueue(CLASSIFY_TICKET_QUEUE);
-await boss.work(CLASSIFY_TICKET_QUEUE, classifyTicketWorker);
+await setupQueues();
 
 const PORT = process.env.PORT || 3000;
 

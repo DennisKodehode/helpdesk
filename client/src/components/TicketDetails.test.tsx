@@ -39,6 +39,14 @@ describe("TicketDetails", () => {
     expect(screen.getByText("alice@example.com")).toBeInTheDocument();
   });
 
+  it("renders received and updated dates", () => {
+    renderWithProviders(<TicketDetails ticket={mockTicket} />);
+    expect(screen.getByText("Received")).toBeInTheDocument();
+    expect(screen.getByText("Updated")).toBeInTheDocument();
+    expect(screen.getByText(new Date("2024-01-15T10:30:00Z").toLocaleString())).toBeInTheDocument();
+    expect(screen.getByText(new Date("2024-01-15T11:00:00Z").toLocaleString())).toBeInTheDocument();
+  });
+
   it("renders the body content", () => {
     renderWithProviders(<TicketDetails ticket={mockTicket} />);
     expect(screen.getByText("It started smoking and then caught fire.")).toBeInTheDocument();
