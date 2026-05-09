@@ -70,6 +70,14 @@ bun run test:e2e:ui                  # Playwright UI mode
 bunx tsc --noEmit                    # from any workspace directory
 ```
 
+## Windows / bun notes
+
+**`BUN_INSTALL_CACHE_DIR`** is set permanently to `C:\bun-cache` in the Windows user environment. This prevents bun from using its default cache location which causes silent extraction failures on this machine (empty `dist/` and `cjs/` directories after install). Do not change this.
+
+**`@prisma/engines` postinstall** always fails on the first `bun install` run — just run it a second time.
+
+**Project location**: keep this project at `C:\Users\denni\code\helpdesk` (outside OneDrive). OneDrive evicts files from `node_modules` overnight, breaking bun's hardlink cache.
+
 ## Environment
 
 Copy `server/.env.example` → `server/.env`. Bun loads `.env` automatically — no dotenv package needed.
