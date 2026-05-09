@@ -1,4 +1,4 @@
-import { PgBoss } from "pg-boss";
+import type { Job } from "pg-boss";
 import { google } from "@ai-sdk/google";
 import { generateText } from "ai";
 import { TicketCategory } from "@helpdesk/core";
@@ -33,6 +33,6 @@ async function runClassification(data: ClassifyTicketJobData) {
   await prisma.ticket.update({ where: { id: data.id }, data: { category } });
 }
 
-export async function classifyTicketWorker([job]: PgBoss.Job<ClassifyTicketJobData>[]) {
+export async function classifyTicketWorker([job]: Job<ClassifyTicketJobData>[]) {
   await runClassification(job.data);
 }
