@@ -224,6 +224,52 @@ router.post("/:id/replies", requireAuth, async (req, res) => {
   res.status(201).json(reply);
 });
 
+router.post("/:id/summarize", requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid ticket ID" });
+    return;
+  }
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id },
+    select: { fromName: true, subject: true, body: true },
+  });
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  const replies = await prisma.reply.findMany({
+    where: { ticketId: id },
+    select: { senderType: true, body: true, author: { select: { name: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const conversation = [
+    `Customer (${ticket.fromName}): ${ticket.body}`,
+    ...replies.map(r =>
+      r.senderType === "agent"
+        ? `Agent (${r.author?.name ?? "Agent"}): ${r.body}`
+        : `Customer: ${r.body}`
+    ),
+  ].join("\n\n");
+
+  const prompt = [
+    "You are a customer support assistant. Summarize the following support ticket conversation in 2–4 sentences. " +
+    "Cover: what the customer's issue is, what has been done or offered so far, and the current status. Be concise and factual.",
+    `Subject: ${ticket.subject}`,
+    `Conversation:\n${conversation}`,
+  ].join("\n\n");
+
+  const { text } = await generateText({
+    model: google("gemini-2.5-flash-lite"),
+    prompt,
+  });
+
+  res.json({ summary: text });
+});
+
 router.post("/:id/polish-reply", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
