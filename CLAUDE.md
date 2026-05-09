@@ -150,6 +150,12 @@ Never write Playwright E2E tests directly. Always delegate to the `playwright-e2
 
 Trigger it after completing a UI feature or when explicitly asked to write E2E tests. The `playwright-e2e-writer` agent writes **Playwright E2E tests only** — not component tests or server integration tests.
 
+## Job queues (pg-boss)
+
+Queue setup (`boss.start()`, `createQueue()`, `work()`) lives in `server/src/index.ts`. With a single queue this is fine — `index.ts` is the right place for startup orchestration.
+
+If a second queue is added, extract all queue setup into `server/src/lib/queue.ts` and call it as a single `await setupQueues(boss)` from `index.ts` to keep startup clean.
+
 ## Error handling in fire-and-forget
 
 Never swallow errors silently with `.catch(() => {})`. Always log them:

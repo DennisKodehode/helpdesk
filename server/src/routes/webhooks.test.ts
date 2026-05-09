@@ -1,8 +1,10 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import request from "supertest";
 import app from "../app";
 import { prisma } from "../lib/prisma";
 import { TicketStatus, SenderType } from "@helpdesk/core";
+
+vi.mock("../lib/boss", () => ({ default: { send: vi.fn().mockResolvedValue("mock-job-id") } }));
 
 const VALID_HEADERS = { "x-webhook-secret": process.env.WEBHOOK_SECRET! };
 const VALID_BODY = {
