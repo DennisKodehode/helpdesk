@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import axios from "axios";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders, screen, waitFor, cleanup } from "../test/utils";
@@ -9,21 +9,20 @@ vi.mock("axios", () => ({
 }));
 
 afterEach(cleanup);
+beforeEach(() => vi.clearAllMocks());
 
 describe("ReplyForm", () => {
-  it("renders a textarea and submit button", () => {
+  it("renders a textarea, Polish button, and Send Reply button", () => {
     renderWithProviders(<ReplyForm ticketId="42" />);
     expect(screen.getByRole("textbox", { name: /reply body/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /polish/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /send reply/i })).toBeInTheDocument();
   });
 
-  it("shows a validation error when submitted empty", async () => {
-    const user = userEvent.setup();
+  it("disables Send Reply and Polish buttons when the textarea is empty", () => {
     renderWithProviders(<ReplyForm ticketId="42" />);
-
-    await user.click(screen.getByRole("button", { name: /send reply/i }));
-
-    expect(await screen.findByText(/reply cannot be empty/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /send reply/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /polish/i })).toBeDisabled();
   });
 
   it("calls POST /api/tickets/:id/replies with the body", async () => {
@@ -51,5 +50,57 @@ describe("ReplyForm", () => {
     await waitFor(() => {
       expect(textarea).toHaveValue("");
     });
+  });
+
+  it("calls POST /api/tickets/:id/polish-reply when Polish is clicked", async () => {
+    vi.mocked(axios.post).mockResolvedValue({ data: { body: "Polished." } });
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyForm ticketId="42" />);
+
+    await user.type(screen.getByRole("textbox", { name: /reply body/i }), "draft");
+    await user.click(screen.getByRole("button", { name: /polish/i }));
+
+    await waitFor(() => {
+      expect(axios.post).toHaveBeenCalledWith("/api/tickets/42/polish-reply", { body: "draft" });
+    });
+  });
+
+  it("updates the textarea with polished text and shows Refine button", async () => {
+    vi.mocked(axios.post).mockResolvedValue({ data: { body: "Polished reply." } });
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyForm ticketId="42" />);
+
+    await user.type(screen.getByRole("textbox", { name: /reply body/i }), "draft");
+    await user.click(screen.getByRole("button", { name: /polish/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("textbox", { name: /reply body/i })).toHaveValue("Polished reply.");
+    });
+    expect(screen.getByRole("button", { name: /refine/i })).toBeInTheDocument();
+  });
+
+  it("shows an error alert when Polish fails", async () => {
+    vi.mocked(axios.post).mockRejectedValue(new Error("Network error"));
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyForm ticketId="42" />);
+
+    await user.type(screen.getByRole("textbox", { name: /reply body/i }), "draft");
+    await user.click(screen.getByRole("button", { name: /polish/i }));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+  });
+
+  it("disables Refine button when refinement note is empty", async () => {
+    vi.mocked(axios.post).mockResolvedValue({ data: { body: "Polished." } });
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyForm ticketId="42" />);
+
+    await user.type(screen.getByRole("textbox", { name: /reply body/i }), "draft");
+    await user.click(screen.getByRole("button", { name: /polish/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /refine/i })).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: /refine/i })).toBeDisabled();
   });
 });

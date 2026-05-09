@@ -76,6 +76,7 @@ export default function ReplyForm({ ticketId }: Props) {
       {isPolished && (
         <Textarea
           className="resize-y field-sizing-fixed"
+          aria-label="Refinement note"
           placeholder="Not quite right? Describe what to improve…"
           rows={2}
           value={refinementNote}
