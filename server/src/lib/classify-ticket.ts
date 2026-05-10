@@ -22,10 +22,16 @@ async function runClassification(data: ClassifyTicketJobData) {
     `Subject: ${data.subject}\n` +
     `Message: ${data.body}`;
 
-  const { text } = await generateText({
-    model: google("gemini-2.5-flash-lite"),
-    prompt,
-  });
+  let text: string;
+  try {
+    ({ text } = await generateText({
+      model: google("gemini-2.5-flash-lite"),
+      prompt,
+    }));
+  } catch (err) {
+    console.error("classify-ticket generateText failed:", err);
+    return;
+  }
 
   const category = text.trim() as TicketCategory;
   if (!CATEGORIES.includes(category)) return;

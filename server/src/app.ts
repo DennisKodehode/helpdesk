@@ -5,6 +5,7 @@ import { auth } from "./lib/auth";
 import agentsRouter from "./routes/agents";
 import usersRouter from "./routes/users";
 import ticketsRouter from "./routes/tickets";
+import statsRouter from "./routes/stats";
 import webhooksRouter from "./routes/webhooks";
 import { requireWebhookSecret } from "./middleware/webhook-middleware";
 
@@ -22,6 +23,7 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/agents", agentsRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/tickets", ticketsRouter);
+app.use("/api/stats", statsRouter);
 app.use("/api/webhooks", requireWebhookSecret, webhooksRouter);
 
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {

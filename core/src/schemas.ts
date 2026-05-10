@@ -136,3 +136,24 @@ export const polishReplySchema = z.object({
   body: z.string().trim().min(1, "Reply cannot be empty").max(10_000),
   refinementNote: z.string().trim().max(500).optional(),
 });
+
+export const dailyTicketCountSchema = z.object({
+  date: z.string(),
+  count: z.number(),
+});
+
+export type DailyTicketCount = z.infer<typeof dailyTicketCountSchema>;
+
+export const ticketsPerDayResponseSchema = z.array(dailyTicketCountSchema);
+
+export type TicketsPerDayResponse = z.infer<typeof ticketsPerDayResponseSchema>;
+
+export const statsResponseSchema = z.object({
+  totalTickets: z.number(),
+  openTickets: z.number(),
+  resolvedByAI: z.number(),
+  percentResolvedByAI: z.number(),
+  avgResolutionMinutes: z.number().nullable(),
+});
+
+export type StatsResponse = z.infer<typeof statsResponseSchema>;

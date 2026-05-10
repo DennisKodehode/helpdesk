@@ -108,6 +108,7 @@ model Ticket {
   assignedTo   User?    @relation(fields: [assignedToId], references: [id])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  resolvedAt   DateTime?
   replies      Reply[]
 
   @@map("ticket")

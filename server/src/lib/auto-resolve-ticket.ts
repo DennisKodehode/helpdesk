@@ -14,7 +14,11 @@ type AutoResolveJobData = { id: number; fromName: string; subject: string; body:
 const KNOWLEDGE_BASE = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../knowledge-base.md"), "utf-8");
 
 async function runAutoResolve(data: AutoResolveJobData) {
-  await prisma.ticket.update({ where: { id: data.id }, data: { status: TicketStatus.processing } });
+  const aiUser = await prisma.user.findUnique({ where: { email: "ai@helpdesk.internal" } });
+  await prisma.ticket.update({
+    where: { id: data.id },
+    data: { status: TicketStatus.processing, assignedToId: aiUser?.id ?? null },
+  });
 
   const prompt =
     `You are a customer support agent.\n\n` +
@@ -43,7 +47,7 @@ async function runAutoResolve(data: AutoResolveJobData) {
     }));
   } catch (err) {
     console.error("auto-resolve generateText failed:", err);
-    await prisma.ticket.update({ where: { id: data.id }, data: { status: TicketStatus.open } });
+    await prisma.ticket.update({ where: { id: data.id }, data: { status: TicketStatus.open, assignedToId: null } });
     return;
   }
 
@@ -51,7 +55,8 @@ async function runAutoResolve(data: AutoResolveJobData) {
   try {
     parsed = JSON.parse(text.trim());
   } catch {
-    await prisma.ticket.update({ where: { id: data.id }, data: { status: TicketStatus.open } });
+    console.error("auto-resolve: failed to parse AI response:", text);
+    await prisma.ticket.update({ where: { id: data.id }, data: { status: TicketStatus.open, assignedToId: null } });
     return;
   }
 
@@ -67,11 +72,11 @@ async function runAutoResolve(data: AutoResolveJobData) {
       }),
       prisma.ticket.update({
         where: { id: data.id },
-        data: { status: TicketStatus.resolved },
+        data: { status: TicketStatus.resolved, resolvedAt: new Date() },
       }),
     ]);
   } else {
-    await prisma.ticket.update({ where: { id: data.id }, data: { status: TicketStatus.open } });
+    await prisma.ticket.update({ where: { id: data.id }, data: { status: TicketStatus.open, assignedToId: null } });
   }
 }
 

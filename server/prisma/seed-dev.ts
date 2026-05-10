@@ -5,6 +5,23 @@ import { prisma } from "../src/lib/prisma";
 async function main() {
   const ctx = await auth.$context;
 
+  // AI agent user (virtual agent for auto-resolution tracking)
+  const now = new Date();
+  const aiUser = await prisma.user.upsert({
+    where: { email: "ai@helpdesk.internal" },
+    update: {},
+    create: {
+      id: generateId(),
+      email: "ai@helpdesk.internal",
+      name: "AI",
+      role: "agent",
+      emailVerified: true,
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
+  console.log("AI user ready:", aiUser.email);
+
   // Agent
   const agentEmail = "agent@example.com";
   let agent = await prisma.user.findUnique({ where: { email: agentEmail } });

@@ -145,6 +145,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
     data: {
       ...(result.data.assignedToId !== undefined && { assignedToId: result.data.assignedToId }),
       ...(result.data.status !== undefined && { status: result.data.status }),
+      ...(result.data.status === TicketStatus.resolved && !ticket.resolvedAt && { resolvedAt: new Date() }),
       ...(result.data.category !== undefined && { category: result.data.category }),
     },
     select: {
