@@ -6,6 +6,7 @@ import { google } from "@ai-sdk/google";
 import { generateText } from "ai";
 import { SenderType, TicketStatus } from "@helpdesk/core";
 import { prisma } from "./prisma";
+import { getAiUserId } from "./ai-user";
 
 export const AUTO_RESOLVE_TICKET_QUEUE = "auto-resolve-ticket";
 
@@ -14,10 +15,15 @@ type AutoResolveJobData = { id: number; fromName: string; subject: string; body:
 const KNOWLEDGE_BASE = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../knowledge-base.md"), "utf-8");
 
 async function runAutoResolve(data: AutoResolveJobData) {
-  const aiUser = await prisma.user.findUnique({ where: { email: "ai@helpdesk.internal" } });
+  const aiUserId = getAiUserId();
+  if (!aiUserId) {
+    console.warn(`auto-resolve: skipping ticket ${data.id} — AI agent user not found`);
+    return;
+  }
+
   await prisma.ticket.update({
     where: { id: data.id },
-    data: { status: TicketStatus.processing, assignedToId: aiUser?.id ?? null },
+    data: { status: TicketStatus.processing, assignedToId: aiUserId },
   });
 
   const prompt =

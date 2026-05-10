@@ -1,41 +1,30 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth-middleware";
-import { TicketStatus } from "@helpdesk/core";
+import { getAiUserId } from "../lib/ai-user";
+
+type TicketStatsRow = {
+  total_tickets: bigint;
+  open_tickets: bigint;
+  total_resolved: bigint;
+  ai_resolved: bigint;
+  percent_resolved_by_ai: number | null;
+  avg_resolution_minutes: number | null;
+};
 
 const router = Router();
 
 router.get("/", requireAuth, async (_req, res) => {
-  const aiUser = await prisma.user.findUnique({ where: { email: "ai@helpdesk.internal" } });
+  const aiUserId = getAiUserId();
 
-  const resolvedStatuses = [TicketStatus.resolved, TicketStatus.closed];
-
-  const [total, open, totalResolved, aiResolved, avgResult] = await Promise.all([
-    prisma.ticket.count(),
-    prisma.ticket.count({ where: { status: TicketStatus.open } }),
-    prisma.ticket.count({ where: { status: { in: resolvedStatuses } } }),
-    aiUser
-      ? prisma.ticket.count({
-          where: { status: { in: resolvedStatuses }, assignedToId: aiUser.id },
-        })
-      : Promise.resolve(0),
-    prisma.$queryRaw<[{ avg_seconds: unknown }]>`
-      SELECT EXTRACT(EPOCH FROM AVG("resolvedAt" - "createdAt")) AS avg_seconds
-      FROM ticket
-      WHERE "resolvedAt" IS NOT NULL
-    `,
-  ]);
-
-  const rawAvg = avgResult[0]?.avg_seconds;
-  const avgResolutionMinutes =
-    rawAvg != null ? Math.round((Number(rawAvg) / 60) * 10) / 10 : null;
+  const [row] = await prisma.$queryRaw<[TicketStatsRow]>`SELECT * FROM get_ticket_stats(${aiUserId})`;
 
   res.json({
-    totalTickets: total,
-    openTickets: open,
-    resolvedByAI: aiResolved,
-    percentResolvedByAI: totalResolved > 0 ? Math.round((aiResolved / totalResolved) * 1000) / 10 : 0,
-    avgResolutionMinutes,
+    totalTickets: Number(row.total_tickets),
+    openTickets: Number(row.open_tickets),
+    resolvedByAI: Number(row.ai_resolved),
+    percentResolvedByAI: Number(row.percent_resolved_by_ai ?? 0),
+    avgResolutionMinutes: row.avg_resolution_minutes != null ? Number(row.avg_resolution_minutes) : null,
   });
 });
 

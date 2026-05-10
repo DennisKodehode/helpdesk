@@ -10,7 +10,7 @@ const router = Router();
 
 router.get("/", ...requireAdminChain, async (_req, res) => {
   const users = await prisma.user.findMany({
-    where: { deletedAt: null },
+    where: { deletedAt: null, NOT: { email: "ai@helpdesk.internal" } },
     select: { id: true, name: true, email: true, role: true, createdAt: true },
     orderBy: { createdAt: "desc" },
   });

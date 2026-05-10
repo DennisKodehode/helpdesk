@@ -4,6 +4,7 @@ import { generateId } from "better-auth";
 import app from "../app";
 import { auth } from "../lib/auth";
 import { prisma } from "../lib/prisma";
+import { initAiUserId } from "../lib/ai-user";
 import { TicketStatus } from "@helpdesk/core";
 
 describe("GET /api/stats", () => {
@@ -40,6 +41,7 @@ describe("GET /api/stats", () => {
     });
     const aiUser = await prisma.user.findUnique({ where: { email: "ai@helpdesk.internal" } });
     aiUserId = aiUser!.id;
+    await initAiUserId();
   });
 
   afterAll(async () => {

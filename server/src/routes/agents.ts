@@ -7,7 +7,7 @@ const router = Router();
 
 router.get("/", requireAuth, async (_req, res) => {
   const agents = await prisma.user.findMany({
-    where: { role: Role.agent, deletedAt: null },
+    where: { role: Role.agent, deletedAt: null, NOT: { email: "ai@helpdesk.internal" } },
     select: { id: true, name: true, email: true },
     orderBy: { name: "asc" },
   });

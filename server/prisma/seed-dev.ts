@@ -6,21 +6,24 @@ async function main() {
   const ctx = await auth.$context;
 
   // AI agent user (virtual agent for auto-resolution tracking)
-  const now = new Date();
-  const aiUser = await prisma.user.upsert({
-    where: { email: "ai@helpdesk.internal" },
-    update: {},
-    create: {
-      id: generateId(),
-      email: "ai@helpdesk.internal",
-      name: "AI",
-      role: "agent",
-      emailVerified: true,
-      createdAt: now,
-      updatedAt: now,
-    },
-  });
-  console.log("AI user ready:", aiUser.email);
+  const existingAiUser = await prisma.user.findUnique({ where: { email: "ai@helpdesk.internal" } });
+  if (existingAiUser) {
+    console.log("AI user already exists:", existingAiUser.email);
+  } else {
+    const now = new Date();
+    await prisma.user.create({
+      data: {
+        id: generateId(),
+        email: "ai@helpdesk.internal",
+        name: "AI",
+        role: "agent",
+        emailVerified: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    console.log("AI user created: ai@helpdesk.internal");
+  }
 
   // Agent
   const agentEmail = "agent@example.com";
