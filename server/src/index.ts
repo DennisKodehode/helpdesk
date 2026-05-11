@@ -2,8 +2,11 @@ import app from "./app";
 import boss from "./lib/boss";
 import { setupQueues } from "./lib/queue";
 
-if (!process.env.WEBHOOK_SECRET) {
-  throw new Error("WEBHOOK_SECRET environment variable is not set");
+if (!process.env.RESEND_API_KEY) {
+  throw new Error("RESEND_API_KEY environment variable is not set");
+}
+if (!process.env.RESEND_WEBHOOK_SECRET) {
+  throw new Error("RESEND_WEBHOOK_SECRET environment variable is not set");
 }
 
 await boss.start();

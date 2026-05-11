@@ -6,13 +6,18 @@ import agentsRouter from "./routes/agents";
 import usersRouter from "./routes/users";
 import ticketsRouter from "./routes/tickets";
 import statsRouter from "./routes/stats";
-import webhooksRouter from "./routes/webhooks";
-import { requireWebhookSecret } from "./middleware/webhook-middleware";
+import inboundEmailRouter from "./routes/inbound-email";
 
 const app = express();
 
 app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }) as RequestHandler);
-app.use(express.json());
+app.use(
+  express.json({
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf.toString();
+    },
+  }),
+);
 
 app.all("/api/auth/*splat", toNodeHandler(auth));
 
@@ -24,7 +29,7 @@ app.use("/api/agents", agentsRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/tickets", ticketsRouter);
 app.use("/api/stats", statsRouter);
-app.use("/api/webhooks", requireWebhookSecret, webhooksRouter);
+app.use("/api/inbound-email", inboundEmailRouter);
 
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   console.error(err);
