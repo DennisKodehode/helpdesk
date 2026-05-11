@@ -6,7 +6,8 @@ import { ticketSortSchema, updateTicketSchema, createReplySchema, polishReplySch
 import { firstIssue } from "../lib/validation";
 import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
-import { sendReplyEmail } from "../lib/email";
+import boss from "../lib/boss";
+import { SEND_REPLY_EMAIL_QUEUE } from "../lib/send-reply-email-job";
 
 const router = Router();
 
@@ -224,14 +225,14 @@ router.post("/:id/replies", requireAuth, async (req, res) => {
     select: REPLY_SELECT,
   });
 
-  res.status(201).json(reply);
-
-  sendReplyEmail({
+  await boss.send(SEND_REPLY_EMAIL_QUEUE, {
     to: ticket.fromEmail,
     toName: ticket.fromName,
     subject: ticket.subject,
     replyBody: result.data.body,
-  }).catch((err) => console.error("[email] Failed to send reply email for ticket", id, err));
+  });
+
+  res.status(201).json(reply);
 });
 
 router.post("/:id/summarize", requireAuth, async (req, res) => {

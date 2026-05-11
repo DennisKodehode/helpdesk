@@ -5,10 +5,11 @@ import app from "../app";
 import { auth } from "../lib/auth";
 import { prisma } from "../lib/prisma";
 import { TicketStatus, TicketCategory } from "@helpdesk/core";
-import { sendReplyEmail } from "../lib/email";
+import boss from "../lib/boss";
+import { SEND_REPLY_EMAIL_QUEUE } from "../lib/send-reply-email-job";
 
-vi.mock("../lib/email", () => ({
-  sendReplyEmail: vi.fn().mockResolvedValue(undefined),
+vi.mock("../lib/boss", () => ({
+  default: { send: vi.fn().mockResolvedValue("mock-job-id") },
 }));
 
 describe("GET /api/tickets", () => {
@@ -747,35 +748,22 @@ describe("POST /api/tickets/:id/replies", () => {
     expect(typeof res.body.createdAt).toBe("string");
   });
 
-  it("calls sendReplyEmail with the ticket's email and the reply body", async () => {
-    vi.mocked(sendReplyEmail).mockClear();
+  it("enqueues a send-reply-email job with the ticket's email and reply body", async () => {
+    vi.mocked(boss.send).mockClear();
 
     await request(app)
       .post(`/api/tickets/${ticketId}/replies`)
       .set("Cookie", authCookie)
       .send({ body: "Here is your answer." });
 
-    await new Promise((resolve) => setImmediate(resolve));
-
-    expect(vi.mocked(sendReplyEmail)).toHaveBeenCalledOnce();
-    expect(vi.mocked(sendReplyEmail)).toHaveBeenCalledWith(
+    expect(vi.mocked(boss.send)).toHaveBeenCalledOnce();
+    expect(vi.mocked(boss.send)).toHaveBeenCalledWith(
+      SEND_REPLY_EMAIL_QUEUE,
       expect.objectContaining({
         to: "postreply@example.com",
         replyBody: "Here is your answer.",
       }),
     );
-  });
-
-  it("still returns 201 when sendReplyEmail throws", async () => {
-    vi.mocked(sendReplyEmail).mockRejectedValueOnce(new Error("Resend API down"));
-
-    const res = await request(app)
-      .post(`/api/tickets/${ticketId}/replies`)
-      .set("Cookie", authCookie)
-      .send({ body: "Reply despite email failure." });
-
-    expect(res.status).toBe(201);
-    expect(res.body.body).toBe("Reply despite email failure.");
   });
 });
 
