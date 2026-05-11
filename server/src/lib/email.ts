@@ -10,11 +10,12 @@ export interface SendReplyEmailParams {
 }
 
 export async function sendReplyEmail({ to, toName, subject, replyBody }: SendReplyEmailParams): Promise<void> {
-  await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: EMAIL_FROM,
     to: `${toName} <${to}>`,
     subject: `Re: ${subject}`,
     text: replyBody,
     html: `<p>${replyBody.replace(/\n/g, "<br>")}</p>`,
   });
+  if (error) throw new Error(error.message);
 }

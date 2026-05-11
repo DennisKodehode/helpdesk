@@ -8,10 +8,7 @@ import resend from "../lib/resend";
 vi.mock("../lib/resend", () => ({
   default: {
     webhooks: { verify: vi.fn() },
-    emails: {
-      receiving: { get: vi.fn() },
-      send: vi.fn(),
-    },
+    emails: { send: vi.fn() },
   },
 }));
 vi.mock("../lib/boss", () => ({ default: { send: vi.fn().mockResolvedValue("mock-job-id") } }));
@@ -22,19 +19,17 @@ const SVIX_HEADERS = {
   "svix-signature": "v1,test_signature",
 };
 
-// Webhook payload — from/subject come from here, not the API
-const makeEvent = (overrides: { from?: string; subject?: string } = {}) => ({
+const makeEvent = (overrides: { from?: string; subject?: string; text?: string; html?: string } = {}) => ({
   type: "email.received",
   data: {
     email_id: "email-test-123",
     from: overrides.from ?? "Alice <alice@example.com>",
     subject: overrides.subject ?? "Hello",
     to: ["support@contact.tjemsland.dev"],
+    text: overrides.text ?? "Hi there",
+    html: overrides.html ?? "<p>Hi there</p>",
   },
 });
-
-// API response — only body content comes from here
-const MOCK_API_BODY = { text: "Hi there", html: "<p>Hi there</p>" };
 
 describe("POST /api/inbound-email", () => {
   let createdTicketId: number | undefined;
@@ -42,8 +37,6 @@ describe("POST /api/inbound-email", () => {
 
   beforeEach(() => {
     vi.mocked(resend.webhooks.verify).mockReset();
-    vi.mocked(resend.emails.receiving.get).mockReset();
-    vi.mocked(resend.emails.receiving.get).mockResolvedValue({ data: MOCK_API_BODY as any, error: null, headers: null });
   });
 
   afterEach(async () => {
@@ -95,17 +88,6 @@ describe("POST /api/inbound-email", () => {
     expect(inDb).not.toBeNull();
   });
 
-  it("creates a ticket with empty body when the API call to retrieve email body fails", async () => {
-    vi.mocked(resend.emails.receiving.get).mockRejectedValueOnce(new Error("API error"));
-
-    const res = await request(app).post("/api/inbound-email").set(SVIX_HEADERS).send(makeEvent());
-
-    expect(res.status).toBe(201);
-    expect(res.body.type).toBe("ticket");
-    expect(res.body.ticket.body).toBe("");
-    createdTicketId = res.body.ticket.id;
-  });
-
   it("defaults subject to '(no subject)' when email has no subject", async () => {
     const res = await request(app)
       .post("/api/inbound-email")
@@ -136,19 +118,16 @@ describe("POST /api/inbound-email", () => {
     createdTicketId = res.body.ticket.id;
   });
 
-  it("creates a customer reply on the existing open ticket when fromEmail matches", async () => {
+  it("creates a customer reply on the existing open ticket when fromEmail and subject match", async () => {
     const existing = await prisma.ticket.create({
-      data: { fromName: "Alice", fromEmail: "alice@example.com", subject: "Original", body: "First message", status: TicketStatus.open },
+      data: { fromName: "Alice", fromEmail: "alice@example.com", subject: "Hello", body: "First message", status: TicketStatus.open },
     });
     createdTicketId = existing.id;
 
-    vi.mocked(resend.emails.receiving.get).mockResolvedValueOnce({
-      data: { text: "Follow-up message", html: "<p>Follow-up message</p>" } as any,
-      error: null,
-      headers: null,
-    });
-
-    const res = await request(app).post("/api/inbound-email").set(SVIX_HEADERS).send(makeEvent());
+    const res = await request(app)
+      .post("/api/inbound-email")
+      .set(SVIX_HEADERS)
+      .send(makeEvent({ subject: "Re: Hello", text: "Follow-up message", html: "<p>Follow-up message</p>" }));
 
     expect(res.status).toBe(201);
     expect(res.body.type).toBe("reply");
@@ -158,19 +137,33 @@ describe("POST /api/inbound-email", () => {
     createdReplyId = res.body.reply.id;
   });
 
+  it("creates a new ticket when fromEmail matches but subject is different", async () => {
+    const existing = await prisma.ticket.create({
+      data: { fromName: "Alice", fromEmail: "alice@example.com", subject: "Hello", body: "First message", status: TicketStatus.open },
+    });
+
+    const res = await request(app)
+      .post("/api/inbound-email")
+      .set(SVIX_HEADERS)
+      .send(makeEvent({ subject: "A completely different issue" }));
+
+    expect(res.status).toBe(201);
+    expect(res.body.type).toBe("ticket");
+    expect(res.body.ticket.id).not.toBe(existing.id);
+    createdTicketId = res.body.ticket.id;
+    await prisma.ticket.delete({ where: { id: existing.id } });
+  });
+
   it("creates a customer reply on a resolved ticket (not yet closed)", async () => {
     const existing = await prisma.ticket.create({
-      data: { fromName: "Alice", fromEmail: "alice@example.com", subject: "Original", body: "First message", status: TicketStatus.resolved },
+      data: { fromName: "Alice", fromEmail: "alice@example.com", subject: "Hello", body: "First message", status: TicketStatus.resolved },
     });
     createdTicketId = existing.id;
 
-    vi.mocked(resend.emails.receiving.get).mockResolvedValueOnce({
-      data: { text: "Actually I have another question", html: null } as any,
-      error: null,
-      headers: null,
-    });
-
-    const res = await request(app).post("/api/inbound-email").set(SVIX_HEADERS).send(makeEvent());
+    const res = await request(app)
+      .post("/api/inbound-email")
+      .set(SVIX_HEADERS)
+      .send(makeEvent({ subject: "Re: Hello", text: "Actually I have another question" }));
 
     expect(res.status).toBe(201);
     expect(res.body.type).toBe("reply");

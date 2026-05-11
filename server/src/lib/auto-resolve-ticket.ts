@@ -7,6 +7,7 @@ import { generateText } from "ai";
 import { SenderType, TicketStatus } from "@helpdesk/core";
 import { prisma } from "./prisma";
 import { getAiUserId } from "./ai-user";
+import { sendReplyEmail } from "./email";
 
 export const AUTO_RESOLVE_TICKET_QUEUE = "auto-resolve-ticket";
 
@@ -67,6 +68,11 @@ async function runAutoResolve(data: AutoResolveJobData) {
   }
 
   if (parsed.action === "resolve" && parsed.reply) {
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: data.id },
+      select: { fromName: true, fromEmail: true, subject: true },
+    });
+
     await prisma.$transaction([
       prisma.reply.create({
         data: {
@@ -81,6 +87,15 @@ async function runAutoResolve(data: AutoResolveJobData) {
         data: { status: TicketStatus.resolved, resolvedAt: new Date() },
       }),
     ]);
+
+    if (ticket) {
+      sendReplyEmail({
+        to: ticket.fromEmail,
+        toName: ticket.fromName,
+        subject: ticket.subject,
+        replyBody: parsed.reply,
+      }).catch((err) => console.error("[email] Failed to send auto-resolve email for ticket", data.id, err));
+    }
   } else {
     await prisma.ticket.update({ where: { id: data.id }, data: { status: TicketStatus.open, assignedToId: null } });
   }
