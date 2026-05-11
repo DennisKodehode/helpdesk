@@ -6,6 +6,8 @@ import boss from "../lib/boss";
 import { CLASSIFY_TICKET_QUEUE } from "../lib/classify-ticket";
 import { AUTO_RESOLVE_TICKET_QUEUE } from "../lib/auto-resolve-ticket";
 import resend from "../lib/resend";
+import he from "he";
+import EmailReplyParser from "email-reply-parser";
 
 const router = Router();
 
@@ -37,7 +39,7 @@ router.post("/", async (req, res) => {
 
   const event = JSON.parse(rawPayload) as {
     type: string;
-    data: { email_id: string; from: string; subject: string; to: string[]; text?: string; html?: string };
+    data: { email_id: string; from: string; subject: string; to: string[] };
   };
 
   if (event.type !== "email.received") {
@@ -45,8 +47,13 @@ router.post("/", async (req, res) => {
     return;
   }
 
-  const bodyText = event.data.text ?? undefined;
-  const bodyHtml = event.data.html ?? undefined;
+  const emailResult = await resend.emails.receiving.get(event.data.email_id);
+  if (emailResult.error) {
+    console.error("[inbound-email] Could not retrieve email body:", emailResult.error);
+  }
+  const rawText = emailResult.data?.text ?? "";
+  const bodyText = rawText ? new EmailReplyParser().parseReply(he.decode(rawText)) : undefined;
+  const bodyHtml = undefined;
 
   const { fromName, fromEmail } = parseFrom(event.data.from ?? "");
   const result = inboundEmailSchema.safeParse({

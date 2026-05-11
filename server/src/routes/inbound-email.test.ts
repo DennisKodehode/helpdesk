@@ -8,7 +8,10 @@ import resend from "../lib/resend";
 vi.mock("../lib/resend", () => ({
   default: {
     webhooks: { verify: vi.fn() },
-    emails: { send: vi.fn() },
+    emails: {
+      receiving: { get: vi.fn() },
+      send: vi.fn(),
+    },
   },
 }));
 vi.mock("../lib/boss", () => ({ default: { send: vi.fn().mockResolvedValue("mock-job-id") } }));
@@ -19,17 +22,18 @@ const SVIX_HEADERS = {
   "svix-signature": "v1,test_signature",
 };
 
-const makeEvent = (overrides: { from?: string; subject?: string; text?: string; html?: string } = {}) => ({
+// from/subject come from the webhook payload; body comes from the API
+const makeEvent = (overrides: { from?: string; subject?: string } = {}) => ({
   type: "email.received",
   data: {
     email_id: "email-test-123",
     from: overrides.from ?? "Alice <alice@example.com>",
     subject: overrides.subject ?? "Hello",
     to: ["support@contact.tjemsland.dev"],
-    text: overrides.text ?? "Hi there",
-    html: overrides.html ?? "<p>Hi there</p>",
   },
 });
+
+const MOCK_API_BODY = { text: "Hi there", html: "<p>Hi there</p>" };
 
 describe("POST /api/inbound-email", () => {
   let createdTicketId: number | undefined;
@@ -37,6 +41,8 @@ describe("POST /api/inbound-email", () => {
 
   beforeEach(() => {
     vi.mocked(resend.webhooks.verify).mockReset();
+    vi.mocked(resend.emails.receiving.get).mockReset();
+    vi.mocked(resend.emails.receiving.get).mockResolvedValue({ data: MOCK_API_BODY as any, error: null, headers: null });
   });
 
   afterEach(async () => {
@@ -88,6 +94,17 @@ describe("POST /api/inbound-email", () => {
     expect(inDb).not.toBeNull();
   });
 
+  it("creates a ticket with empty body when the API call to retrieve email body fails", async () => {
+    vi.mocked(resend.emails.receiving.get).mockResolvedValueOnce({ data: null, error: { name: "api_error", message: "API error" } as any, headers: null });
+
+    const res = await request(app).post("/api/inbound-email").set(SVIX_HEADERS).send(makeEvent({ from: "Bob <apierror@example.com>" }));
+
+    expect(res.status).toBe(201);
+    expect(res.body.type).toBe("ticket");
+    expect(res.body.ticket.body).toBe("");
+    createdTicketId = res.body.ticket.id;
+  });
+
   it("defaults subject to '(no subject)' when email has no subject", async () => {
     const res = await request(app)
       .post("/api/inbound-email")
@@ -124,10 +141,13 @@ describe("POST /api/inbound-email", () => {
     });
     createdTicketId = existing.id;
 
-    const res = await request(app)
-      .post("/api/inbound-email")
-      .set(SVIX_HEADERS)
-      .send(makeEvent({ subject: "Re: Hello", text: "Follow-up message", html: "<p>Follow-up message</p>" }));
+    vi.mocked(resend.emails.receiving.get).mockResolvedValueOnce({
+      data: { text: "Follow-up message", html: "<p>Follow-up message</p>" } as any,
+      error: null,
+      headers: null,
+    });
+
+    const res = await request(app).post("/api/inbound-email").set(SVIX_HEADERS).send(makeEvent({ subject: "Re: Hello" }));
 
     expect(res.status).toBe(201);
     expect(res.body.type).toBe("reply");
@@ -160,10 +180,13 @@ describe("POST /api/inbound-email", () => {
     });
     createdTicketId = existing.id;
 
-    const res = await request(app)
-      .post("/api/inbound-email")
-      .set(SVIX_HEADERS)
-      .send(makeEvent({ subject: "Re: Hello", text: "Actually I have another question" }));
+    vi.mocked(resend.emails.receiving.get).mockResolvedValueOnce({
+      data: { text: "Actually I have another question", html: null } as any,
+      error: null,
+      headers: null,
+    });
+
+    const res = await request(app).post("/api/inbound-email").set(SVIX_HEADERS).send(makeEvent({ subject: "Re: Hello" }));
 
     expect(res.status).toBe(201);
     expect(res.body.type).toBe("reply");
@@ -177,7 +200,7 @@ describe("POST /api/inbound-email", () => {
       data: { fromName: "Alice", fromEmail: "alice@example.com", subject: "Old issue", body: "Resolved long ago", status: TicketStatus.closed },
     });
 
-    const res = await request(app).post("/api/inbound-email").set(SVIX_HEADERS).send(makeEvent());
+    const res = await request(app).post("/api/inbound-email").set(SVIX_HEADERS).send(makeEvent({ subject: "Old issue" }));
 
     expect(res.status).toBe(201);
     expect(res.body.type).toBe("ticket");

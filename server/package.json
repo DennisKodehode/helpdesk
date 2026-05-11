@@ -21,7 +21,9 @@
     "ai": "^6.0.176",
     "better-auth": "~1.2.9",
     "cors": "^2.8.5",
+    "email-reply-parser": "^2.3.5",
     "express": "^5.1.0",
+    "he": "^1.2.0",
     "pg": "^8.13.3",
     "pg-boss": "^12.18.2",
     "resend": "^6.12.3",
@@ -30,6 +32,7 @@
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.1",
+    "@types/he": "^1.2.3",
     "@types/pg": "^8.11.10",
     "@types/supertest": "^6.0.2",
     "dotenv": "^17.4.2",
