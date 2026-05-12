@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/node";
 import type { Job } from "pg-boss";
 import { google } from "@ai-sdk/google";
 import { generateText } from "ai";
@@ -30,6 +31,7 @@ async function runClassification(data: ClassifyTicketJobData) {
     }));
   } catch (err) {
     console.error("classify-ticket generateText failed:", err);
+    Sentry.captureException(err);
     return;
   }
 

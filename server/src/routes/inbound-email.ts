@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/node";
 import { Router } from "express";
 import { inboundEmailSchema, TicketStatus, SenderType } from "@helpdesk/core";
 import { prisma } from "../lib/prisma";
@@ -50,6 +51,7 @@ router.post("/", async (req, res) => {
   const emailResult = await resend.emails.receiving.get(event.data.email_id);
   if (emailResult.error) {
     console.error("[inbound-email] Could not retrieve email body:", emailResult.error);
+    Sentry.captureException(emailResult.error);
   }
   const rawText = emailResult.data?.text ?? "";
   const bodyText = rawText ? new EmailReplyParser().parseReply(he.decode(rawText)) : undefined;

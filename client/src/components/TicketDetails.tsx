@@ -27,11 +27,11 @@ export default function TicketDetails({ ticket }: Props) {
           <dd className="text-gray-500">{ticket.fromEmail}</dd>
         </div>
         <div>
-          <dt className="inline text-gray-500 font-medium">Received: </dt>
+          <dt className="inline text-gray-500 font-medium after:content-[':']">Received</dt>{" "}
           <dd className="inline text-gray-900">{new Date(ticket.createdAt).toLocaleString()}</dd>
         </div>
         <div>
-          <dt className="inline text-gray-500 font-medium">Updated: </dt>
+          <dt className="inline text-gray-500 font-medium after:content-[':']">Updated</dt>{" "}
           <dd className="inline text-gray-900">{new Date(ticket.updatedAt).toLocaleString()}</dd>
         </div>
       </dl>

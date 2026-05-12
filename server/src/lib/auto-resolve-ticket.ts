@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/node";
 import { readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -55,6 +56,7 @@ async function runAutoResolve(data: AutoResolveJobData) {
     }));
   } catch (err) {
     console.error("auto-resolve generateText failed:", err);
+    Sentry.captureException(err);
     await prisma.ticket.update({ where: { id: data.id }, data: { status: TicketStatus.open, assignedToId: null } });
     return;
   }
@@ -64,6 +66,7 @@ async function runAutoResolve(data: AutoResolveJobData) {
     parsed = JSON.parse(text.trim());
   } catch {
     console.error("auto-resolve: failed to parse AI response:", text);
+    Sentry.captureMessage("auto-resolve: AI response was not valid JSON", "error");
     await prisma.ticket.update({ where: { id: data.id }, data: { status: TicketStatus.open, assignedToId: null } });
     return;
   }

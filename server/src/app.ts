@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/node";
 import express, { type ErrorRequestHandler, type RequestHandler } from "express";
 import cors from "cors";
 import { toNodeHandler } from "better-auth/node";
@@ -30,6 +31,8 @@ app.use("/api/users", usersRouter);
 app.use("/api/tickets", ticketsRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/inbound-email", inboundEmailRouter);
+
+Sentry.setupExpressErrorHandler(app);
 
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   console.error(err);

@@ -164,6 +164,18 @@ Never swallow errors silently with `.catch(() => {})`. Always log them:
 someAsyncTask().catch((err) => console.error("someAsyncTask failed:", err));
 ```
 
+## Sentry error monitoring
+
+Sentry is installed in both workspaces (`@sentry/node` server, `@sentry/react` client).
+
+- **Server DSN**: `SENTRY_DSN` in `server/.env` — Sentry is a no-op when this var is absent or `NODE_ENV=test`
+- **Client DSN**: `VITE_SENTRY_DSN` in `client/.env` — Sentry is a no-op when absent
+- Server init lives in `server/src/instrument.ts`, imported as the first line of `server/src/index.ts`
+- Express error capture: `Sentry.setupExpressErrorHandler(app)` in `app.ts`, placed before the custom error handler
+- Client init lives in `client/src/lib/sentry.ts`, imported in `client/src/main.tsx`
+- Client: `Sentry.ErrorBoundary` wraps the root in `client/src/main.tsx`
+- Performance tracing is **off** (`tracesSampleRate: 0`) to stay within the free tier (5K errors/month)
+
 ## Documentation — always use context7
 
 Before writing code that touches any library (Express, Prisma, Better Auth, Vite, React, TanStack Query, Resend, Anthropic SDK, Playwright, Vitest, shadcn/ui), **fetch current docs via context7**:

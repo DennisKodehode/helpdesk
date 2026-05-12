@@ -1,3 +1,4 @@
+import "./instrument";
 import app from "./app";
 import boss from "./lib/boss";
 import { setupQueues } from "./lib/queue";
