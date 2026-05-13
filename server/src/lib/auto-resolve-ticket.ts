@@ -81,7 +81,7 @@ async function runAutoResolve(data: AutoResolveJobData) {
       prisma.reply.create({
         data: {
           ticketId: data.id,
-          authorId: null,
+          authorId: aiUserId,
           senderType: SenderType.agent,
           body: parsed.reply,
         },
