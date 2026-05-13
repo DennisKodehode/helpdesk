@@ -55,7 +55,7 @@
 
 ## Phase 7 — AI Features
 
-- [ ] Set up Anthropic Claude API client
+- [ ] Set up Google Gemini via Vercel AI SDK (`@ai-sdk/google`)
 - [ ] Write knowledge base markdown file
 - [ ] Implement ticket classification (auto-assign category on ticket creation)
 - [ ] Implement AI-suggested reply (generated on ticket creation, agent reviews before sending)

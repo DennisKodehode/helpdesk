@@ -2,7 +2,7 @@
 
 ## What this is
 
-AI-powered ticket management system. Support emails arrive, get classified by Claude, and agents review AI-suggested replies before sending. Admins manage agents; agents manage tickets.
+AI-powered ticket management system. Support emails arrive, get auto-categorized by Gemini, and agents review AI-suggested replies before sending. Admins manage agents; agents manage tickets.
 
 ## Monorepo structure
 
@@ -27,7 +27,7 @@ Each workspace has its own `CLAUDE.md` with implementation details: `client/CLAU
 | Backend  | Express 5, TypeScript                                              |
 | Auth     | Better Auth (database sessions, email + password, role field)      |
 | ORM      | Prisma + PostgreSQL                                                |
-| AI       | Anthropic Claude API (classification, suggested replies, summaries)|
+| AI       | Google Gemini via Vercel AI SDK (`@ai-sdk/google`, model `gemini-2.5-flash-lite`) — categorization, suggested replies, summaries |
 | Email    | Resend (outbound replies + inbound webhook for ticket creation)    |
 | Testing  | Vitest (component + integration), Playwright (E2E)                |
 | Deploy   | Railway + Docker                                                   |
@@ -178,7 +178,7 @@ Sentry is installed in both workspaces (`@sentry/node` server, `@sentry/react` c
 
 ## Documentation — always use context7
 
-Before writing code that touches any library (Express, Prisma, Better Auth, Vite, React, TanStack Query, Resend, Anthropic SDK, Playwright, Vitest, shadcn/ui), **fetch current docs via context7**:
+Before writing code that touches any library (Express, Prisma, Better Auth, Vite, React, TanStack Query, Resend, Vercel AI SDK / `@ai-sdk/google`, Playwright, Vitest, shadcn/ui), **fetch current docs via context7**:
 
 1. `mcp__context7__resolve-library-id` — resolve the library name to a context7 ID
 2. `mcp__context7__query-docs` — query the docs for the specific topic

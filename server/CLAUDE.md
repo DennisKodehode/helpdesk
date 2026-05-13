@@ -35,6 +35,21 @@ PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION="<exact user consent message>" \
 
 > Prisma 7 blocks `migrate reset` when invoked by an AI without an explicit user consent message. Use the user's exact wording as the env var value.
 
+### Preventing migration drift
+
+**Never edit a migration file after it has been applied.** Prisma checksums every file on apply — any post-apply edit causes drift and blocks future `migrate dev` runs, requiring a full database reset to recover.
+
+Rules:
+- To change a Postgres function or any custom SQL: create a **new** migration that `DROP`s and re-creates it. Never edit the old file.
+- For custom SQL with no Prisma schema change, use `--create-only` to get an empty migration file, fill it in, then apply:
+  ```bash
+  bunx prisma migrate dev --create-only --name <descriptive_name>
+  # edit the generated migration.sql, then:
+  bun run db:migrate
+  ```
+- Never hand-craft migration directory timestamps — let Prisma generate them via the commands above.
+- If drift is detected: reset the dev DB (`bunx prisma migrate reset --force` with user consent) and re-seed. Do not use `migrate resolve` to paper over it.
+
 ## Integration tests (Vitest + supertest)
 
 Integration tests live colocated with their route file as `*.test.ts`. Write them directly — no sub-agent needed.

@@ -20,7 +20,7 @@
 
 ## AI
 
-- **Anthropic Claude API** — ticket classification, suggested replies, and summaries
+- **Google Gemini** via Vercel AI SDK (`@ai-sdk/google`, model `gemini-2.5-flash-lite`) — ticket categorization, suggested replies, and summaries
 - **Knowledge base markdown file** — used as context for AI responses; simple to start, easy to iterate
 
 ## Email
