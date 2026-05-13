@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import axios from "axios";
-import { renderWithProviders, screen, within, cleanup } from "../test/utils";
+import userEvent from "@testing-library/user-event";
+import { renderWithProviders, screen, within, waitFor, cleanup } from "../test/utils";
 import ReplyThread from "./ReplyThread";
 import { SenderType, TicketStatus, TicketCategory, type TicketDetail, type Reply } from "@helpdesk/core";
 
@@ -16,6 +17,7 @@ const mockTicket: TicketDetail = {
   fromEmail: "alice@example.com",
   subject: "My printer is on fire",
   body: "It started smoking and then caught fire.",
+  bodyHtml: null,
   status: TicketStatus.open,
   category: TicketCategory.technical_question,
   assignedToId: null,
@@ -25,19 +27,30 @@ const mockTicket: TicketDetail = {
 };
 
 describe("ReplyThread", () => {
-  it("shows 'No replies yet' when there are no replies", async () => {
+  it("always renders the original message as the first item", async () => {
     vi.mocked(axios.get).mockResolvedValue({ data: [] });
     renderWithProviders(<ReplyThread ticket={mockTicket} />);
-    expect(await screen.findByText("No replies yet")).toBeInTheDocument();
+    const thread = await screen.findByRole("list", { name: /reply thread/i });
+    expect(within(thread).getByText("It started smoking and then caught fire.")).toBeInTheDocument();
   });
 
-  it("renders replies from the server", async () => {
+  it("labels the original message as Customer", async () => {
+    vi.mocked(axios.get).mockResolvedValue({ data: [] });
+    renderWithProviders(<ReplyThread ticket={mockTicket} />);
+    const thread = await screen.findByRole("list", { name: /reply thread/i });
+    const items = within(thread).getAllByRole("listitem");
+    expect(within(items[0]).getByText("Customer")).toBeInTheDocument();
+    expect(within(items[0]).getByText("Alice Smith")).toBeInTheDocument();
+  });
+
+  it("renders agent replies after the original message", async () => {
     const replies: Reply[] = [
       {
         id: 1,
         ticketId: 42,
         senderType: SenderType.agent,
         body: "We are looking into it.",
+        bodyHtml: null,
         author: { id: "agent-1", name: "Bob Agent" },
         createdAt: "2024-01-15T12:00:00Z",
       },
@@ -45,8 +58,9 @@ describe("ReplyThread", () => {
     vi.mocked(axios.get).mockResolvedValue({ data: replies });
     renderWithProviders(<ReplyThread ticket={mockTicket} />);
     const thread = await screen.findByRole("list", { name: /reply thread/i });
-    expect(within(thread).getByText("We are looking into it.")).toBeInTheDocument();
-    expect(within(thread).getByText(/Bob Agent/)).toBeInTheDocument();
+    expect(await within(thread).findByText("We are looking into it.")).toBeInTheDocument();
+    expect(within(thread).getByText("Bob Agent")).toBeInTheDocument();
+    expect(within(thread).getAllByText("Agent").length).toBeGreaterThan(0);
   });
 
   it("strips event handler attributes from reply body HTML", async () => {
@@ -56,14 +70,59 @@ describe("ReplyThread", () => {
         ticketId: 42,
         senderType: SenderType.customer,
         body: '<img src="x" onerror="window.__xss=1"> Safe reply',
+        bodyHtml: null,
         author: null,
         createdAt: "2024-01-15T12:00:00Z",
       },
     ];
     vi.mocked(axios.get).mockResolvedValue({ data: replies });
     renderWithProviders(<ReplyThread ticket={mockTicket} />);
-    await screen.findByRole("list", { name: /reply thread/i });
+    expect(await screen.findByText(/Safe reply/)).toBeInTheDocument();
     expect(document.querySelector("[onerror]")).toBeNull();
-    expect(screen.getByText(/Safe reply/)).toBeInTheDocument();
+  });
+
+  it("renders a Summarize button", async () => {
+    vi.mocked(axios.get).mockResolvedValue({ data: [] });
+    renderWithProviders(<ReplyThread ticket={mockTicket} />);
+    await screen.findByRole("list", { name: /reply thread/i });
+    expect(screen.getByRole("button", { name: /summarize/i })).toBeInTheDocument();
+  });
+
+  it("calls POST /api/tickets/:id/summarize when Summarize is clicked", async () => {
+    vi.mocked(axios.get).mockResolvedValue({ data: [] });
+    vi.mocked(axios.post).mockResolvedValue({ data: { summary: "A summary." } });
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyThread ticket={mockTicket} />);
+    await screen.findByRole("list", { name: /reply thread/i });
+
+    await user.click(screen.getByRole("button", { name: /summarize/i }));
+
+    await waitFor(() => {
+      expect(axios.post).toHaveBeenCalledWith("/api/tickets/42/summarize");
+    });
+  });
+
+  it("displays the summary after a successful request", async () => {
+    vi.mocked(axios.get).mockResolvedValue({ data: [] });
+    vi.mocked(axios.post).mockResolvedValue({ data: { summary: "The printer caught fire and the agent is investigating." } });
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyThread ticket={mockTicket} />);
+    await screen.findByRole("list", { name: /reply thread/i });
+
+    await user.click(screen.getByRole("button", { name: /summarize/i }));
+
+    expect(await screen.findByText("The printer caught fire and the agent is investigating.")).toBeInTheDocument();
+  });
+
+  it("shows an error alert when the summarize request fails", async () => {
+    vi.mocked(axios.get).mockResolvedValue({ data: [] });
+    vi.mocked(axios.post).mockRejectedValue(new Error("Network error"));
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyThread ticket={mockTicket} />);
+    await screen.findByRole("list", { name: /reply thread/i });
+
+    await user.click(screen.getByRole("button", { name: /summarize/i }));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
   });
 });

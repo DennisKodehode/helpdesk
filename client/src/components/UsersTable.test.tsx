@@ -58,12 +58,12 @@ describe("error state", () => {
 // ---------------------------------------------------------------------------
 
 describe("empty state", () => {
-  it("shows 'No users found' when the list is empty", () => {
+  it("shows an empty state when the list is empty", () => {
     renderWithProviders(
       <UsersTable users={[]} isPending={false} isError={false} onDelete={vi.fn()} onEdit={vi.fn()} />
     );
 
-    expect(screen.getByText("No users found")).toBeInTheDocument();
+    expect(screen.getByText(/no agents yet/i)).toBeInTheDocument();
   });
 });
 
@@ -88,8 +88,8 @@ describe("loaded state", () => {
       <UsersTable users={mockUsers} isPending={false} isError={false} onDelete={vi.fn()} onEdit={vi.fn()} />
     );
 
-    expect(screen.getByText(Role.admin)).toBeInTheDocument();
-    expect(screen.getByText(Role.agent)).toBeInTheDocument();
+    expect(screen.getByText("Admin")).toBeInTheDocument();
+    expect(screen.getByText("Agent")).toBeInTheDocument();
   });
 
   it("calls onDelete with the correct user when Delete is clicked", async () => {

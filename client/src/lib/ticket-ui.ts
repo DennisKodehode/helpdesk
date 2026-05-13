@@ -1,13 +1,30 @@
 import { TicketStatus, TicketCategory } from "@helpdesk/core";
 
-export const BADGE_BASE = "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium";
+// Restrained pill: hairline border, soft tint, small caps mono label.
+export const BADGE_BASE =
+  "inline-flex items-center gap-1.5 rounded-full border px-2 py-[3px] text-[10px] font-mono font-medium uppercase tracking-[0.08em]";
 
+// A small color dot prefix — the pill itself stays calm.
+export const STATUS_DOT: Record<TicketStatus, string> = {
+  [TicketStatus.new]: "bg-sky-500",
+  [TicketStatus.processing]: "bg-violet-500",
+  [TicketStatus.open]: "bg-amber-500",
+  [TicketStatus.resolved]: "bg-emerald-500",
+  [TicketStatus.closed]: "bg-zinc-400 dark:bg-zinc-500",
+};
+
+// Pill styling: subtle tinted background, restrained text. One look across statuses.
 export const STATUS_STYLES: Record<TicketStatus, string> = {
-  [TicketStatus.new]: "bg-blue-100 text-blue-600",
-  [TicketStatus.processing]: "bg-purple-100 text-purple-700",
-  [TicketStatus.open]: "bg-amber-100 text-amber-700",
-  [TicketStatus.resolved]: "bg-green-100 text-green-700",
-  [TicketStatus.closed]: "bg-gray-100 text-gray-500",
+  [TicketStatus.new]:
+    "bg-sky-500/8 text-sky-700 border-sky-500/20 dark:text-sky-300 dark:bg-sky-400/10 dark:border-sky-400/20",
+  [TicketStatus.processing]:
+    "bg-violet-500/8 text-violet-700 border-violet-500/20 dark:text-violet-300 dark:bg-violet-400/10 dark:border-violet-400/20",
+  [TicketStatus.open]:
+    "bg-amber-500/8 text-amber-700 border-amber-500/20 dark:text-amber-300 dark:bg-amber-400/10 dark:border-amber-400/20",
+  [TicketStatus.resolved]:
+    "bg-emerald-500/8 text-emerald-700 border-emerald-500/20 dark:text-emerald-300 dark:bg-emerald-400/10 dark:border-emerald-400/20",
+  [TicketStatus.closed]:
+    "bg-muted text-muted-foreground border-border",
 };
 
 export const STATUS_LABELS: Record<TicketStatus, string> = {
@@ -17,6 +34,10 @@ export const STATUS_LABELS: Record<TicketStatus, string> = {
   [TicketStatus.resolved]: "Resolved",
   [TicketStatus.closed]: "Closed",
 };
+
+// Categories: no color tint, just a neutral pill — these are taxonomy, not state.
+export const CATEGORY_BADGE =
+  "bg-transparent text-muted-foreground border-border";
 
 export const CATEGORY_LABELS: Record<TicketCategory, string> = {
   [TicketCategory.general_question]: "General",

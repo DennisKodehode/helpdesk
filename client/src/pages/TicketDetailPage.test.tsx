@@ -60,7 +60,7 @@ describe("loading state", () => {
 describe("loaded state", () => {
   it("renders the back link", () => {
     renderWithProviders(<TicketDetailPage />);
-    expect(screen.getByRole("link", { name: /back to tickets/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /all tickets/i })).toBeInTheDocument();
   });
 
   it("fetches from the correct ticket endpoint", async () => {

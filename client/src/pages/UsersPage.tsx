@@ -1,6 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PageHeader from "@/components/ui/PageHeader";
 import UserDialog from "@/components/UserDialog";
@@ -32,10 +33,17 @@ export default function UsersPage() {
   });
 
   return (
-    <main className="p-8">
+    <main className="mx-auto max-w-6xl px-8 pt-12 pb-16">
       <PageHeader
-        title="Users"
-        action={<Button onClick={() => setDialogTarget("create")}>Add Agent</Button>}
+        eyebrow="Team"
+        title="Agents"
+        description="Manage who can sign in to the console and reply on behalf of your support team."
+        action={
+          <Button onClick={() => setDialogTarget("create")}>
+            <Plus />
+            Add agent
+          </Button>
+        }
       />
 
       <UsersTable

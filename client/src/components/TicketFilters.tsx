@@ -1,3 +1,4 @@
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -42,17 +43,23 @@ export default function TicketFilters({
   onCategoryChange,
 }: Props) {
   return (
-    <div className="flex gap-3 mb-4">
-      <Input
-        aria-label="Search tickets"
-        placeholder="Search by name, email or subject…"
-        value={search}
-        onChange={(e) => onSearchChange(e.target.value)}
-        className="h-8 w-72 text-sm"
-      />
+    <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="relative flex-1 min-w-[16rem] max-w-md">
+        <Search
+          aria-hidden
+          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60"
+        />
+        <Input
+          aria-label="Search tickets"
+          placeholder="Search by name, email, or subject…"
+          value={search}
+          onChange={(e) => onSearchChange(e.target.value)}
+          className="h-9 pl-9 text-[13px]"
+        />
+      </div>
 
       <Select value={status} onValueChange={(v) => onStatusChange(v as TicketStatus | "")}>
-        <SelectTrigger aria-label="Status" size="sm" className="w-36">
+        <SelectTrigger aria-label="Status" size="sm" className="h-9 w-36">
           <SelectValue>{(v: string | null) => STATUS_LABELS[v ?? ""]}</SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -64,7 +71,7 @@ export default function TicketFilters({
       </Select>
 
       <Select value={category} onValueChange={(v) => onCategoryChange(v as TicketCategory | "")}>
-        <SelectTrigger aria-label="Category" size="sm" className="w-40">
+        <SelectTrigger aria-label="Category" size="sm" className="h-9 w-40">
           <SelectValue>{(v: string | null) => CATEGORY_LABELS[v ?? ""]}</SelectValue>
         </SelectTrigger>
         <SelectContent>

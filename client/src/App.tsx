@@ -1,5 +1,5 @@
 import { Navigate, Outlet, Route, Routes } from "react-router";
-import Navbar from "./components/Navbar";
+import Sidebar from "./components/Sidebar";
 import { useSession } from "./lib/auth-client";
 import { Role } from "@helpdesk/core";
 import HomePage from "./pages/HomePage";
@@ -15,9 +15,11 @@ function ProtectedLayout() {
   if (!session) return <Navigate to="/login" replace />;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <Outlet />
+    <div className="min-h-screen bg-background">
+      <Sidebar />
+      <div className="md:pl-60">
+        <Outlet />
+      </div>
     </div>
   );
 }

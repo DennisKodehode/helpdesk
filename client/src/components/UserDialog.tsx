@@ -64,12 +64,14 @@ export default function UserDialog({ user, open, onOpenChange }: UserDialogProps
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit Agent" : "Add Agent"}</DialogTitle>
+          <DialogTitle className="display-serif text-2xl leading-tight">
+            {isEdit ? "Edit agent" : "New agent"}
+          </DialogTitle>
         </DialogHeader>
         <form
           onSubmit={handleSubmit((data) => saveUserMutation.mutate(data))}
           noValidate
-          className="flex flex-col gap-4 mt-2"
+          className="mt-2 flex flex-col gap-4"
         >
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="name">Name</Label>
@@ -109,8 +111,12 @@ export default function UserDialog({ user, open, onOpenChange }: UserDialogProps
           <DialogFooter className="mt-2">
             <Button type="submit" disabled={saveUserMutation.isPending}>
               {saveUserMutation.isPending
-                ? isEdit ? "Saving..." : "Creating..."
-                : isEdit ? "Save Changes" : "Create Agent"}
+                ? isEdit
+                  ? "Saving…"
+                  : "Creating…"
+                : isEdit
+                ? "Save changes"
+                : "Create agent"}
             </Button>
           </DialogFooter>
         </form>

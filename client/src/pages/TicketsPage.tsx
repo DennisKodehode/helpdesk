@@ -75,8 +75,12 @@ export default function TicketsPage() {
   const end = Math.min(page * PAGE_SIZE, total);
 
   return (
-    <main className="p-8">
-      <PageHeader title="Tickets" />
+    <main className="mx-auto max-w-7xl px-8 pt-12 pb-16">
+      <PageHeader
+        eyebrow="Queue"
+        title="Tickets"
+        description="Customer requests, auto-categorized by Gemini on arrival."
+      />
 
       <TicketFilters
         search={searchInput}

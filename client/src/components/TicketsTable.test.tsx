@@ -69,7 +69,7 @@ describe("loaded state", () => {
 
   it("renders status and category badges", () => {
     renderWithProviders(<TicketsTable {...defaultProps} />);
-    expect(screen.getByText(TicketStatus.open)).toBeInTheDocument();
+    expect(screen.getByText("Open")).toBeInTheDocument();
     expect(screen.getByText("Technical")).toBeInTheDocument();
     expect(screen.getByText("Refund")).toBeInTheDocument();
   });

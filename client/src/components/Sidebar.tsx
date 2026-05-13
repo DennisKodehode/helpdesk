@@ -1,0 +1,197 @@
+import { useState, useRef, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router";
+import { Link } from "@/components/ui/link";
+import { cn } from "@/lib/utils";
+import { signOut, useSession } from "../lib/auth-client";
+import { Role } from "@helpdesk/core";
+import { useTheme } from "@/lib/theme";
+import {
+  LayoutDashboard,
+  Inbox,
+  Users,
+  LogOut,
+  Sun,
+  Moon,
+  ChevronsUpDown,
+} from "lucide-react";
+
+interface NavItem {
+  to: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+function isActive(path: string, current: string): boolean {
+  if (path === "/") return current === "/";
+  return current.startsWith(path);
+}
+
+function SidebarLink({ item, active }: { item: NavItem; active: boolean }) {
+  const Icon = item.icon;
+  return (
+    <Link
+      to={item.to}
+      className={cn(
+        "group relative flex items-center gap-3 rounded-md px-2.5 py-1.5 text-[13px] transition-colors",
+        active
+          ? "bg-accent text-foreground"
+          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+      )}
+    >
+      {/* Active marker */}
+      <span
+        aria-hidden
+        className={cn(
+          "absolute -left-3 top-1/2 h-4 w-px -translate-y-1/2 transition-all",
+          active ? "bg-primary" : "bg-transparent"
+        )}
+      />
+      <Icon className={cn("size-4 shrink-0", active ? "text-foreground" : "text-muted-foreground/70")} />
+      <span className="leading-none">{item.label}</span>
+    </Link>
+  );
+}
+
+export default function Sidebar() {
+  const { data: session, isPending } = useSession();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const { theme, toggleTheme } = useTheme();
+
+  const role = (session?.user as Record<string, unknown>)?.role;
+  const name = session?.user.name ?? "";
+  const email = session?.user.email ?? "";
+  const initial = (name || email).trim().charAt(0).toUpperCase();
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
+
+  async function handleSignOut() {
+    setMenuOpen(false);
+    await signOut();
+    navigate("/login", { replace: true });
+  }
+
+  const primaryNav: NavItem[] = [
+    { to: "/", label: "Dashboard", icon: LayoutDashboard },
+    { to: "/tickets", label: "Tickets", icon: Inbox },
+  ];
+
+  const adminNav: NavItem[] = [{ to: "/users", label: "Agents", icon: Users }];
+
+  return (
+    <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-sidebar md:flex">
+      {/* Wordmark */}
+      <div className="flex h-14 items-center px-5">
+        <Link to="/" className="group inline-flex items-baseline gap-1.5">
+          <span className="display-serif text-[22px] leading-none text-foreground">
+            Helpdesk
+          </span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 leading-none">
+            v1
+          </span>
+        </Link>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto px-3 pt-2 pb-4">
+        <div className="px-2.5 pb-1.5">
+          <p className="eyebrow">Workspace</p>
+        </div>
+        <ul className="space-y-0.5">
+          {primaryNav.map((item) => (
+            <li key={item.to}>
+              <SidebarLink item={item} active={isActive(item.to, pathname)} />
+            </li>
+          ))}
+        </ul>
+
+        {!isPending && role === Role.admin && (
+          <>
+            <div className="px-2.5 pt-6 pb-1.5">
+              <p className="eyebrow">Administration</p>
+            </div>
+            <ul className="space-y-0.5">
+              {adminNav.map((item) => (
+                <li key={item.to}>
+                  <SidebarLink item={item} active={isActive(item.to, pathname)} />
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </nav>
+
+      {/* User menu */}
+      <div ref={menuRef} className="relative border-t border-border p-2">
+        {menuOpen && (
+          <div
+            role="menu"
+            className="absolute bottom-full left-2 right-2 mb-2 overflow-hidden rounded-md border border-border bg-popover shadow-[0_8px_30px_-12px_rgb(0_0_0_/_0.18)]"
+          >
+            <button
+              role="menuitem"
+              onClick={toggleTheme}
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] text-foreground hover:bg-accent transition-colors"
+            >
+              {theme === "dark" ? (
+                <Sun className="size-4 text-muted-foreground" />
+              ) : (
+                <Moon className="size-4 text-muted-foreground" />
+              )}
+              {theme === "dark" ? "Light mode" : "Dark mode"}
+            </button>
+            <div className="hairline-t" />
+            <button
+              role="menuitem"
+              onClick={handleSignOut}
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] text-foreground hover:bg-accent transition-colors"
+            >
+              <LogOut className="size-4 text-muted-foreground" />
+              Sign out
+            </button>
+          </div>
+        )}
+
+        <button
+          aria-label="Account menu"
+          aria-expanded={menuOpen}
+          aria-haspopup="menu"
+          onClick={() => setMenuOpen((v) => !v)}
+          className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent/60"
+        >
+          <div className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-[12px] font-medium text-primary">
+            {initial}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] font-medium text-foreground leading-tight">
+              {name || "Account"}
+            </p>
+            <p className="truncate font-mono text-[10px] text-muted-foreground leading-tight mt-0.5">
+              {role === Role.admin ? "Admin" : "Agent"}
+            </p>
+          </div>
+          <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground/60" />
+        </button>
+      </div>
+    </aside>
+  );
+}

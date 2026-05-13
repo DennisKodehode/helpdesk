@@ -1,13 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -37,44 +30,42 @@ export default function LoginForm({ onSubmit, serverError }: Props) {
   });
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader>
-        <CardTitle className="text-xl">Sign in</CardTitle>
-        <CardDescription>Helpdesk agent portal</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              aria-invalid={!!errors.email}
-              {...register("email")}
-            />
-            <FieldError message={errors.email?.message} />
-          </div>
+    <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
+      <div className="space-y-1.5">
+        <Label htmlFor="email" className="text-[12px] font-medium text-foreground">
+          Email
+        </Label>
+        <Input
+          id="email"
+          type="email"
+          placeholder="you@example.com"
+          aria-invalid={!!errors.email}
+          className="h-10 bg-transparent"
+          {...register("email")}
+        />
+        <FieldError message={errors.email?.message} />
+      </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              aria-invalid={!!errors.password}
-              {...register("password")}
-            />
-            <FieldError message={errors.password?.message} />
-          </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="password" className="text-[12px] font-medium text-foreground">
+          Password
+        </Label>
+        <Input
+          id="password"
+          type="password"
+          placeholder="••••••••"
+          aria-invalid={!!errors.password}
+          className="h-10 bg-transparent"
+          {...register("password")}
+        />
+        <FieldError message={errors.password?.message} />
+      </div>
 
-          {serverError && <ErrorAlert message={serverError} />}
+      {serverError && <ErrorAlert message={serverError} />}
 
-          <Button type="submit" disabled={isSubmitting} className="w-full" size="lg">
-            {isSubmitting ? "Signing in…" : "Sign in"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+      <Button type="submit" disabled={isSubmitting} className="w-full" size="lg">
+        {isSubmitting ? "Signing in…" : "Sign in"}
+      </Button>
+    </form>
   );
 }

@@ -42,7 +42,7 @@ describe("create mode", () => {
     it("renders the form when open", () => {
       renderCreate();
 
-      expect(screen.getByRole("heading", { name: "Add Agent" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "New agent" })).toBeInTheDocument();
       expect(screen.getByLabelText("Name")).toBeInTheDocument();
       expect(screen.getByLabelText("Email")).toBeInTheDocument();
       expect(screen.getByLabelText("Password")).toBeInTheDocument();
@@ -51,7 +51,7 @@ describe("create mode", () => {
     it("does not render the form when closed", () => {
       renderCreate(false);
 
-      expect(screen.queryByRole("heading", { name: "Add Agent" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "New agent" })).not.toBeInTheDocument();
     });
   });
 
@@ -60,7 +60,7 @@ describe("create mode", () => {
       const user = userEvent.setup();
       renderCreate();
 
-      await user.click(screen.getByRole("button", { name: "Create Agent" }));
+      await user.click(screen.getByRole("button", { name: "Create agent" }));
 
       await waitFor(() => {
         expect(screen.getByText("Name must be at least 3 characters")).toBeInTheDocument();
@@ -74,7 +74,7 @@ describe("create mode", () => {
       renderCreate();
 
       await user.type(screen.getByLabelText("Name"), "Al");
-      await user.click(screen.getByRole("button", { name: "Create Agent" }));
+      await user.click(screen.getByRole("button", { name: "Create agent" }));
 
       await waitFor(() => {
         expect(screen.getByText("Name must be at least 3 characters")).toBeInTheDocument();
@@ -86,7 +86,7 @@ describe("create mode", () => {
       renderCreate();
 
       await user.type(screen.getByLabelText("Email"), "not-an-email");
-      await user.click(screen.getByRole("button", { name: "Create Agent" }));
+      await user.click(screen.getByRole("button", { name: "Create agent" }));
 
       await waitFor(() => {
         expect(screen.getByText("Invalid email address")).toBeInTheDocument();
@@ -97,7 +97,7 @@ describe("create mode", () => {
       const user = userEvent.setup();
       renderCreate();
 
-      await user.click(screen.getByRole("button", { name: "Create Agent" }));
+      await user.click(screen.getByRole("button", { name: "Create agent" }));
 
       await waitFor(() => {
         expect(screen.getByText("Name must be at least 3 characters")).toBeInTheDocument();
@@ -116,7 +116,7 @@ describe("create mode", () => {
       await user.type(screen.getByLabelText("Name"), "Carol White");
       await user.type(screen.getByLabelText("Email"), "carol@example.com");
       await user.type(screen.getByLabelText("Password"), "securepassword");
-      await user.click(screen.getByRole("button", { name: "Create Agent" }));
+      await user.click(screen.getByRole("button", { name: "Create agent" }));
 
       await waitFor(() => {
         expect(axios.post).toHaveBeenCalledWith("/api/users", {
@@ -138,12 +138,12 @@ describe("create mode", () => {
       await user.type(screen.getByLabelText("Name"), "Alice Smith");
       await user.type(screen.getByLabelText("Email"), "alice@example.com");
       await user.type(screen.getByLabelText("Password"), "securepassword");
-      await user.click(screen.getByRole("button", { name: "Create Agent" }));
+      await user.click(screen.getByRole("button", { name: "Create agent" }));
 
       expect(await screen.findByText("Email already in use")).toBeInTheDocument();
     });
 
-    it("disables the button and shows 'Creating...' while the request is pending", async () => {
+    it("disables the button and shows 'Creating…' while the request is pending", async () => {
       const user = userEvent.setup();
       vi.mocked(axios.post).mockReturnValue(new Promise(() => {}));
       renderCreate();
@@ -151,10 +151,10 @@ describe("create mode", () => {
       await user.type(screen.getByLabelText("Name"), "Carol White");
       await user.type(screen.getByLabelText("Email"), "carol@example.com");
       await user.type(screen.getByLabelText("Password"), "securepassword");
-      await user.click(screen.getByRole("button", { name: "Create Agent" }));
+      await user.click(screen.getByRole("button", { name: "Create agent" }));
 
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: "Creating..." })).toBeDisabled();
+        expect(screen.getByRole("button", { name: "Creating…" })).toBeDisabled();
       });
     });
 
@@ -186,7 +186,7 @@ describe("edit mode", () => {
     it("renders the form when open", () => {
       renderEdit();
 
-      expect(screen.getByRole("heading", { name: "Edit Agent" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Edit agent" })).toBeInTheDocument();
       expect(screen.getByLabelText("Name")).toBeInTheDocument();
       expect(screen.getByLabelText("Email")).toBeInTheDocument();
       expect(screen.getByLabelText("Password")).toBeInTheDocument();
@@ -195,7 +195,7 @@ describe("edit mode", () => {
     it("does not render the form when closed", () => {
       renderEdit(false);
 
-      expect(screen.queryByRole("heading", { name: "Edit Agent" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Edit agent" })).not.toBeInTheDocument();
     });
   });
 
@@ -220,7 +220,7 @@ describe("edit mode", () => {
       renderEdit(true, { ...mockUser, name: "" });
 
       await user.clear(screen.getByLabelText("Name"));
-      await user.click(screen.getByRole("button", { name: "Save Changes" }));
+      await user.click(screen.getByRole("button", { name: "Save changes" }));
 
       await waitFor(() => {
         expect(screen.getByText("Name must be at least 3 characters")).toBeInTheDocument();
@@ -233,7 +233,7 @@ describe("edit mode", () => {
 
       await user.clear(screen.getByLabelText("Name"));
       await user.type(screen.getByLabelText("Name"), "Al");
-      await user.click(screen.getByRole("button", { name: "Save Changes" }));
+      await user.click(screen.getByRole("button", { name: "Save changes" }));
 
       await waitFor(() => {
         expect(screen.getByText("Name must be at least 3 characters")).toBeInTheDocument();
@@ -246,7 +246,7 @@ describe("edit mode", () => {
 
       await screen.findByDisplayValue("alice@example.com");
       await user.type(screen.getByLabelText("Password"), "short");
-      await user.click(screen.getByRole("button", { name: "Save Changes" }));
+      await user.click(screen.getByRole("button", { name: "Save changes" }));
 
       await waitFor(() => {
         expect(screen.getByText("Password must be at least 8 characters")).toBeInTheDocument();
@@ -258,7 +258,7 @@ describe("edit mode", () => {
       vi.mocked(axios.patch).mockResolvedValue({ data: mockUser });
       renderEdit();
 
-      await user.click(screen.getByRole("button", { name: "Save Changes" }));
+      await user.click(screen.getByRole("button", { name: "Save changes" }));
 
       await waitFor(() => {
         expect(axios.patch).toHaveBeenCalled();
@@ -271,7 +271,7 @@ describe("edit mode", () => {
       renderEdit();
 
       await user.clear(screen.getByLabelText("Name"));
-      await user.click(screen.getByRole("button", { name: "Save Changes" }));
+      await user.click(screen.getByRole("button", { name: "Save changes" }));
 
       await waitFor(() => {
         expect(screen.getByText("Name must be at least 3 characters")).toBeInTheDocument();
@@ -289,7 +289,7 @@ describe("edit mode", () => {
 
       await user.clear(screen.getByLabelText("Name"));
       await user.type(screen.getByLabelText("Name"), "Alice Updated");
-      await user.click(screen.getByRole("button", { name: "Save Changes" }));
+      await user.click(screen.getByRole("button", { name: "Save changes" }));
 
       await waitFor(() => {
         expect(axios.patch).toHaveBeenCalledWith("/api/users/1", {
@@ -311,7 +311,7 @@ describe("edit mode", () => {
       await user.click(passwordInput);
       await waitFor(() => expect(document.activeElement).toBe(passwordInput));
       await user.type(passwordInput, "newpassword123");
-      await user.click(screen.getByRole("button", { name: "Save Changes" }));
+      await user.click(screen.getByRole("button", { name: "Save changes" }));
 
       await waitFor(() => {
         expect(axios.patch).toHaveBeenCalledWith("/api/users/1", expect.objectContaining({
@@ -327,20 +327,20 @@ describe("edit mode", () => {
       vi.mocked(axios.isAxiosError).mockReturnValue(true);
       renderEdit();
 
-      await user.click(screen.getByRole("button", { name: "Save Changes" }));
+      await user.click(screen.getByRole("button", { name: "Save changes" }));
 
       expect(await screen.findByText("Email already in use")).toBeInTheDocument();
     });
 
-    it("disables the button and shows 'Saving...' while the request is pending", async () => {
+    it("disables the button and shows 'Saving…' while the request is pending", async () => {
       const user = userEvent.setup();
       vi.mocked(axios.patch).mockReturnValue(new Promise(() => {}));
       renderEdit();
 
-      await user.click(screen.getByRole("button", { name: "Save Changes" }));
+      await user.click(screen.getByRole("button", { name: "Save changes" }));
 
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: "Saving..." })).toBeDisabled();
+        expect(screen.getByRole("button", { name: "Saving…" })).toBeDisabled();
       });
     });
   });

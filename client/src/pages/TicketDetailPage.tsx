@@ -17,11 +17,11 @@ async function fetchTicket(id: string): Promise<TicketDetail> {
 
 function TicketDetailSkeleton() {
   return (
-    <div className="space-y-4" aria-label="Loading ticket">
-      <Skeleton className="h-7 w-2/3" />
-      <Skeleton className="h-4 w-40" />
-      <Skeleton className="h-4 w-32" />
-      <Skeleton className="h-40 w-full mt-4" />
+    <div className="space-y-6" aria-label="Loading ticket">
+      <Skeleton className="h-3 w-32" />
+      <Skeleton className="h-10 w-2/3" />
+      <Skeleton className="h-4 w-48" />
+      <Skeleton className="h-48 w-full mt-6" />
     </div>
   );
 }
@@ -36,23 +36,28 @@ export default function TicketDetailPage() {
   });
 
   return (
-    <main className="p-8 max-w-5xl mx-auto">
-      <BackLink to="/tickets" label="Back to tickets" />
+    <main className="mx-auto max-w-6xl px-8 pt-10 pb-16">
+      <div className="mb-8">
+        <BackLink to="/tickets" label="All tickets" />
+      </div>
 
       {isPending && <TicketDetailSkeleton />}
 
       {isError && <ErrorAlert message="Failed to load ticket" />}
 
       {ticket && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-[4fr_1fr] gap-8">
-            <div className="space-y-6">
-              <TicketDetails ticket={ticket} />
+        <div>
+          <TicketDetails ticket={ticket} />
+
+          <div className="mt-10 grid grid-cols-1 gap-x-10 gap-y-8 lg:grid-cols-[1fr_300px] lg:items-start">
+            <div className="min-w-0 space-y-8">
               <ReplyThread ticket={ticket} />
               <ReplyForm ticketId={id!} />
             </div>
 
-            <TicketMeta ticket={ticket} />
+            <aside className="lg:sticky lg:top-8">
+              <TicketMeta ticket={ticket} />
+            </aside>
           </div>
         </div>
       )}

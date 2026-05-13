@@ -68,15 +68,15 @@ describe("loaded state", () => {
   it("shows a role badge for each user", async () => {
     renderWithProviders(<UsersPage />);
 
-    expect(await screen.findByText(Role.admin)).toBeInTheDocument();
-    expect(screen.getByText(Role.agent)).toBeInTheDocument();
+    expect(await screen.findByText("Admin")).toBeInTheDocument();
+    expect(screen.getByText("Agent")).toBeInTheDocument();
   });
 
-  it("shows 'No users found' when the list is empty", async () => {
+  it("shows an empty state when the list is empty", async () => {
     vi.mocked(axios.get).mockResolvedValue({ data: [] });
     renderWithProviders(<UsersPage />);
 
-    expect(await screen.findByText("No users found")).toBeInTheDocument();
+    expect(await screen.findByText(/no agents yet/i)).toBeInTheDocument();
   });
 });
 
@@ -103,9 +103,9 @@ describe("add agent", () => {
     renderWithProviders(<UsersPage />);
 
     await screen.findByText("Alice Smith");
-    await user.click(screen.getByRole("button", { name: "Add Agent" }));
+    await user.click(screen.getByRole("button", { name: "Add agent" }));
 
-    expect(screen.getByRole("heading", { name: "Add Agent" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "New agent" })).toBeInTheDocument();
   });
 
   it("shows validation errors when submitting an empty form", async () => {
@@ -113,8 +113,8 @@ describe("add agent", () => {
     renderWithProviders(<UsersPage />);
 
     await screen.findByText("Alice Smith");
-    await user.click(screen.getByRole("button", { name: "Add Agent" }));
-    await user.click(screen.getByRole("button", { name: "Create Agent" }));
+    await user.click(screen.getByRole("button", { name: "Add agent" }));
+    await user.click(screen.getByRole("button", { name: "Create agent" }));
 
     await waitFor(() => {
       expect(screen.getByText("Name must be at least 3 characters")).toBeInTheDocument();
@@ -129,14 +129,14 @@ describe("add agent", () => {
     renderWithProviders(<UsersPage />);
 
     await screen.findByText("Alice Smith");
-    await user.click(screen.getByRole("button", { name: "Add Agent" }));
+    await user.click(screen.getByRole("button", { name: "Add agent" }));
     await user.type(screen.getByLabelText("Name"), "Carol White");
     await user.type(screen.getByLabelText("Email"), "carol@example.com");
     await user.type(screen.getByLabelText("Password"), "securepassword");
-    await user.click(screen.getByRole("button", { name: "Create Agent" }));
+    await user.click(screen.getByRole("button", { name: "Create agent" }));
 
     await waitFor(() => {
-      expect(screen.queryByRole("heading", { name: "Add Agent" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "New agent" })).not.toBeInTheDocument();
     });
     expect(axios.post).toHaveBeenCalledWith("/api/users", {
       name: "Carol White",
@@ -154,11 +154,11 @@ describe("add agent", () => {
     renderWithProviders(<UsersPage />);
 
     await screen.findByText("Alice Smith");
-    await user.click(screen.getByRole("button", { name: "Add Agent" }));
+    await user.click(screen.getByRole("button", { name: "Add agent" }));
     await user.type(screen.getByLabelText("Name"), "Alice Smith");
     await user.type(screen.getByLabelText("Email"), "alice@example.com");
     await user.type(screen.getByLabelText("Password"), "securepassword");
-    await user.click(screen.getByRole("button", { name: "Create Agent" }));
+    await user.click(screen.getByRole("button", { name: "Create agent" }));
 
     expect(await screen.findByText("Email already in use")).toBeInTheDocument();
   });
@@ -168,13 +168,13 @@ describe("add agent", () => {
     renderWithProviders(<UsersPage />);
 
     await screen.findByText("Alice Smith");
-    await user.click(screen.getByRole("button", { name: "Add Agent" }));
-    expect(screen.getByRole("heading", { name: "Add Agent" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Add agent" }));
+    expect(screen.getByRole("heading", { name: "New agent" })).toBeInTheDocument();
 
     await user.keyboard("{Escape}");
 
     await waitFor(() => {
-      expect(screen.queryByRole("heading", { name: "Add Agent" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "New agent" })).not.toBeInTheDocument();
     });
   });
 
@@ -183,13 +183,13 @@ describe("add agent", () => {
     renderWithProviders(<UsersPage />);
 
     await screen.findByText("Alice Smith");
-    await user.click(screen.getByRole("button", { name: "Add Agent" }));
-    expect(screen.getByRole("heading", { name: "Add Agent" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Add agent" }));
+    expect(screen.getByRole("heading", { name: "New agent" })).toBeInTheDocument();
 
     await user.click(document.body);
 
     await waitFor(() => {
-      expect(screen.queryByRole("heading", { name: "Add Agent" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "New agent" })).not.toBeInTheDocument();
     });
   });
 });
@@ -207,7 +207,7 @@ describe("delete user", () => {
     await user.click(screen.getByRole("button", { name: "Delete" }));
 
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByRole("heading", { name: "Delete user?" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("heading", { name: "Delete agent?" })).toBeInTheDocument();
     expect(within(dialog).getByText(/bob@example\.com/)).toBeInTheDocument();
   });
 

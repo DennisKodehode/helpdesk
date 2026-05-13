@@ -15,23 +15,44 @@ interface Props {
   onCancel: () => void;
 }
 
-export default function DeleteUserDialog({ deleteTarget, isDeleting, onConfirm, onCancel }: Props) {
+export default function DeleteUserDialog({
+  deleteTarget,
+  isDeleting,
+  onConfirm,
+  onCancel,
+}: Props) {
   return (
-    <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) onCancel(); }}>
+    <Dialog
+      open={!!deleteTarget}
+      onOpenChange={(open) => {
+        if (!open) onCancel();
+      }}
+    >
       <DialogContent showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle>Delete user?</DialogTitle>
+          <DialogTitle className="display-serif text-2xl leading-tight">
+            Delete agent?
+          </DialogTitle>
         </DialogHeader>
-        <p className="text-sm text-gray-500 mt-1">
-          <strong className="text-gray-900">{deleteTarget?.name}</strong> (
-          {deleteTarget?.email}) will be removed and lose access immediately.
+        <p className="mt-1 text-[13.5px] leading-relaxed text-muted-foreground">
+          <span className="font-medium text-foreground">
+            {deleteTarget?.name}
+          </span>{" "}
+          <span className="font-mono text-muted-foreground">
+            ({deleteTarget?.email})
+          </span>{" "}
+          will lose access immediately. This cannot be undone.
         </p>
         <DialogFooter>
           <Button variant="outline" onClick={onCancel} disabled={isDeleting}>
             Cancel
           </Button>
-          <Button variant="destructive" onClick={onConfirm} disabled={isDeleting}>
-            {isDeleting ? "Deleting..." : "Delete"}
+          <Button
+            variant="destructive"
+            onClick={onConfirm}
+            disabled={isDeleting}
+          >
+            {isDeleting ? "Deleting…" : "Delete"}
           </Button>
         </DialogFooter>
       </DialogContent>

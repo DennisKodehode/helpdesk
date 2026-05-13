@@ -9,9 +9,10 @@ import {
 import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { Link } from "@/components/ui/link";
 import ErrorAlert from "@/components/ui/ErrorAlert";
-import { type Ticket } from "@helpdesk/core";
+import { type Ticket, TicketStatus } from "@helpdesk/core";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BADGE_BASE, STATUS_STYLES, CATEGORY_LABELS } from "@/lib/ticket-ui";
+import { BADGE_BASE, CATEGORY_LABELS, CATEGORY_BADGE } from "@/lib/ticket-ui";
+import StatusPill from "@/components/StatusPill";
 
 interface TicketsTableProps {
   tickets: Ticket[];
@@ -21,8 +22,31 @@ interface TicketsTableProps {
   onSortingChange: OnChangeFn<SortingState>;
 }
 
+function formatRelative(iso: string): string {
+  const then = new Date(iso).getTime();
+  const now = Date.now();
+  const sec = Math.round((now - then) / 1000);
+  if (sec < 60) return "just now";
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.round(hr / 24);
+  if (day < 14) return `${day}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
 
 const columns: ColumnDef<Ticket>[] = [
+  {
+    id: "id",
+    accessorKey: "id",
+    header: "ID",
+    cell: ({ row }) => (
+      <span className="font-mono tabular text-[12px] text-muted-foreground">
+        #{String(row.original.id).padStart(4, "0")}
+      </span>
+    ),
+  },
   {
     id: "subject",
     accessorKey: "subject",
@@ -30,7 +54,7 @@ const columns: ColumnDef<Ticket>[] = [
     cell: ({ row }) => (
       <Link
         to={`/tickets/${row.original.id}`}
-        className="text-sm font-medium text-gray-900 hover:text-blue-600 hover:underline block max-w-xs truncate"
+        className="block max-w-md truncate text-[13.5px] font-medium text-foreground underline-offset-4 hover:underline"
       >
         {row.original.subject}
       </Link>
@@ -41,9 +65,11 @@ const columns: ColumnDef<Ticket>[] = [
     accessorKey: "fromName",
     header: "From",
     cell: ({ row }) => (
-      <div>
-        <p className="text-sm font-medium text-gray-900">{row.original.fromName}</p>
-        <p className="text-xs text-gray-500">{row.original.fromEmail}</p>
+      <div className="min-w-0">
+        <p className="truncate text-[13px] text-foreground">{row.original.fromName}</p>
+        <p className="truncate font-mono text-[11px] text-muted-foreground">
+          {row.original.fromEmail}
+        </p>
       </div>
     ),
   },
@@ -51,11 +77,7 @@ const columns: ColumnDef<Ticket>[] = [
     id: "status",
     accessorKey: "status",
     header: "Status",
-    cell: ({ row }) => (
-      <span className={`${BADGE_BASE} ${STATUS_STYLES[row.original.status]}`}>
-        {row.original.status}
-      </span>
-    ),
+    cell: ({ row }) => <StatusPill status={row.original.status as TicketStatus} />,
   },
   {
     id: "category",
@@ -63,11 +85,11 @@ const columns: ColumnDef<Ticket>[] = [
     header: "Category",
     cell: ({ row }) =>
       row.original.category ? (
-        <span className={`${BADGE_BASE} bg-blue-100 text-blue-700`}>
+        <span className={`${BADGE_BASE} ${CATEGORY_BADGE}`}>
           {CATEGORY_LABELS[row.original.category]}
         </span>
       ) : (
-        <span className="text-sm text-gray-400">—</span>
+        <span className="text-sm text-muted-foreground/40">—</span>
       ),
   },
   {
@@ -75,8 +97,8 @@ const columns: ColumnDef<Ticket>[] = [
     accessorKey: "createdAt",
     header: "Received",
     cell: ({ row }) => (
-      <span className="text-sm text-gray-500">
-        {new Date(row.original.createdAt).toLocaleDateString()}
+      <span className="font-mono tabular text-[12px] text-muted-foreground">
+        {formatRelative(row.original.createdAt)}
       </span>
     ),
   },
@@ -85,19 +107,22 @@ const columns: ColumnDef<Ticket>[] = [
 function SortIcon({ isSorted }: { isSorted: false | "asc" | "desc" }) {
   if (isSorted === "asc") return <ChevronUp className="inline-block ml-1 size-3" />;
   if (isSorted === "desc") return <ChevronDown className="inline-block ml-1 size-3" />;
-  return <ChevronsUpDown className="inline-block ml-1 size-3 text-gray-300" />;
+  return (
+    <ChevronsUpDown className="inline-block ml-1 size-3 text-muted-foreground/30" />
+  );
 }
 
 function SkeletonRows() {
   return (
     <>
-      {Array.from({ length: 5 }).map((_, i) => (
-        <tr key={`skeleton-${i}`}>
-          <td className="px-4 py-3"><Skeleton className="h-4 w-48" /></td>
-          <td className="px-4 py-3"><Skeleton className="h-4 w-36" /></td>
-          <td className="px-4 py-3"><Skeleton className="h-5 w-16 rounded" /></td>
-          <td className="px-4 py-3"><Skeleton className="h-5 w-16 rounded" /></td>
-          <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <tr key={`skeleton-${i}`} className="hairline-b">
+          <td className="px-5 py-3.5"><Skeleton className="h-3.5 w-12" /></td>
+          <td className="px-5 py-3.5"><Skeleton className="h-3.5 w-56" /></td>
+          <td className="px-5 py-3.5"><Skeleton className="h-3.5 w-36" /></td>
+          <td className="px-5 py-3.5"><Skeleton className="h-5 w-20 rounded-full" /></td>
+          <td className="px-5 py-3.5"><Skeleton className="h-5 w-20 rounded-full" /></td>
+          <td className="px-5 py-3.5"><Skeleton className="h-3.5 w-20" /></td>
         </tr>
       ))}
     </>
@@ -125,15 +150,15 @@ export default function TicketsTable({
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 overflow-hidden">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <table className="min-w-full">
+        <thead>
           {table.getHeaderGroups().map((headerGroup) => (
-            <tr key={headerGroup.id}>
+            <tr key={headerGroup.id} className="hairline-b">
               {headerGroup.headers.map((header) => (
                 <th
                   key={header.id}
-                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                  className="cursor-pointer select-none px-5 py-3 text-left font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground"
                   onClick={header.column.getToggleSortingHandler()}
                 >
                   {flexRender(header.column.columnDef.header, header.getContext())}
@@ -143,20 +168,31 @@ export default function TicketsTable({
             </tr>
           ))}
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+        <tbody>
           {isPending ? (
             <SkeletonRows />
           ) : tickets.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} className="px-4 py-8 text-center text-sm text-gray-500">
-                No tickets yet
+              <td
+                colSpan={columns.length}
+                className="px-5 py-16 text-center"
+              >
+                <p className="display-serif text-2xl text-muted-foreground">No tickets yet</p>
+                <p className="mt-1 text-[13px] text-muted-foreground/70">
+                  When customers email in, they'll appear here.
+                </p>
               </td>
             </tr>
           ) : (
-            table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="hover:bg-gray-50">
+            table.getRowModel().rows.map((row, idx, arr) => (
+              <tr
+                key={row.id}
+                className={`group transition-colors hover:bg-accent/40 ${
+                  idx < arr.length - 1 ? "hairline-b" : ""
+                }`}
+              >
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-4 py-3">
+                  <td key={cell.id} className="px-5 py-3.5 align-middle">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}

@@ -23,7 +23,7 @@ describe("TicketPagination", () => {
     renderPagination({ page: 2, totalPages: 3 });
     expect(screen.getByRole("button", { name: /previous page/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /next page/i })).toBeInTheDocument();
-    expect(screen.getByText(/page 2 of 3/i)).toBeInTheDocument();
+    expect(screen.getByText("2 / 3")).toBeInTheDocument();
   });
 
   it("disables Previous on the first page", () => {

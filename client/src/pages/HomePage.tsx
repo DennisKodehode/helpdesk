@@ -1,6 +1,5 @@
 import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import ErrorAlert from "@/components/ui/ErrorAlert";
 import PageHeader from "@/components/ui/PageHeader";
@@ -8,16 +7,22 @@ import DashboardStats from "@/components/DashboardStats";
 import TicketsBarChart from "@/components/TicketsBarChart";
 import type { StatsResponse, TicketsPerDayResponse } from "@helpdesk/core";
 
-function StatCardSkeleton() {
+function DashboardSkeleton() {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle><Skeleton className="h-4 w-32" /></CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Skeleton className="h-9 w-20" />
-      </CardContent>
-    </Card>
+    <div className="space-y-6" aria-label="Loading dashboard">
+      <div className="rounded-lg border border-border bg-card p-8">
+        <Skeleton className="h-4 w-32 mb-4" />
+        <Skeleton className="h-24 w-48" />
+      </div>
+      <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="bg-card p-5">
+            <Skeleton className="h-3 w-24 mb-3" />
+            <Skeleton className="h-10 w-20" />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -29,41 +34,46 @@ export default function HomePage() {
 
   const chartQuery = useQuery<TicketsPerDayResponse>({
     queryKey: ["stats", "tickets-per-day"],
-    queryFn: () => axios.get<TicketsPerDayResponse>("/api/stats/tickets-per-day").then((r) => r.data),
+    queryFn: () =>
+      axios.get<TicketsPerDayResponse>("/api/stats/tickets-per-day").then((r) => r.data),
   });
 
   return (
-    <main className="p-8 space-y-6">
-      <PageHeader title="Dashboard" />
+    <main className="mx-auto max-w-6xl px-8 pt-12 pb-16">
+      <PageHeader
+        eyebrow="Overview"
+        title="Dashboard"
+        description="A snapshot of inbound volume, automated resolutions, and where your team is spending its time."
+      />
 
       {statsQuery.isError && (
-        <ErrorAlert message={statsQuery.error instanceof Error ? statsQuery.error.message : "Failed to load dashboard stats"} />
+        <div className="mb-6">
+          <ErrorAlert
+            message={
+              statsQuery.error instanceof Error
+                ? statsQuery.error.message
+                : "Failed to load dashboard stats"
+            }
+          />
+        </div>
       )}
 
       {statsQuery.isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <StatCardSkeleton key={i} />
-          ))}
-        </div>
+        <DashboardSkeleton />
       ) : statsQuery.data ? (
         <DashboardStats stats={statsQuery.data} />
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Tickets per day — last 30 days</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {chartQuery.isLoading ? (
-            <Skeleton className="h-64 w-full" />
-          ) : chartQuery.isError ? (
-            <ErrorAlert message="Failed to load chart data" />
-          ) : chartQuery.data ? (
-            <TicketsBarChart data={chartQuery.data} />
-          ) : null}
-        </CardContent>
-      </Card>
+      {/* Trend section */}
+      <section className="mt-10 rounded-lg border border-border bg-card p-6">
+        {chartQuery.isLoading ? (
+          <Skeleton className="h-72 w-full" />
+        ) : chartQuery.isError ? (
+          <ErrorAlert message="Failed to load chart data" />
+        ) : chartQuery.data ? (
+          <TicketsBarChart data={chartQuery.data} />
+        ) : null}
+      </section>
     </main>
   );
 }
