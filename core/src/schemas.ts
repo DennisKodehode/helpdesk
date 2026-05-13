@@ -151,6 +151,7 @@ export type TicketsPerDayResponse = z.infer<typeof ticketsPerDayResponseSchema>;
 export const statsResponseSchema = z.object({
   totalTickets: z.number(),
   openTickets: z.number(),
+  closedTickets: z.number(),
   resolvedByAI: z.number(),
   percentResolvedByAI: z.number(),
   avgResolutionMinutes: z.number().nullable(),
