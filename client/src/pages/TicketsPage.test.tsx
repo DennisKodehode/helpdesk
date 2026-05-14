@@ -46,7 +46,9 @@ describe("TicketsPage", () => {
 
   it("renders ticket data after loading", async () => {
     renderWithProviders(<TicketsPage />);
-    expect(await screen.findByText("Test ticket")).toBeInTheDocument();
+    // Subject text appears in both desktop table and mobile card list.
+    const matches = await screen.findAllByText("Test ticket");
+    expect(matches.length).toBeGreaterThan(0);
   });
 
   it("shows skeleton rows while loading", () => {
@@ -65,7 +67,7 @@ describe("TicketsPage", () => {
     const user = userEvent.setup();
     renderWithProviders(<TicketsPage />);
 
-    await screen.findByText("Test ticket");
+    await screen.findAllByText("Test ticket");
 
     await user.click(screen.getByRole("columnheader", { name: /subject/i }));
 
@@ -80,7 +82,7 @@ describe("TicketsPage", () => {
     const user = userEvent.setup();
     renderWithProviders(<TicketsPage />);
 
-    await screen.findByText("Test ticket");
+    await screen.findAllByText("Test ticket");
 
     await user.click(screen.getByRole("combobox", { name: /status/i }));
     await user.click(await screen.findByRole("option", { name: /^open$/i }));
@@ -98,7 +100,7 @@ describe("TicketsPage", () => {
     const user = userEvent.setup({ delay: null });
     renderWithProviders(<TicketsPage />);
 
-    await screen.findByText("Test ticket");
+    await screen.findAllByText("Test ticket");
 
     await user.type(screen.getByRole("textbox", { name: /search/i }), "Alice");
 
@@ -113,7 +115,7 @@ describe("TicketsPage", () => {
     const user = userEvent.setup();
     renderWithProviders(<TicketsPage />);
 
-    await screen.findByText("Test ticket");
+    await screen.findAllByText("Test ticket");
 
     await user.click(screen.getByRole("combobox", { name: /category/i }));
     await user.click(await screen.findByRole("option", { name: /technical/i }));
@@ -133,7 +135,7 @@ describe("TicketsPage", () => {
       data: { ...mockPage, total: 25, page: 1 },
     });
     renderWithProviders(<TicketsPage />);
-    await screen.findByText("Test ticket");
+    await screen.findAllByText("Test ticket");
 
     await user.click(screen.getByRole("button", { name: /next page/i }));
 

@@ -43,8 +43,8 @@ export default function TicketFilters({
   onCategoryChange,
 }: Props) {
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2">
-      <div className="relative flex-1 min-w-[16rem] max-w-md">
+    <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+      <div className="relative w-full sm:flex-1 sm:min-w-[16rem] sm:max-w-md">
         <Search
           aria-hidden
           className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60"
@@ -54,12 +54,12 @@ export default function TicketFilters({
           placeholder="Search by name, email, or subject…"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="h-9 pl-9 text-[13px]"
+          className="h-10 pl-9 text-[13px] sm:h-9"
         />
       </div>
 
       <Select value={status} onValueChange={(v) => onStatusChange(v as TicketStatus | "")}>
-        <SelectTrigger aria-label="Status" size="sm" className="h-9 w-36">
+        <SelectTrigger aria-label="Status" size="sm" className="h-10 w-full sm:h-9 sm:w-36">
           <SelectValue>{(v: string | null) => STATUS_LABELS[v ?? ""]}</SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -71,7 +71,7 @@ export default function TicketFilters({
       </Select>
 
       <Select value={category} onValueChange={(v) => onCategoryChange(v as TicketCategory | "")}>
-        <SelectTrigger aria-label="Category" size="sm" className="h-9 w-40">
+        <SelectTrigger aria-label="Category" size="sm" className="h-10 w-full sm:h-9 sm:w-40">
           <SelectValue>{(v: string | null) => CATEGORY_LABELS[v ?? ""]}</SelectValue>
         </SelectTrigger>
         <SelectContent>

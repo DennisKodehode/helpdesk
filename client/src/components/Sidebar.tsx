@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router";
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Link } from "@/components/ui/link";
 import { cn } from "@/lib/utils";
 import { signOut, useSession } from "../lib/auth-client";
@@ -32,13 +33,12 @@ function SidebarLink({ item, active }: { item: NavItem; active: boolean }) {
     <Link
       to={item.to}
       className={cn(
-        "group relative flex items-center gap-3 rounded-md px-2.5 py-1.5 text-[13px] transition-colors",
+        "group relative flex items-center gap-3 rounded-md px-2.5 py-3 text-[13px] transition-colors md:py-1.5",
         active
           ? "bg-accent text-foreground"
           : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
       )}
     >
-      {/* Active marker */}
       <span
         aria-hidden
         className={cn(
@@ -52,7 +52,7 @@ function SidebarLink({ item, active }: { item: NavItem; active: boolean }) {
   );
 }
 
-export default function Sidebar() {
+function SidebarContents() {
   const { data: session, isPending } = useSession();
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -98,8 +98,7 @@ export default function Sidebar() {
   const adminNav: NavItem[] = [{ to: "/users", label: "Agents", icon: Users }];
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-sidebar md:flex">
-      {/* Wordmark */}
+    <>
       <div className="flex h-14 items-center px-5">
         <Link to="/" className="group inline-flex items-baseline gap-1.5">
           <span className="display-serif text-[22px] leading-none text-foreground">
@@ -111,7 +110,6 @@ export default function Sidebar() {
         </Link>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 pt-2 pb-4">
         <div className="px-2.5 pb-1.5">
           <p className="eyebrow">Workspace</p>
@@ -140,7 +138,6 @@ export default function Sidebar() {
         )}
       </nav>
 
-      {/* User menu */}
       <div ref={menuRef} className="relative border-t border-border p-2">
         {menuOpen && (
           <div
@@ -192,6 +189,36 @@ export default function Sidebar() {
           <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground/60" />
         </button>
       </div>
-    </aside>
+    </>
+  );
+}
+
+interface Props {
+  mobileOpen: boolean;
+  onMobileOpenChange: (open: boolean) => void;
+}
+
+export default function Sidebar({ mobileOpen, onMobileOpenChange }: Props) {
+  return (
+    <>
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-sidebar md:flex">
+        <SidebarContents />
+      </aside>
+
+      <DialogPrimitive.Root open={mobileOpen} onOpenChange={onMobileOpenChange}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Backdrop className="fixed inset-0 z-40 bg-foreground/40 duration-150 supports-backdrop-filter:backdrop-blur-[2px] data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 motion-reduce:animate-none md:hidden" />
+          <DialogPrimitive.Popup
+            aria-label="Navigation"
+            className="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col border-r border-border bg-sidebar shadow-2xl outline-none duration-200 data-open:animate-in data-open:slide-in-from-left data-closed:animate-out data-closed:slide-out-to-left motion-reduce:animate-none md:hidden"
+          >
+            <DialogPrimitive.Title className="sr-only">
+              Navigation
+            </DialogPrimitive.Title>
+            <SidebarContents />
+          </DialogPrimitive.Popup>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
+    </>
   );
 }

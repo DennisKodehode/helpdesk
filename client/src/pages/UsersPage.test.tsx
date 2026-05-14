@@ -61,22 +61,27 @@ describe("loaded state", () => {
   it("renders all users in the table", async () => {
     renderWithProviders(<UsersPage />);
 
-    expect(await screen.findByText("Alice Smith")).toBeInTheDocument();
-    expect(screen.getByText("bob@example.com")).toBeInTheDocument();
+    await screen.findAllByText("Alice Smith");
+    const table = within(screen.getByRole("table"));
+    expect(table.getByText("Alice Smith")).toBeInTheDocument();
+    expect(table.getByText("bob@example.com")).toBeInTheDocument();
   });
 
   it("shows a role badge for each user", async () => {
     renderWithProviders(<UsersPage />);
 
-    expect(await screen.findByText("Admin")).toBeInTheDocument();
-    expect(screen.getByText("Agent")).toBeInTheDocument();
+    await screen.findAllByText("Admin");
+    const table = within(screen.getByRole("table"));
+    expect(table.getByText("Admin")).toBeInTheDocument();
+    expect(table.getByText("Agent")).toBeInTheDocument();
   });
 
   it("shows an empty state when the list is empty", async () => {
     vi.mocked(axios.get).mockResolvedValue({ data: [] });
     renderWithProviders(<UsersPage />);
 
-    expect(await screen.findByText(/no agents yet/i)).toBeInTheDocument();
+    const matches = await screen.findAllByText(/no agents yet/i);
+    expect(matches.length).toBeGreaterThan(0);
   });
 });
 
@@ -102,7 +107,7 @@ describe("add agent", () => {
     const user = userEvent.setup();
     renderWithProviders(<UsersPage />);
 
-    await screen.findByText("Alice Smith");
+    await screen.findAllByText("Alice Smith");
     await user.click(screen.getByRole("button", { name: "Add agent" }));
 
     expect(screen.getByRole("heading", { name: "New agent" })).toBeInTheDocument();
@@ -112,7 +117,7 @@ describe("add agent", () => {
     const user = userEvent.setup();
     renderWithProviders(<UsersPage />);
 
-    await screen.findByText("Alice Smith");
+    await screen.findAllByText("Alice Smith");
     await user.click(screen.getByRole("button", { name: "Add agent" }));
     await user.click(screen.getByRole("button", { name: "Create agent" }));
 
@@ -128,7 +133,7 @@ describe("add agent", () => {
     vi.mocked(axios.post).mockResolvedValue({ data: {} });
     renderWithProviders(<UsersPage />);
 
-    await screen.findByText("Alice Smith");
+    await screen.findAllByText("Alice Smith");
     await user.click(screen.getByRole("button", { name: "Add agent" }));
     await user.type(screen.getByLabelText("Name"), "Carol White");
     await user.type(screen.getByLabelText("Email"), "carol@example.com");
@@ -153,7 +158,7 @@ describe("add agent", () => {
     vi.mocked(axios.isAxiosError).mockReturnValue(true);
     renderWithProviders(<UsersPage />);
 
-    await screen.findByText("Alice Smith");
+    await screen.findAllByText("Alice Smith");
     await user.click(screen.getByRole("button", { name: "Add agent" }));
     await user.type(screen.getByLabelText("Name"), "Alice Smith");
     await user.type(screen.getByLabelText("Email"), "alice@example.com");
@@ -167,7 +172,7 @@ describe("add agent", () => {
     const user = userEvent.setup();
     renderWithProviders(<UsersPage />);
 
-    await screen.findByText("Alice Smith");
+    await screen.findAllByText("Alice Smith");
     await user.click(screen.getByRole("button", { name: "Add agent" }));
     expect(screen.getByRole("heading", { name: "New agent" })).toBeInTheDocument();
 
@@ -182,7 +187,7 @@ describe("add agent", () => {
     const user = userEvent.setup();
     renderWithProviders(<UsersPage />);
 
-    await screen.findByText("Alice Smith");
+    await screen.findAllByText("Alice Smith");
     await user.click(screen.getByRole("button", { name: "Add agent" }));
     expect(screen.getByRole("heading", { name: "New agent" })).toBeInTheDocument();
 
@@ -203,8 +208,9 @@ describe("delete user", () => {
     const user = userEvent.setup();
     renderWithProviders(<UsersPage />);
 
-    await screen.findByText("Alice Smith");
-    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await screen.findAllByText("Alice Smith");
+    const table = within(screen.getByRole("table"));
+    await user.click(table.getByRole("button", { name: "Delete" }));
 
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("heading", { name: "Delete agent?" })).toBeInTheDocument();
@@ -216,8 +222,9 @@ describe("delete user", () => {
     vi.mocked(axios.delete).mockResolvedValue({});
     renderWithProviders(<UsersPage />);
 
-    await screen.findByText("Alice Smith");
-    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await screen.findAllByText("Alice Smith");
+    const table = within(screen.getByRole("table"));
+    await user.click(table.getByRole("button", { name: "Delete" }));
 
     const dialog = screen.getByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: "Delete" }));

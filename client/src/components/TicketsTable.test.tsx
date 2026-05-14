@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { renderWithProviders, screen, cleanup } from "../test/utils";
+import { renderWithProviders, screen, within, cleanup } from "../test/utils";
 import TicketsTable from "./TicketsTable";
 import { TicketStatus, TicketCategory, type Ticket } from "@helpdesk/core";
 
@@ -55,28 +55,32 @@ describe("error state", () => {
 describe("empty state", () => {
   it("shows 'No tickets yet' when the list is empty", () => {
     renderWithProviders(<TicketsTable {...defaultProps} tickets={[]} />);
-    expect(screen.getByText("No tickets yet")).toBeInTheDocument();
+    // Empty state is rendered in both the desktop table and the mobile card list.
+    expect(screen.getAllByText("No tickets yet").length).toBeGreaterThan(0);
   });
 });
 
 describe("loaded state", () => {
   it("renders a row for each ticket", () => {
     renderWithProviders(<TicketsTable {...defaultProps} />);
-    expect(screen.getByText("My printer is on fire")).toBeInTheDocument();
-    expect(screen.getByText("Alice Smith")).toBeInTheDocument();
-    expect(screen.getByText("Refund please")).toBeInTheDocument();
+    const table = within(screen.getByRole("table"));
+    expect(table.getByText("My printer is on fire")).toBeInTheDocument();
+    expect(table.getByText("Alice Smith")).toBeInTheDocument();
+    expect(table.getByText("Refund please")).toBeInTheDocument();
   });
 
   it("renders status and category badges", () => {
     renderWithProviders(<TicketsTable {...defaultProps} />);
-    expect(screen.getByText("Open")).toBeInTheDocument();
-    expect(screen.getByText("Technical")).toBeInTheDocument();
-    expect(screen.getByText("Refund")).toBeInTheDocument();
+    const table = within(screen.getByRole("table"));
+    expect(table.getByText("Open")).toBeInTheDocument();
+    expect(table.getByText("Technical")).toBeInTheDocument();
+    expect(table.getByText("Refund")).toBeInTheDocument();
   });
 
   it("renders a dash for a ticket with no category", () => {
     const ticket: Ticket = { ...mockTickets[0], category: null };
     renderWithProviders(<TicketsTable {...defaultProps} tickets={[ticket]} />);
+    // The dash only renders in the desktop table cell; mobile card omits the badge entirely.
     expect(screen.getByText("—")).toBeInTheDocument();
   });
 });

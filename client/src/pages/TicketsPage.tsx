@@ -75,7 +75,7 @@ export default function TicketsPage() {
   const end = Math.min(page * PAGE_SIZE, total);
 
   return (
-    <main className="mx-auto max-w-7xl px-8 pt-12 pb-16">
+    <main className="mx-auto max-w-7xl px-4 pt-6 pb-12 sm:px-6 md:px-8 md:pt-12 md:pb-16">
       <PageHeader
         eyebrow="Queue"
         title="Tickets"

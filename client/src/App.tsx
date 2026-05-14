@@ -1,5 +1,7 @@
-import { Navigate, Outlet, Route, Routes } from "react-router";
+import { useEffect, useState } from "react";
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
 import Sidebar from "./components/Sidebar";
+import MobileTopbar from "./components/MobileTopbar";
 import { useSession } from "./lib/auth-client";
 import { Role } from "@helpdesk/core";
 import HomePage from "./pages/HomePage";
@@ -10,14 +12,21 @@ import UsersPage from "./pages/UsersPage";
 
 function ProtectedLayout() {
   const { data: session, isPending } = useSession();
+  const { pathname } = useLocation();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
 
   if (isPending) return null;
   if (!session) return <Navigate to="/login" replace />;
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar />
-      <div className="md:pl-60">
+      <MobileTopbar onMenuClick={() => setMobileNavOpen(true)} />
+      <Sidebar mobileOpen={mobileNavOpen} onMobileOpenChange={setMobileNavOpen} />
+      <div className="pt-14 md:pt-0 md:pl-60">
         <Outlet />
       </div>
     </div>

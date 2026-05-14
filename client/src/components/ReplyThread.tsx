@@ -100,7 +100,7 @@ export default function ReplyThread({ ticket }: Props) {
                 />
               )}
 
-              <div className="flex gap-4">
+              <div className="flex gap-3 sm:gap-4">
                 {/* Avatar */}
                 <div
                   className={`relative z-[1] grid size-8 shrink-0 place-items-center rounded-full text-[11px] font-medium ${
