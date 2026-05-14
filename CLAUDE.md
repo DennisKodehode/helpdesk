@@ -66,8 +66,10 @@ bun run test                         # component tests (from client/) or integra
 bun run test:e2e                     # run Playwright tests — resets test DB first
 bun run test:e2e:ui                  # Playwright UI mode
 
-# TypeScript type-checking (use bunx, not npx — npx tsc fails in this project)
-bunx tsc --noEmit                    # from any workspace directory
+# TypeScript type-checking — TS is pinned once at the repo root; run via the workspace's local binary
+bun run typecheck                    # from repo root: typechecks client + server + root (e2e/playwright)
+bun run typecheck                    # from client/ or server/: typechecks just that workspace
+# Do NOT use `bunx tsc` — it resolves a separate (often newer) global TS that doesn't match the project pin.
 ```
 
 ## Windows / bun notes
