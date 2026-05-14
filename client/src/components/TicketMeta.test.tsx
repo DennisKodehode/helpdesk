@@ -22,6 +22,7 @@ const mockTicket: TicketDetail = {
   fromEmail: "alice@example.com",
   subject: "My printer is on fire",
   body: "It started smoking and then caught fire.",
+  bodyHtml: null,
   status: TicketStatus.open,
   category: TicketCategory.technical_question,
   assignedToId: "agent-1",

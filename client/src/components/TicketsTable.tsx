@@ -186,7 +186,8 @@ export default function TicketsTable({
       ? "oldest"
       : "newest";
 
-  function handleMobileSortChange(value: string) {
+  function handleMobileSortChange(value: string | null) {
+    if (value === null) return;
     onSortingChange([{ id: "createdAt", desc: value === "newest" }]);
   }
 

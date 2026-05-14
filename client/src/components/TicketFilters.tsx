@@ -58,7 +58,7 @@ export default function TicketFilters({
         />
       </div>
 
-      <Select value={status} onValueChange={(v) => onStatusChange(v as TicketStatus | "")}>
+      <Select<TicketStatus | ""> value={status} onValueChange={(v) => onStatusChange(v as TicketStatus | "")}>
         <SelectTrigger aria-label="Status" size="sm" className="h-10 w-full sm:h-9 sm:w-36">
           <SelectValue>{(v: string | null) => STATUS_LABELS[v ?? ""]}</SelectValue>
         </SelectTrigger>
@@ -70,7 +70,7 @@ export default function TicketFilters({
         </SelectContent>
       </Select>
 
-      <Select value={category} onValueChange={(v) => onCategoryChange(v as TicketCategory | "")}>
+      <Select<TicketCategory | ""> value={category} onValueChange={(v) => onCategoryChange(v as TicketCategory | "")}>
         <SelectTrigger aria-label="Category" size="sm" className="h-10 w-full sm:h-9 sm:w-40">
           <SelectValue>{(v: string | null) => CATEGORY_LABELS[v ?? ""]}</SelectValue>
         </SelectTrigger>

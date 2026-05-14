@@ -5,7 +5,10 @@ import LoginForm from "./LoginForm";
 
 afterEach(cleanup);
 
-function renderForm(serverError: string | null = null, onSubmit = vi.fn()) {
+function renderForm(
+  serverError: string | null = null,
+  onSubmit: (data: { email: string; password: string }) => Promise<void> = vi.fn(),
+) {
   return renderWithProviders(<LoginForm onSubmit={onSubmit} serverError={serverError} />);
 }
 
