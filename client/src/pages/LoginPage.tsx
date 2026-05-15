@@ -44,13 +44,14 @@ export default function LoginPage() {
 
           <div className="relative space-y-7">
             <h1 className="display-serif text-[64px] leading-[0.95] tracking-[-0.02em] text-foreground xl:text-[80px] 2xl:text-[96px]">
-              Quiet,<br />
-              <span className="italic text-primary">decisive</span><br />
-              support.
+              AI-powered<br />
+              ticket<br />
+              <span className="italic text-primary">management.</span>
             </h1>
             <p className="max-w-sm text-[15px] leading-relaxed text-muted-foreground xl:max-w-md xl:text-[16px] 2xl:text-[17px]">
-              A workspace for support teams who care about how a reply reads, how
-              fast it arrives, and how it makes the customer feel afterwards.
+              Tickets are auto-classified on arrival, AI polishes your draft
+              replies before you send them, and the obvious questions resolve
+              themselves. Your team handles what needs a human.
             </p>
           </div>
 
