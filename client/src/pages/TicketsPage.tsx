@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router";
 import axios from "axios";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { type SortingState } from "@tanstack/react-table";
@@ -17,6 +18,12 @@ function useDebounce<T>(value: T, delay: number): T {
     return () => clearTimeout(timer);
   }, [value, delay]);
   return debounced;
+}
+
+function setParam(params: URLSearchParams, key: string, value: string | number | null) {
+  const str = value == null ? "" : String(value);
+  if (str && str !== "") params.set(key, str);
+  else params.delete(key);
 }
 
 async function fetchTickets(
@@ -42,23 +49,38 @@ async function fetchTickets(
 }
 
 export default function TicketsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const status = (searchParams.get("status") ?? "") as TicketStatus | "";
+  const category = (searchParams.get("category") ?? "") as TicketCategory | "";
+  const page = Math.max(1, Number(searchParams.get("page") ?? "1") || 1);
+  const searchFromUrl = searchParams.get("q") ?? "";
+
   const [sorting, setSorting] = useState<SortingState>([{ id: "createdAt", desc: true }]);
-  const [statusFilter, setStatusFilter] = useState<TicketStatus | "">("");
-  const [categoryFilter, setCategoryFilter] = useState<TicketCategory | "">("");
-  const [searchInput, setSearchInput] = useState("");
-  const [page, setPage] = useState(1);
+  const [searchInput, setSearchInput] = useState(searchFromUrl);
   const debouncedSearch = useDebounce(searchInput, 300);
 
+  // Commit debounced search to URL; replace history so each keystroke after
+  // debounce doesn't pollute the back stack.
   useEffect(() => {
-    setPage(1);
-  }, [debouncedSearch]);
+    if (debouncedSearch === searchFromUrl) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        setParam(next, "q", debouncedSearch.trim());
+        next.delete("page");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [debouncedSearch, searchFromUrl, setSearchParams]);
 
   const sortBy = (sorting[0]?.id ?? "createdAt") as TicketSortField;
   const sortOrder = sorting[0]?.desc === false ? "asc" : "desc";
 
   const { data, isPending, isError } = useQuery({
-    queryKey: ["tickets", sortBy, sortOrder, statusFilter, categoryFilter, debouncedSearch, page],
-    queryFn: () => fetchTickets(sortBy, sortOrder, statusFilter, categoryFilter, debouncedSearch, page),
+    queryKey: ["tickets", sortBy, sortOrder, status, category, searchFromUrl, page],
+    queryFn: () => fetchTickets(sortBy, sortOrder, status, category, searchFromUrl, page),
     placeholderData: keepPreviousData,
   });
 
@@ -66,9 +88,27 @@ export default function TicketsPage() {
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  function updateFilter(key: "status" | "category", value: string) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      setParam(next, key, value);
+      next.delete("page");
+      return next;
+    });
+  }
+
+  function setPageParam(nextPage: number) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (nextPage <= 1) next.delete("page");
+      else next.set("page", String(nextPage));
+      return next;
+    });
+  }
+
   const handleSortingChange = (updater: SortingState | ((prev: SortingState) => SortingState)) => {
     setSorting(updater);
-    setPage(1);
+    setPageParam(1);
   };
 
   const start = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
@@ -84,11 +124,11 @@ export default function TicketsPage() {
 
       <TicketFilters
         search={searchInput}
-        status={statusFilter}
-        category={categoryFilter}
+        status={status}
+        category={category}
         onSearchChange={setSearchInput}
-        onStatusChange={(v) => { setStatusFilter(v); setPage(1); }}
-        onCategoryChange={(v) => { setCategoryFilter(v); setPage(1); }}
+        onStatusChange={(v) => updateFilter("status", v)}
+        onCategoryChange={(v) => updateFilter("category", v)}
       />
 
       <TicketsTable
@@ -105,8 +145,8 @@ export default function TicketsPage() {
         start={start}
         end={end}
         total={total}
-        onPrevious={() => setPage((p) => p - 1)}
-        onNext={() => setPage((p) => p + 1)}
+        onPrevious={() => setPageParam(page - 1)}
+        onNext={() => setPageParam(page + 1)}
       />
     </main>
   );

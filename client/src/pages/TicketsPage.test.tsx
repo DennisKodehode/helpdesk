@@ -44,6 +44,18 @@ describe("TicketsPage", () => {
     });
   });
 
+  it("initializes status filter from URL", async () => {
+    renderWithProviders(<TicketsPage />, {
+      initialEntries: [`/tickets?status=${TicketStatus.open}`],
+    });
+
+    await waitFor(() => {
+      expect(axios.get).toHaveBeenLastCalledWith("/api/tickets", {
+        params: expect.objectContaining({ status: TicketStatus.open, page: 1, pageSize: 10 }),
+      });
+    });
+  });
+
   it("renders ticket data after loading", async () => {
     renderWithProviders(<TicketsPage />);
     // Subject text appears in both desktop table and mobile card list.

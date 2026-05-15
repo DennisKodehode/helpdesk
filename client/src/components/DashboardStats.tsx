@@ -1,5 +1,6 @@
-import { TrendingUp } from "lucide-react";
-import type { StatsResponse } from "@helpdesk/core";
+import { ArrowUpRight, TrendingUp } from "lucide-react";
+import { Link } from "@/components/ui/link";
+import { type StatsResponse, TicketStatus } from "@helpdesk/core";
 
 function formatMinutes(minutes: number | null): string {
   if (minutes === null) return "—";
@@ -18,7 +19,9 @@ interface StatProps {
 function Stat({ label, value, hint }: StatProps) {
   return (
     <div className="flex flex-col gap-2 px-5 py-5 xl:px-7 xl:py-7 2xl:px-9 2xl:py-9">
-      <p className="label-meta">{label}</p>
+      <p className="label-meta transition-colors duration-150 group-hover:text-foreground group-focus-visible:text-foreground">
+        {label}
+      </p>
       <p className="display-serif tabular text-[44px] leading-none text-foreground xl:text-[56px] 2xl:text-[64px]">
         {value}
       </p>
@@ -26,6 +29,23 @@ function Stat({ label, value, hint }: StatProps) {
         <p className="font-mono text-[11px] text-muted-foreground/80">{hint}</p>
       )}
     </div>
+  );
+}
+
+const STAT_LINK_BASE =
+  "group relative block bg-card transition-colors duration-150 " +
+  "hover:bg-accent/40 " +
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring";
+
+function StatCardLink({ to, label, value }: { to: string; label: string; value: string }) {
+  return (
+    <Link to={to} className={STAT_LINK_BASE} aria-label={`${label}: ${value} — view tickets`}>
+      <ArrowUpRight
+        className="pointer-events-none absolute right-4 top-4 size-3 text-muted-foreground/30 transition-colors duration-150 group-hover:text-foreground group-focus-visible:text-foreground"
+        aria-hidden
+      />
+      <Stat label={label} value={value} />
+    </Link>
   );
 }
 
@@ -77,7 +97,7 @@ export default function DashboardStats({ stats }: { stats: StatsResponse }) {
             <Stat
               label="Avg. resolution"
               value={formatMinutes(stats.avgResolutionMinutes)}
-              hint="time to first resolve"
+              hint="arrival → resolved"
             />
             <Stat
               label="Resolved by AI"
@@ -88,17 +108,12 @@ export default function DashboardStats({ stats }: { stats: StatsResponse }) {
         </div>
       </div>
 
-      {/* Supporting row — three quiet stats */}
-      <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
-        <div className="bg-card">
-          <Stat label="Total tickets" value={stats.totalTickets.toLocaleString()} />
-        </div>
-        <div className="bg-card">
-          <Stat label="Open" value={stats.openTickets.toLocaleString()} />
-        </div>
-        <div className="bg-card">
-          <Stat label="Closed" value={stats.closedTickets.toLocaleString()} />
-        </div>
+      {/* Supporting row — quiet stats, each a drill-down to filtered tickets */}
+      <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
+        <StatCardLink to="/tickets" label="Total tickets" value={stats.totalTickets.toLocaleString()} />
+        <StatCardLink to={`/tickets?status=${TicketStatus.open}`} label="Open" value={stats.openTickets.toLocaleString()} />
+        <StatCardLink to={`/tickets?status=${TicketStatus.resolved}`} label="Resolved" value={stats.resolvedTickets.toLocaleString()} />
+        <StatCardLink to={`/tickets?status=${TicketStatus.closed}`} label="Closed" value={stats.closedTickets.toLocaleString()} />
       </div>
     </div>
   );

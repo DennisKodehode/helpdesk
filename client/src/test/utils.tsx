@@ -3,7 +3,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import type { ReactElement } from "react";
 
-function createWrapper() {
+type RouterOptions = { initialEntries?: string[] };
+
+function createWrapper({ initialEntries }: RouterOptions = {}) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -13,7 +15,7 @@ function createWrapper() {
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter>{children}</MemoryRouter>
+        <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter>
       </QueryClientProvider>
     );
   };
@@ -21,9 +23,10 @@ function createWrapper() {
 
 export function renderWithProviders(
   ui: ReactElement,
-  options?: Omit<RenderOptions, "wrapper">
+  options?: Omit<RenderOptions, "wrapper"> & RouterOptions,
 ) {
-  return render(ui, { wrapper: createWrapper(), ...options });
+  const { initialEntries, ...rest } = options ?? {};
+  return render(ui, { wrapper: createWrapper({ initialEntries }), ...rest });
 }
 
 export * from "@testing-library/react";
