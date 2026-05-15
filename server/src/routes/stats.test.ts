@@ -68,7 +68,7 @@ describe("GET /api/stats", () => {
     expect(typeof res.body.resolvedTickets).toBe("number");
     expect(typeof res.body.closedTickets).toBe("number");
     expect(typeof res.body.resolvedByAI).toBe("number");
-    expect(typeof res.body.percentResolvedByAI).toBe("number");
+    expect(typeof res.body.percentResolvedByAILast30d).toBe("number");
     expect(res.body.avgResolutionMinutes === null || typeof res.body.avgResolutionMinutes === "number").toBe(true);
   });
 
@@ -84,10 +84,9 @@ describe("GET /api/stats", () => {
     expect(after).toBe(before + 1);
   });
 
-  it("counts AI-resolved tickets and percentResolvedByAI correctly", async () => {
+  it("counts AI-resolved tickets and percentResolvedByAILast30d correctly", async () => {
     const before = await request(app).get("/api/stats").set("Cookie", authCookie);
     const beforeAI = before.body.resolvedByAI as number;
-    const beforeResolved = (before.body.resolvedByAI + (before.body.totalTickets - before.body.openTickets - before.body.resolvedByAI)) as number;
 
     const ticket = await prisma.ticket.create({
       data: {
@@ -102,16 +101,13 @@ describe("GET /api/stats", () => {
 
     const after = await request(app).get("/api/stats").set("Cookie", authCookie);
     expect(after.body.resolvedByAI).toBe(beforeAI + 1);
-    expect(after.body.percentResolvedByAI).toBeGreaterThan(0);
+    expect(after.body.percentResolvedByAILast30d).toBeGreaterThan(0);
   });
 
-  it("returns percentResolvedByAI as 0 when there are no resolved tickets", async () => {
-    // Create a fresh isolated check: we can't easily guarantee 0 resolved tickets in the shared DB,
-    // so instead we verify the formula: when resolvedByAI is 0 and totalResolved > 0, percent is 0.
-    // We verify this structurally by checking that the value is always a non-negative number.
+  it("keeps percentResolvedByAILast30d in the [0, 100] range", async () => {
     const res = await request(app).get("/api/stats").set("Cookie", authCookie);
-    expect(res.body.percentResolvedByAI).toBeGreaterThanOrEqual(0);
-    expect(res.body.percentResolvedByAI).toBeLessThanOrEqual(100);
+    expect(res.body.percentResolvedByAILast30d).toBeGreaterThanOrEqual(0);
+    expect(res.body.percentResolvedByAILast30d).toBeLessThanOrEqual(100);
   });
 
   it("computes avgResolutionMinutes from resolvedAt timestamps", async () => {

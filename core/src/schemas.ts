@@ -154,7 +154,7 @@ export const statsResponseSchema = z.object({
   resolvedTickets: z.number(),
   closedTickets: z.number(),
   resolvedByAI: z.number(),
-  percentResolvedByAI: z.number(),
+  percentResolvedByAILast30d: z.number(),
   avgResolutionMinutes: z.number().nullable(),
 });
 

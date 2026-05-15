@@ -10,7 +10,9 @@ type TicketStatsRow = {
   closed_tickets: bigint;
   total_completed: bigint;
   ai_resolved: bigint;
-  percent_resolved_by_ai: number | null;
+  ai_resolved_30d: bigint;
+  total_completed_30d: bigint;
+  percent_resolved_by_ai_30d: number | null;
   avg_resolution_minutes: number | null;
 };
 
@@ -27,7 +29,7 @@ router.get("/", requireAuth, async (_req, res) => {
     resolvedTickets: Number(row.resolved_count),
     closedTickets: Number(row.closed_tickets),
     resolvedByAI: Number(row.ai_resolved),
-    percentResolvedByAI: Number(row.percent_resolved_by_ai ?? 0),
+    percentResolvedByAILast30d: Number(row.percent_resolved_by_ai_30d ?? 0),
     avgResolutionMinutes: row.avg_resolution_minutes != null ? Number(row.avg_resolution_minutes) : null,
   });
 });

@@ -50,8 +50,7 @@ function StatCardLink({ to, label, value }: { to: string; label: string; value: 
 }
 
 export default function DashboardStats({ stats }: { stats: StatsResponse }) {
-  const aiRate = stats.percentResolvedByAI;
-  const aiRateStr = `${aiRate.toFixed(1)}%`;
+  const aiRate = stats.percentResolvedByAILast30d;
 
   return (
     <div className="space-y-6">
@@ -86,9 +85,9 @@ export default function DashboardStats({ stats }: { stats: StatsResponse }) {
               </div>
 
               <p className="max-w-sm text-[13px] leading-relaxed text-muted-foreground">
-                <span className="text-foreground tabular">{stats.resolvedByAI.toLocaleString()}</span>{" "}
-                of <span className="text-foreground tabular">{stats.totalTickets.toLocaleString()}</span>{" "}
-                tickets resolved automatically — without an agent ever touching them.
+                <span className="text-foreground tabular">{Math.round(aiRate)}%</span>{" "}
+                of tickets received in the last 30 days were resolved
+                automatically — without an agent ever touching them.
               </p>
             </div>
           </div>
@@ -102,7 +101,7 @@ export default function DashboardStats({ stats }: { stats: StatsResponse }) {
             <Stat
               label="Resolved by AI"
               value={stats.resolvedByAI.toLocaleString()}
-              hint={aiRateStr + " of all"}
+              hint="tickets, all-time"
             />
           </div>
         </div>
