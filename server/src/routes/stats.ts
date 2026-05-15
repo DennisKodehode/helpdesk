@@ -6,8 +6,9 @@ import { getAiUserId } from "../lib/ai-user";
 type TicketStatsRow = {
   total_tickets: bigint;
   open_tickets: bigint;
+  resolved_count: bigint;
   closed_tickets: bigint;
-  total_resolved: bigint;
+  total_completed: bigint;
   ai_resolved: bigint;
   percent_resolved_by_ai: number | null;
   avg_resolution_minutes: number | null;
@@ -23,6 +24,7 @@ router.get("/", requireAuth, async (_req, res) => {
   res.json({
     totalTickets: Number(row.total_tickets),
     openTickets: Number(row.open_tickets),
+    resolvedTickets: Number(row.resolved_count),
     closedTickets: Number(row.closed_tickets),
     resolvedByAI: Number(row.ai_resolved),
     percentResolvedByAI: Number(row.percent_resolved_by_ai ?? 0),
