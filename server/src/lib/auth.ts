@@ -11,10 +11,12 @@ if (!CLIENT_URL) throw new Error("CLIENT_URL environment variable is required");
 const BETTER_AUTH_URL = process.env.BETTER_AUTH_URL;
 if (!BETTER_AUTH_URL) throw new Error("BETTER_AUTH_URL environment variable is required");
 
+const trustedOrigins = CLIENT_URL.split(",").map((s) => s.trim()).filter(Boolean);
+
 export const auth = betterAuth({
   baseURL: BETTER_AUTH_URL,
   secret: BETTER_AUTH_SECRET,
-  trustedOrigins: [CLIENT_URL],
+  trustedOrigins,
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),

@@ -10,7 +10,7 @@ Better Auth is configured with:
 - **Prisma adapter** — sessions stored in the database, not JWTs
 - **Email + password only** — `disableSignUp: true` (no self-registration; agents are created by admins only)
 - **`role` additional field** — `type: "string"`, `defaultValue: "agent"`, `input: false` (never writable from client input)
-- **`trustedOrigins`** — set to `CLIENT_URL` env var; required for cross-origin cookie auth
+- **`trustedOrigins`** — parsed from `CLIENT_URL` env var (comma-separated list); required for cross-origin cookie auth. Same value is used as the CORS allowlist in `app.ts`.
 
 Mounted in `app.ts` via `toNodeHandler(auth)` at `/api/auth/*splat`. CORS is configured with `credentials: true` to allow the session cookie to flow.
 

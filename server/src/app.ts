@@ -11,7 +11,11 @@ import inboundEmailRouter from "./routes/inbound-email";
 
 const app = express();
 
-app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }) as RequestHandler);
+const clientOrigins = (process.env.CLIENT_URL ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+app.use(cors({ origin: clientOrigins, credentials: true }) as RequestHandler);
 app.use(
   express.json({
     verify: (req: any, _res, buf) => {

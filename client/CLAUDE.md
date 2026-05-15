@@ -4,7 +4,7 @@
 
 ### `client/src/lib/auth-client.ts`
 
-`baseURL` reads from `import.meta.env.VITE_API_URL` (set in `client/.env`) — auth requests bypass the Vite proxy and go directly to the server. Exports used across the app: `signIn`, `signOut`, `signUp`, `useSession`.
+`baseURL` reads from `import.meta.env.VITE_API_URL` (set in `client/.env`); when that is empty, it falls back to `window.location.origin` so auth requests go through the Vite proxy (same-origin as the page). Leave `VITE_API_URL` empty for local dev and LAN access; set it when the API lives on a different origin in production. Exports used across the app: `signIn`, `signOut`, `signUp`, `useSession`.
 
 `useSession()` returns `{ data: session | null, isPending: boolean, error }` — check `isPending` before acting on `data`.
 
