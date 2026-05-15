@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { createUserSchema, updateUserSchema, type CreateUserData, type UpdateUserData, type User } from "@helpdesk/core";
 import axios from "axios";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import FieldError from "@/components/ui/FieldError";
 import { Input } from "@/components/ui/input";
@@ -23,6 +25,7 @@ interface UserDialogProps {
 
 export default function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
   const isEdit = !!user;
+  const [showPassword, setShowPassword] = useState(false);
   const queryClient = useQueryClient();
 
   const {
@@ -98,14 +101,26 @@ export default function UserDialog({ user, open, onOpenChange }: UserDialogProps
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder={isEdit ? "Leave blank to keep current password" : "Min 8 characters"}
-              aria-invalid={!!errors.password}
-              data-invalid={errors.password ? "" : undefined}
-              {...register("password")}
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder={isEdit ? "Leave blank to keep current password" : "Min 8 characters"}
+                aria-invalid={!!errors.password}
+                data-invalid={errors.password ? "" : undefined}
+                className="pr-10"
+                {...register("password")}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
+                className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground/60 transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-md"
+              >
+                {showPassword ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
+              </button>
+            </div>
             <FieldError message={errors.password?.message} />
           </div>
           <DialogFooter className="mt-2">
