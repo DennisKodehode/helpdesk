@@ -19,7 +19,11 @@ function ProtectedLayout() {
     setMobileNavOpen(false);
   }, [pathname]);
 
-  if (isPending) return null;
+  // Only block on the very first load (no cached session yet). If we already
+  // have a session, keep rendering even while a background revalidation is in
+  // flight — otherwise the whole layout would unmount/remount on every
+  // navigation, which reads as a page flicker.
+  if (isPending && !session) return null;
   if (!session) return <Navigate to="/login" replace />;
 
   return (
@@ -36,7 +40,8 @@ function ProtectedLayout() {
 function AdminLayout() {
   const { data: session, isPending } = useSession();
 
-  if (isPending) return null;
+  // Same reasoning as ProtectedLayout: don't unmount on background revalidation.
+  if (isPending && !session) return null;
 
   const role = (session?.user as Record<string, unknown>)?.role;
   if (role !== Role.admin) return <Navigate to="/" replace />;

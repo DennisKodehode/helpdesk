@@ -20,10 +20,10 @@ export default function MobileTopbar({ onMenuClick }: Props) {
         <Menu className="size-5" />
       </button>
       <Link to="/" className="inline-flex items-baseline gap-1.5">
-        <span className="display-serif text-[20px] leading-none text-foreground">
+        <span className="display-serif text-[22px] leading-none text-foreground">
           Helpdesk
         </span>
-        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70">
+        <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70">
           v1
         </span>
       </Link>

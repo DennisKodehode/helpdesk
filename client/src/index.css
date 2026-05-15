@@ -185,6 +185,22 @@
   h2 {
     @apply text-sm font-medium text-muted-foreground;
   }
+  /* Tailwind 4's preflight intentionally drops `cursor: pointer` from the
+     UA stylesheet so authors opt in. Opt in globally for anything the user
+     can activate: real buttons, ARIA buttons/triggers/options, and
+     <summary>. Anchors with an href already get the pointer natively. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]):not([data-disabled]),
+  [role="combobox"]:not(:disabled):not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]),
+  [role="menuitem"]:not([aria-disabled="true"]),
+  [role="menuitemcheckbox"]:not([aria-disabled="true"]),
+  [role="menuitemradio"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="switch"]:not([aria-disabled="true"]),
+  summary {
+    cursor: pointer;
+  }
 }
 
 /* Editorial display moments — use these utility classes */
