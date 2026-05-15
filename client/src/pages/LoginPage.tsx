@@ -26,7 +26,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-background">
       <div className="grid min-h-screen md:grid-cols-2">
         {/* Editorial left panel */}
-        <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-border bg-sidebar p-12 md:flex">
+        <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-border bg-sidebar p-12 md:flex xl:p-16 2xl:p-20">
           {/* Subtle grid texture */}
           <div
             aria-hidden
@@ -43,12 +43,12 @@ export default function LoginPage() {
           </div>
 
           <div className="relative space-y-7">
-            <h1 className="display-serif text-[64px] leading-[0.95] tracking-[-0.02em] text-foreground">
+            <h1 className="display-serif text-[64px] leading-[0.95] tracking-[-0.02em] text-foreground xl:text-[80px] 2xl:text-[96px]">
               Quiet,<br />
               <span className="italic text-primary">decisive</span><br />
               support.
             </h1>
-            <p className="max-w-sm text-[15px] leading-relaxed text-muted-foreground">
+            <p className="max-w-sm text-[15px] leading-relaxed text-muted-foreground xl:max-w-md xl:text-[16px] 2xl:text-[17px]">
               A workspace for support teams who care about how a reply reads, how
               fast it arrives, and how it makes the customer feel afterwards.
             </p>
@@ -61,11 +61,11 @@ export default function LoginPage() {
         </aside>
 
         {/* Form right panel */}
-        <main className="flex items-center justify-center px-6 py-12 md:px-12">
-          <div className="w-full max-w-sm">
-            <div className="mb-10 space-y-2">
+        <main className="flex items-center justify-center px-6 py-12 md:px-12 xl:px-16 2xl:px-20">
+          <div className="w-full max-w-sm xl:max-w-md">
+            <div className="mb-10 space-y-2 xl:mb-12 2xl:mb-14">
               <p className="eyebrow">Sign in</p>
-              <h2 className="display-serif text-3xl leading-tight tracking-tight text-foreground">
+              <h2 className="display-serif text-3xl leading-tight tracking-tight text-foreground xl:text-4xl 2xl:text-5xl">
                 Welcome back.
               </h2>
               <p className="text-sm text-muted-foreground">

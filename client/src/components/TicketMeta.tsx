@@ -36,7 +36,7 @@ function MetaField({
   children: React.ReactNode;
 }) {
   return (
-    <div className="hairline-b px-5 py-4 last:border-b-0">
+    <div className="hairline-b px-5 py-4 last:border-b-0 xl:px-6 xl:py-5">
       <p className="label-meta mb-2">{label}</p>
       {children}
     </div>

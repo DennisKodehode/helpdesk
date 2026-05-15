@@ -146,13 +146,15 @@ export default function UsersTable({
                       <div className="grid size-7 shrink-0 place-items-center rounded-full bg-muted text-[11px] font-medium text-muted-foreground">
                         {user.name?.trim().charAt(0).toUpperCase()}
                       </div>
-                      <span className="text-[13.5px] font-medium text-foreground">
+                      <span className="block truncate text-[13.5px] font-medium text-foreground lg:max-w-[14rem] xl:max-w-[18rem]">
                         {user.name}
                       </span>
                     </div>
                   </td>
                   <td className="px-5 py-3.5 font-mono text-[12px] text-muted-foreground">
-                    {user.email}
+                    <span className="block truncate lg:max-w-[20rem] xl:max-w-[26rem]">
+                      {user.email}
+                    </span>
                   </td>
                   <td className="px-5 py-3.5">
                     <RoleBadge role={user.role} />

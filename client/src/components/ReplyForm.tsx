@@ -83,7 +83,7 @@ export default function ReplyForm({ ticketId }: Props) {
         )}
       </div>
 
-      <div className="space-y-3 p-4">
+      <div className="space-y-3 p-4 xl:p-6 2xl:p-8">
         <Textarea
           id="reply-body"
           aria-label="Reply body"
@@ -109,7 +109,7 @@ export default function ReplyForm({ ticketId }: Props) {
           />
         )}
 
-        <div className="flex items-center justify-between gap-2 pt-1">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
           <div>
             {isPolished ? (
               <Button

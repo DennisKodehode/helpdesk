@@ -44,7 +44,7 @@ export default function TicketFilters({
 }: Props) {
   return (
     <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-      <div className="relative w-full sm:flex-1 sm:min-w-[16rem] sm:max-w-md">
+      <div className="relative w-full sm:flex-1 sm:min-w-[16rem] sm:max-w-md xl:max-w-xl 2xl:max-w-2xl">
         <Search
           aria-hidden
           className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60"

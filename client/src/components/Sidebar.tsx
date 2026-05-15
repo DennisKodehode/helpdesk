@@ -201,7 +201,7 @@ interface Props {
 export default function Sidebar({ mobileOpen, onMobileOpenChange }: Props) {
   return (
     <>
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-sidebar md:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-sidebar md:flex xl:w-64 2xl:w-72">
         <SidebarContents />
       </aside>
 

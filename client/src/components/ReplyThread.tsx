@@ -60,7 +60,7 @@ export default function ReplyThread({ ticket }: Props) {
   ];
 
   return (
-    <section className="space-y-5">
+    <section className="mx-auto w-full space-y-5 lg:max-w-3xl xl:max-w-4xl">
       {/* Section rail */}
       <div className="flex items-center justify-between">
         <h2 className="eyebrow">Conversation · {messages.length}</h2>

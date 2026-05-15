@@ -30,7 +30,7 @@ export default function DeleteUserDialog({
     >
       <DialogContent showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle className="display-serif text-2xl leading-tight">
+          <DialogTitle className="display-serif text-2xl leading-tight xl:text-3xl 2xl:text-4xl">
             Delete agent?
           </DialogTitle>
         </DialogHeader>

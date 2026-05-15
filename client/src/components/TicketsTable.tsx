@@ -52,7 +52,7 @@ const columns: ColumnDef<Ticket>[] = [
     cell: ({ row }) => (
       <Link
         to={`/tickets/${row.original.id}`}
-        className="block max-w-md truncate text-[13.5px] font-medium text-foreground underline-offset-4 hover:underline"
+        className="block max-w-md truncate text-[13.5px] font-medium text-foreground underline-offset-4 hover:underline xl:max-w-xl 2xl:max-w-2xl"
       >
         {row.original.subject}
       </Link>
@@ -63,7 +63,7 @@ const columns: ColumnDef<Ticket>[] = [
     accessorKey: "fromName",
     header: "From",
     cell: ({ row }) => (
-      <div className="min-w-0">
+      <div className="min-w-0 lg:max-w-[18rem] xl:max-w-[22rem]">
         <p className="truncate text-[13px] text-foreground">{row.original.fromName}</p>
         <p className="truncate font-mono text-[11px] text-muted-foreground">
           {row.original.fromEmail}

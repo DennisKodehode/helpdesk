@@ -22,7 +22,7 @@ export default function TicketDetails({ ticket }: Props) {
       </div>
 
       {/* Subject — editorial serif */}
-      <h1 className="display-serif text-[28px] leading-[1.06] tracking-[-0.015em] text-foreground sm:text-[36px] md:text-[44px]">
+      <h1 className="display-serif text-[28px] leading-[1.06] tracking-[-0.015em] text-foreground sm:text-[36px] md:text-[44px] xl:text-[56px] 2xl:text-[64px]">
         {ticket.subject}
       </h1>
 

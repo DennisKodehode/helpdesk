@@ -17,9 +17,9 @@ interface StatProps {
 
 function Stat({ label, value, hint }: StatProps) {
   return (
-    <div className="flex flex-col gap-2 px-5 py-5">
+    <div className="flex flex-col gap-2 px-5 py-5 xl:px-7 xl:py-7 2xl:px-9 2xl:py-9">
       <p className="label-meta">{label}</p>
-      <p className="display-serif tabular text-[44px] leading-none text-foreground">
+      <p className="display-serif tabular text-[44px] leading-none text-foreground xl:text-[56px] 2xl:text-[64px]">
         {value}
       </p>
       {hint && (
@@ -38,11 +38,11 @@ export default function DashboardStats({ stats }: { stats: StatsResponse }) {
       {/* Hero: AI resolution rate — the headline number */}
       <div className="rounded-lg border border-border bg-card">
         <div className="grid items-stretch md:grid-cols-[1.4fr_1fr]">
-          <div className="relative overflow-hidden p-8">
+          <div className="relative overflow-hidden p-8 xl:p-12 2xl:p-16">
             {/* Faint serif glyph as backdrop */}
             <span
               aria-hidden
-              className="display-serif pointer-events-none absolute -right-4 -bottom-12 select-none text-[280px] leading-none text-primary/[0.05]"
+              className="display-serif pointer-events-none absolute -right-4 -bottom-12 select-none text-[280px] leading-none text-primary/[0.05] xl:text-[360px] 2xl:text-[440px]"
             >
               %
             </span>
@@ -57,7 +57,7 @@ export default function DashboardStats({ stats }: { stats: StatsResponse }) {
               </div>
 
               <div className="flex items-baseline gap-3">
-                <span className="display-serif tabular text-[96px] leading-[0.85] tracking-[-0.02em] text-foreground">
+                <span className="display-serif tabular text-[96px] leading-[0.85] tracking-[-0.02em] text-foreground xl:text-[128px] 2xl:text-[160px]">
                   {aiRate.toFixed(1)}
                 </span>
                 <span className="display-serif text-4xl text-muted-foreground/60">
