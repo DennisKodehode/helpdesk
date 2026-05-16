@@ -5,6 +5,7 @@ import express, { type ErrorRequestHandler, type RequestHandler } from "express"
 import { auth } from "./lib/auth";
 import { env } from "./lib/env";
 import agentsRouter from "./routes/agents";
+import healthRouter from "./routes/health";
 import inboundEmailRouter from "./routes/inbound-email";
 import notificationsRouter from "./routes/notifications";
 import statsRouter from "./routes/stats";
@@ -24,10 +25,7 @@ app.use(
 
 app.all("/api/auth/*splat", toNodeHandler(auth));
 
-app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok" });
-});
-
+app.use("/api/health", healthRouter);
 app.use("/api/agents", agentsRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/tickets", ticketsRouter);
