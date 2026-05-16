@@ -14,6 +14,7 @@ import {
   CATEGORY_LABELS,
   STATUS_LABELS,
   PRIORITY_LABELS,
+  isTriagingStatus,
 } from "@/lib/ticket-ui";
 import StatusPill from "@/components/StatusPill";
 import {
@@ -132,6 +133,8 @@ export default function TicketMeta({ ticket }: Props) {
     ticket.status === TicketStatus.resolved ||
     ticket.status === TicketStatus.closed;
 
+  const isTriaging = isTriagingStatus(ticket.status as TicketStatus);
+
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card">
       <div className="hairline-b flex items-center justify-between bg-muted/30 px-5 py-3">
@@ -139,7 +142,7 @@ export default function TicketMeta({ ticket }: Props) {
       </div>
 
       <MetaField label="Status">
-        {validNextStatuses.length > 0 ? (
+        {validNextStatuses.length > 0 && !isTriaging ? (
           <Select
             value={currentStatus}
             onValueChange={(value) =>
@@ -180,6 +183,7 @@ export default function TicketMeta({ ticket }: Props) {
           <SelectTrigger
             className="h-9 w-full text-[13px]"
             aria-label="Change ticket category"
+            disabled={isTriaging}
           >
             <span data-slot="select-value" className="flex flex-1 text-left">
               {currentCategory ? (
@@ -210,6 +214,7 @@ export default function TicketMeta({ ticket }: Props) {
           <SelectTrigger
             className="h-9 w-full text-[13px]"
             aria-label="Change ticket priority"
+            disabled={isTriaging}
           >
             <span data-slot="select-value" className="flex flex-1 text-left">
               {PRIORITY_LABELS[currentPriority]}
@@ -232,7 +237,7 @@ export default function TicketMeta({ ticket }: Props) {
           <SelectTrigger
             className="h-9 w-full text-[13px]"
             aria-label="Assign ticket"
-            disabled={isTerminal}
+            disabled={isTerminal || isTriaging}
           >
             <span data-slot="select-value" className="flex flex-1 text-left">
               {displayAgentName ?? (

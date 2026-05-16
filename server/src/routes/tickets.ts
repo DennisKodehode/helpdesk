@@ -2,7 +2,7 @@ import { Router } from "express";
 import { Prisma } from "../generated/prisma/client";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth-middleware";
-import { ticketSortSchema, updateTicketSchema, createReplySchema, polishReplySchema, Role, TicketStatus, SenderType, NotificationType, VALID_TRANSITIONS, ADMIN_VALID_TRANSITIONS } from "@helpdesk/core";
+import { ticketSortSchema, updateTicketSchema, createReplySchema, polishReplySchema, Role, TicketStatus, SenderType, NotificationType, VALID_TRANSITIONS, ADMIN_VALID_TRANSITIONS, TRIAGING_STATUSES, TRIAGING_FILTER_VALUE } from "@helpdesk/core";
 import { firstIssue } from "../lib/validation";
 import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
@@ -28,9 +28,15 @@ router.get("/", requireAuth, async (req, res) => {
 
   const trimmed = search?.trim();
 
+  const statusFilter: Prisma.TicketWhereInput["status"] =
+    status === TRIAGING_FILTER_VALUE
+      ? { in: TRIAGING_STATUSES }
+      : status
+        ? status
+        : undefined;
+
   const where: Prisma.TicketWhereInput = {
-    status: { notIn: [TicketStatus.new, TicketStatus.processing] },
-    ...(status && { status }),
+    ...(statusFilter !== undefined && { status: statusFilter }),
     ...(category && { category }),
     ...(priority && { priority }),
     ...(assignee === "unassigned" && { assignedToId: null }),

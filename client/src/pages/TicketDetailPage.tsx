@@ -1,7 +1,7 @@
 import { useParams } from "react-router";
 import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
-import { type TicketDetail } from "@helpdesk/core";
+import { type TicketDetail, TicketStatus } from "@helpdesk/core";
 import { Skeleton } from "@/components/ui/skeleton";
 import ErrorAlert from "@/components/ui/ErrorAlert";
 import BackLink from "@/components/ui/BackLink";
@@ -9,6 +9,7 @@ import ReplyForm from "@/components/ReplyForm";
 import ReplyThread from "@/components/ReplyThread";
 import TicketDetails from "@/components/TicketDetails";
 import TicketMeta from "@/components/TicketMeta";
+import { isTriagingStatus } from "@/lib/ticket-ui";
 
 async function fetchTicket(id: string): Promise<TicketDetail> {
   const { data } = await axios.get<TicketDetail>(`/api/tickets/${id}`);
@@ -52,7 +53,16 @@ export default function TicketDetailPage() {
           <div className="mt-10 grid grid-cols-1 gap-x-10 gap-y-8 lg:grid-cols-[1fr_300px] lg:items-start">
             <div className="min-w-0 space-y-8">
               <ReplyThread ticket={ticket} />
-              <ReplyForm ticketId={id!} />
+              {isTriagingStatus(ticket.status as TicketStatus) ? (
+                <div
+                  role="status"
+                  className="rounded-lg border border-dashed border-border bg-card px-5 py-6 text-center text-[13px] text-muted-foreground"
+                >
+                  AI is triaging this ticket — actions unlock once it has been opened or auto-resolved.
+                </div>
+              ) : (
+                <ReplyForm ticketId={id!} />
+              )}
             </div>
 
             <aside className="lg:sticky lg:top-8">

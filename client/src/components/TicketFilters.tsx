@@ -7,10 +7,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TicketStatus, TicketCategory, TicketPriority } from "@helpdesk/core";
+import { TicketStatus, TicketCategory, TicketPriority, TRIAGING_FILTER_VALUE, type TriagingFilterValue } from "@helpdesk/core";
+
+export type StatusFilterValue = TicketStatus | TriagingFilterValue | "";
 
 const STATUS_LABELS: Record<string, string> = {
   "": "All statuses",
+  [TRIAGING_FILTER_VALUE]: "Triaging",
   [TicketStatus.open]: "Open",
   [TicketStatus.resolved]: "Resolved",
   [TicketStatus.closed]: "Closed",
@@ -35,11 +38,11 @@ const PRIORITY_FILTER_LABELS: Record<string, string> = {
 
 interface Props {
   search: string;
-  status: TicketStatus | "";
+  status: StatusFilterValue;
   category: TicketCategory | "";
   priority: TicketPriority | "";
   onSearchChange: (v: string) => void;
-  onStatusChange: (v: TicketStatus | "") => void;
+  onStatusChange: (v: StatusFilterValue) => void;
   onCategoryChange: (v: TicketCategory | "") => void;
   onPriorityChange: (v: TicketPriority | "") => void;
 }
@@ -70,12 +73,13 @@ export default function TicketFilters({
         />
       </div>
 
-      <Select<TicketStatus | ""> value={status} onValueChange={(v) => onStatusChange(v as TicketStatus | "")}>
+      <Select<StatusFilterValue> value={status} onValueChange={(v) => onStatusChange(v as StatusFilterValue)}>
         <SelectTrigger aria-label="Status" size="sm" className="h-10 w-full sm:h-9 sm:w-36">
           <SelectValue>{(v: string | null) => STATUS_LABELS[v ?? ""]}</SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="">All statuses</SelectItem>
+          <SelectItem value={TRIAGING_FILTER_VALUE}>Triaging</SelectItem>
           <SelectItem value={TicketStatus.open}>Open</SelectItem>
           <SelectItem value={TicketStatus.resolved}>Resolved</SelectItem>
           <SelectItem value={TicketStatus.closed}>Closed</SelectItem>

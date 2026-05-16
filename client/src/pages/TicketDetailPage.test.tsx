@@ -80,3 +80,29 @@ describe("error state", () => {
     expect(await screen.findByText("Failed to load ticket")).toBeInTheDocument();
   });
 });
+
+describe("triaging state", () => {
+  it("hides the reply form and shows the AI triage explainer when status is new", async () => {
+    mockGetResponses({ ...mockTicket, status: TicketStatus.new });
+    renderWithProviders(<TicketDetailPage />);
+
+    await screen.findByText("My printer is on fire");
+    expect(screen.queryByRole("form", { name: /reply form/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/AI is triaging this ticket/i)).toBeInTheDocument();
+  });
+
+  it("hides the reply form and shows the explainer when status is processing", async () => {
+    mockGetResponses({ ...mockTicket, status: TicketStatus.processing });
+    renderWithProviders(<TicketDetailPage />);
+
+    await screen.findByText("My printer is on fire");
+    expect(screen.queryByRole("form", { name: /reply form/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/AI is triaging this ticket/i)).toBeInTheDocument();
+  });
+
+  it("shows the reply form when status is open", async () => {
+    renderWithProviders(<TicketDetailPage />);
+    expect(await screen.findByRole("form", { name: /reply form/i })).toBeInTheDocument();
+    expect(screen.queryByText(/AI is triaging this ticket/i)).not.toBeInTheDocument();
+  });
+});

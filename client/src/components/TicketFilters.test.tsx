@@ -44,6 +44,15 @@ describe("TicketFilters", () => {
     expect(onCategoryChange).toHaveBeenCalledWith(TicketCategory.technical_question);
   });
 
+  it("calls onStatusChange with 'triaging' when the Triaging option is chosen", async () => {
+    const onStatusChange = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(<TicketFilters {...baseProps} onStatusChange={onStatusChange} />);
+    await user.click(screen.getByRole("combobox", { name: /status/i }));
+    await user.click(await screen.findByRole("option", { name: /^triaging$/i }));
+    expect(onStatusChange).toHaveBeenCalledWith("triaging");
+  });
+
   it("calls onPriorityChange with the selected value when a priority option is chosen", async () => {
     const onPriorityChange = vi.fn();
     const user = userEvent.setup();

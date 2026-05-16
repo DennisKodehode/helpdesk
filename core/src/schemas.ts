@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { TicketStatus, TicketCategory, TicketPriority, SenderType, NotificationType } from "./types";
+import { TicketStatus, TicketCategory, TicketPriority, SenderType, NotificationType, TRIAGING_FILTER_VALUE } from "./types";
 
 export const userSchema = z.object({
   id: z.string(),
@@ -93,7 +93,7 @@ export type TicketSortField = (typeof TICKET_SORT_FIELDS)[number];
 export const ticketSortSchema = z.object({
   sortBy: z.enum(TICKET_SORT_FIELDS).optional(),
   sortOrder: z.enum(["asc", "desc"]).optional(),
-  status: z.enum(TicketStatus).optional(),
+  status: z.union([z.enum(TicketStatus), z.literal(TRIAGING_FILTER_VALUE)]).optional(),
   category: z.enum(TicketCategory).optional(),
   priority: z.enum(TicketPriority).optional(),
   assignee: z.enum(["unassigned", "me"]).optional(),

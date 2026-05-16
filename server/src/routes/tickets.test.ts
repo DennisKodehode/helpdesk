@@ -160,6 +160,63 @@ describe("GET /api/tickets — sorting", () => {
     expect(ids).not.toContain(resolvedTicket.id);
   });
 
+  it("includes triaging tickets in the default list", async () => {
+    const newTicket = await prisma.ticket.create({
+      data: { fromName: "Triage Test", fromEmail: "triage@example.com", subject: "Fresh triaging", body: "", status: TicketStatus.new },
+    });
+    const processingTicket = await prisma.ticket.create({
+      data: { fromName: "Triage Test", fromEmail: "triage@example.com", subject: "AI processing", body: "", status: TicketStatus.processing },
+    });
+    createdTicketIds.push(newTicket.id, processingTicket.id);
+
+    const res = await request(app)
+      .get("/api/tickets?pageSize=100")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
+    expect(ids).toContain(newTicket.id);
+    expect(ids).toContain(processingTicket.id);
+  });
+
+  it("filters to only triaging tickets when status=triaging", async () => {
+    const newTicket = await prisma.ticket.create({
+      data: { fromName: "Triage Test", fromEmail: "triage@example.com", subject: "Fresh triaging", body: "", status: TicketStatus.new },
+    });
+    const processingTicket = await prisma.ticket.create({
+      data: { fromName: "Triage Test", fromEmail: "triage@example.com", subject: "AI processing", body: "", status: TicketStatus.processing },
+    });
+    const openTicket = await prisma.ticket.create({
+      data: { fromName: "Triage Test", fromEmail: "triage@example.com", subject: "Already open", body: "", status: TicketStatus.open },
+    });
+    createdTicketIds.push(newTicket.id, processingTicket.id, openTicket.id);
+
+    const res = await request(app)
+      .get("/api/tickets?status=triaging&pageSize=100")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
+    expect(ids).toEqual(expect.arrayContaining([newTicket.id, processingTicket.id]));
+    expect(ids).not.toContain(openTicket.id);
+  });
+
+  it("status=open excludes triaging tickets", async () => {
+    const newTicket = await prisma.ticket.create({
+      data: { fromName: "Triage Test", fromEmail: "triage@example.com", subject: "Fresh triaging", body: "", status: TicketStatus.new },
+    });
+    const openTicket = await prisma.ticket.create({
+      data: { fromName: "Triage Test", fromEmail: "triage@example.com", subject: "Already open", body: "", status: TicketStatus.open },
+    });
+    createdTicketIds.push(newTicket.id, openTicket.id);
+
+    const res = await request(app)
+      .get(`/api/tickets?status=${TicketStatus.open}&pageSize=100`)
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
+    expect(ids).toContain(openTicket.id);
+    expect(ids).not.toContain(newTicket.id);
+  });
+
   it("filters by category", async () => {
     const technicalTicket = await prisma.ticket.create({
       data: { fromName: "Filter Test", fromEmail: "filter@example.com", subject: "Technical ticket", body: "", status: TicketStatus.open, category: TicketCategory.technical_question },

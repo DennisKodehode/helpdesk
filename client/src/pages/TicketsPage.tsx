@@ -8,6 +8,7 @@ import TicketFilters from "@/components/TicketFilters";
 import TicketPagination from "@/components/TicketPagination";
 import PageHeader from "@/components/ui/PageHeader";
 import { type PaginatedTickets, type TicketSortField, TicketStatus, TicketCategory, TicketPriority } from "@helpdesk/core";
+import { type StatusFilterValue } from "@/components/TicketFilters";
 
 const PAGE_SIZE = 10;
 
@@ -29,7 +30,7 @@ function setParam(params: URLSearchParams, key: string, value: string | number |
 async function fetchTickets(
   sortBy: TicketSortField,
   sortOrder: "asc" | "desc",
-  status: TicketStatus | "",
+  status: StatusFilterValue,
   category: TicketCategory | "",
   priority: TicketPriority | "",
   assignee: string,
@@ -55,7 +56,7 @@ async function fetchTickets(
 export default function TicketsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const status = (searchParams.get("status") ?? "") as TicketStatus | "";
+  const status = (searchParams.get("status") ?? "") as StatusFilterValue;
   const category = (searchParams.get("category") ?? "") as TicketCategory | "";
   const priority = (searchParams.get("priority") ?? "") as TicketPriority | "";
   const assignee = searchParams.get("assignee") ?? "";

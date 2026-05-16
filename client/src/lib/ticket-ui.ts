@@ -1,4 +1,13 @@
-import { TicketStatus, TicketCategory, TicketPriority } from "@helpdesk/core";
+import { TicketStatus, TicketCategory, TicketPriority, TRIAGING_STATUSES } from "@helpdesk/core";
+
+export function isTriagingStatus(status: TicketStatus): boolean {
+  return (TRIAGING_STATUSES as TicketStatus[]).includes(status);
+}
+
+export const TRIAGING_LABEL = "Triaging";
+export const TRIAGING_STYLE =
+  "bg-violet-500/8 text-violet-700 border-violet-500/20 dark:text-violet-300 dark:bg-violet-400/10 dark:border-violet-400/20";
+export const TRIAGING_DOT = "bg-violet-500";
 
 // Restrained pill: hairline border, soft tint, small caps mono label.
 export const BADGE_BASE =
