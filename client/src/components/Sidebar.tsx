@@ -15,6 +15,7 @@ import {
   Moon,
   ChevronsUpDown,
 } from "lucide-react";
+import NotificationBell from "./NotificationBell";
 
 interface NavItem {
   to: string;
@@ -108,7 +109,7 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
 
   return (
     <>
-      <div className="flex h-16 items-center px-5 md:h-14">
+      <div className="flex h-16 items-center justify-between px-5 md:h-14">
         <Link to="/" onClick={onNavigate} className="group inline-flex items-baseline gap-1.5">
           <span className="display-serif text-[26px] leading-none text-foreground md:text-[22px]">
             Helpdesk
@@ -117,6 +118,7 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
             v1
           </span>
         </Link>
+        <NotificationBell align="start" />
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 pt-3 pb-4 md:pt-2">

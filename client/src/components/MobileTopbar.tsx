@@ -1,5 +1,6 @@
 import { Menu } from "lucide-react";
 import { Link } from "@/components/ui/link";
+import NotificationBell from "./NotificationBell";
 
 interface Props {
   onMenuClick: () => void;
@@ -27,7 +28,7 @@ export default function MobileTopbar({ onMenuClick }: Props) {
           v1
         </span>
       </Link>
-      <span aria-hidden className="size-11" />
+      <NotificationBell />
     </header>
   );
 }

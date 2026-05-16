@@ -8,6 +8,7 @@ import usersRouter from "./routes/users";
 import ticketsRouter from "./routes/tickets";
 import statsRouter from "./routes/stats";
 import inboundEmailRouter from "./routes/inbound-email";
+import notificationsRouter from "./routes/notifications";
 
 const app = express();
 
@@ -35,6 +36,7 @@ app.use("/api/users", usersRouter);
 app.use("/api/tickets", ticketsRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/inbound-email", inboundEmailRouter);
+app.use("/api/notifications", notificationsRouter);
 
 Sentry.setupExpressErrorHandler(app);
 
