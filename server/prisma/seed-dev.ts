@@ -52,6 +52,7 @@ async function main() {
   const introSeeded = await prisma.ticket.findFirst({ where: { fromEmail: "bob@acme.com" } });
   if (introSeeded) {
     console.log("Intro tickets already seeded, skipping.");
+    await seedPriorityShowcase();
     await seedAliceHistory(agent.id);
     return;
   }
@@ -137,7 +138,60 @@ async function main() {
   }
   console.log(`Created ${tickets.length} tickets.`);
 
+  await seedPriorityShowcase();
   await seedAliceHistory(agent.id);
+}
+
+/**
+ * One ticket per priority level so the dev UI exercises all four badges.
+ * Idempotent — gated by fromEmail.
+ */
+async function seedPriorityShowcase() {
+  const hoursAgo = (h: number) => new Date(Date.now() - h * 60 * 60 * 1000);
+
+  const showcase = [
+    {
+      fromName: "Wendy Holloway", fromEmail: "wendy.holloway@bridgecorp.com",
+      subject: "Just checking — does light mode follow system settings?",
+      body: "Hi,\n\nNothing urgent. I'm just curious whether the dashboard's light/dark mode follows my OS preference automatically or if I have to toggle it manually.\n\nThanks,\nWendy",
+      category: "general_question" as const, priority: "low" as const,
+      status: "open" as const, createdAt: hoursAgo(4),
+    },
+    {
+      fromName: "Diego Marin", fromEmail: "diego.marin@northstar.io",
+      subject: "Question about webhook retries",
+      body: "Hello,\n\nWhen a webhook delivery fails, how many times does the system retry and at what intervals? Trying to size our consumer's idempotency window correctly.\n\nDiego",
+      category: "technical_question" as const, priority: "normal" as const,
+      status: "open" as const, createdAt: hoursAgo(10),
+    },
+    {
+      fromName: "Aisha Rahman", fromEmail: "aisha@parallel.studio",
+      subject: "Reports stopped generating since this morning",
+      body: "Hi,\n\nOur scheduled reports normally drop at 7am and they didn't run today. The Reports page just shows a spinner that never resolves. This is blocking the team — please advise.\n\nAisha",
+      category: "technical_question" as const, priority: "high" as const,
+      status: "open" as const, createdAt: hoursAgo(3),
+    },
+    {
+      fromName: "Greg Volkov", fromEmail: "greg.volkov@meridian.fund",
+      subject: "URGENT: payment failed and account is locked",
+      body: "Hi,\n\nOur monthly card payment failed (the card has been replaced) and now my whole team is locked out of the dashboard mid-day. We have a customer call in 90 minutes and need access to the queue. Please help asap.\n\nGreg",
+      category: "billing_inquiry" as const, priority: "urgent" as const,
+      status: "open" as const, createdAt: hoursAgo(1),
+    },
+  ];
+
+  let created = 0;
+  for (const t of showcase) {
+    const existing = await prisma.ticket.findFirst({ where: { fromEmail: t.fromEmail } });
+    if (existing) continue;
+    await prisma.ticket.create({ data: t });
+    created++;
+  }
+  if (created > 0) {
+    console.log(`Seeded priority showcase: ${created} ticket(s).`);
+  } else {
+    console.log("Priority showcase already seeded, skipping.");
+  }
 }
 
 /**
