@@ -103,4 +103,47 @@ describe("ReplyForm", () => {
     });
     expect(screen.getByRole("button", { name: /refine/i })).toBeDisabled();
   });
+
+  it("hides the refine box and restores the Polish button when the reply textarea is cleared after polishing", async () => {
+    vi.mocked(axios.post).mockResolvedValue({ data: { body: "Polished." } });
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyForm ticketId="42" />);
+
+    const replyTextarea = screen.getByRole("textbox", { name: /reply body/i });
+    await user.type(replyTextarea, "draft");
+    await user.click(screen.getByRole("button", { name: /polish/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("textbox", { name: /refinement note/i })).toBeInTheDocument();
+    });
+
+    await user.clear(replyTextarea);
+
+    await waitFor(() => {
+      expect(screen.queryByRole("textbox", { name: /refinement note/i })).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: /polish/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /refine/i })).not.toBeInTheDocument();
+  });
+
+  it("also resets polished mode when the reply textarea contains only whitespace", async () => {
+    vi.mocked(axios.post).mockResolvedValue({ data: { body: "Polished." } });
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyForm ticketId="42" />);
+
+    const replyTextarea = screen.getByRole("textbox", { name: /reply body/i });
+    await user.type(replyTextarea, "draft");
+    await user.click(screen.getByRole("button", { name: /polish/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("textbox", { name: /refinement note/i })).toBeInTheDocument();
+    });
+
+    await user.clear(replyTextarea);
+    await user.type(replyTextarea, "   ");
+
+    await waitFor(() => {
+      expect(screen.queryByRole("textbox", { name: /refinement note/i })).not.toBeInTheDocument();
+    });
+  });
 });

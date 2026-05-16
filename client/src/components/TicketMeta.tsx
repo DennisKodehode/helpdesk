@@ -103,6 +103,10 @@ export default function TicketMeta({ ticket }: Props) {
     isAdmin ? ADMIN_VALID_TRANSITIONS : VALID_TRANSITIONS
   )[ticket.status as TicketStatus];
 
+  const isTerminal =
+    ticket.status === TicketStatus.resolved ||
+    ticket.status === TicketStatus.closed;
+
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card">
       <div className="hairline-b flex items-center justify-between bg-muted/30 px-5 py-3">
@@ -179,6 +183,7 @@ export default function TicketMeta({ ticket }: Props) {
           <SelectTrigger
             className="h-9 w-full text-[13px]"
             aria-label="Assign ticket"
+            disabled={isTerminal}
           >
             <span data-slot="select-value" className="flex flex-1 text-left">
               {displayAgentName ?? (
@@ -195,6 +200,11 @@ export default function TicketMeta({ ticket }: Props) {
             ))}
           </SelectContent>
         </Select>
+        {isTerminal && (
+          <p className="mt-1.5 text-[11px] text-muted-foreground">
+            Reopen the ticket to reassign.
+          </p>
+        )}
       </MetaField>
 
       <MetaField label="Timeline">

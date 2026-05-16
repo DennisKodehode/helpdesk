@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import { useForm } from "react-hook-form";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
@@ -47,6 +47,13 @@ export default function ReplyForm({ ticketId }: Props) {
 
   const [isPolished, setIsPolished] = useState(false);
   const [refinementNote, setRefinementNote] = useState("");
+
+  useEffect(() => {
+    if (isPolished && !bodyValue?.trim()) {
+      setIsPolished(false);
+      setRefinementNote("");
+    }
+  }, [bodyValue, isPolished]);
 
   const polishMutation = useMutation({
     mutationFn: ({

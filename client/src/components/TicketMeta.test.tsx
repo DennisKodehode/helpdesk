@@ -200,4 +200,24 @@ describe("assign interaction", () => {
       expect(axios.patch).toHaveBeenCalledWith("/api/tickets/42", { assignedToId: null });
     });
   });
+
+  it("disables the assign select on resolved tickets and shows the reopen hint", async () => {
+    renderWithProviders(<TicketMeta ticket={{ ...mockTicket, status: TicketStatus.resolved }} />);
+    const trigger = await screen.findByRole("combobox", { name: /assign ticket/i });
+    expect(trigger).toBeDisabled();
+    expect(screen.getByText(/reopen the ticket to reassign/i)).toBeInTheDocument();
+  });
+
+  it("disables the assign select on closed tickets and shows the reopen hint", async () => {
+    renderWithProviders(<TicketMeta ticket={{ ...mockTicket, status: TicketStatus.closed }} />);
+    const trigger = await screen.findByRole("combobox", { name: /assign ticket/i });
+    expect(trigger).toBeDisabled();
+    expect(screen.getByText(/reopen the ticket to reassign/i)).toBeInTheDocument();
+  });
+
+  it("does not show the reopen hint on open tickets", async () => {
+    renderWithProviders(<TicketMeta ticket={mockTicket} />);
+    await screen.findByRole("combobox", { name: /assign ticket/i });
+    expect(screen.queryByText(/reopen the ticket to reassign/i)).not.toBeInTheDocument();
+  });
 });
