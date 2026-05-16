@@ -82,9 +82,9 @@ export default function NotificationBell({ className, align = "end" }: Props) {
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((v) => !v)}
-        className="relative grid size-9 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:size-8"
+        className="relative grid size-9 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
-        <Bell className="size-4.5 md:size-4" />
+        <Bell className="size-4.5" />
         {unreadCount > 0 && (
           <span
             aria-hidden

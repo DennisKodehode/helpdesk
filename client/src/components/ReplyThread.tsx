@@ -65,7 +65,7 @@ export default function ReplyThread({ ticket }: Props) {
       <div className="flex items-center justify-between">
         <h2 className="eyebrow">Conversation · {messages.length}</h2>
         <button
-          className="inline-flex min-h-9 items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:text-primary disabled:opacity-40 md:min-h-0 md:text-[10px]"
+          className="inline-flex min-h-9 items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:text-primary disabled:opacity-40"
           disabled={summarizeMutation.isPending}
           onClick={() => summarizeMutation.mutate()}
         >

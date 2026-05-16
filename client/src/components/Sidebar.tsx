@@ -49,7 +49,7 @@ function SidebarLink({
       to={item.to}
       onClick={onNavigate}
       className={cn(
-        "group relative flex items-center gap-3 rounded-md px-3 py-3 text-[15px] transition-colors md:px-2.5 md:py-1.5 md:text-[13px]",
+        "group relative flex items-center gap-3 rounded-md px-3 py-3 text-[15px] transition-colors",
         active
           ? "bg-accent text-foreground"
           : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
@@ -62,12 +62,12 @@ function SidebarLink({
           active ? "bg-primary" : "bg-transparent"
         )}
       />
-      <Icon className={cn("size-5 shrink-0 md:size-4", active ? "text-foreground" : "text-muted-foreground/70")} />
+      <Icon className={cn("size-5 shrink-0", active ? "text-foreground" : "text-muted-foreground/70")} />
       <span className="leading-none">{item.label}</span>
       {showBadge && (
         <span
           aria-label={`${badge} open`}
-          className="ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-primary/10 px-1.5 font-mono text-[10px] font-medium text-primary tabular leading-5 md:text-[10px]"
+          className="ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-primary/10 px-1.5 font-mono text-[10px] font-medium text-primary tabular leading-5"
         >
           {badge > 99 ? "99+" : badge}
         </span>
@@ -128,23 +128,23 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
 
   return (
     <>
-      <div className="flex h-16 items-center justify-between px-5 md:h-14">
+      <div className="flex h-16 items-center justify-between px-5">
         <Link to="/" onClick={onNavigate} className="group inline-flex items-baseline gap-1.5">
-          <span className="display-serif text-[26px] leading-none text-foreground md:text-[22px]">
+          <span className="display-serif text-[26px] leading-none text-foreground">
             Helpdesk
           </span>
-          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70 leading-none md:text-[10px]">
+          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70 leading-none">
             v1
           </span>
         </Link>
         <NotificationBell align="start" />
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 pt-3 pb-4 md:pt-2">
-        <div className="px-3 pb-2 md:px-2.5 md:pb-1.5">
-          <p className="eyebrow text-[11px] md:text-[10px]">Workspace</p>
+      <nav className="flex-1 overflow-y-auto px-3 pt-3 pb-4">
+        <div className="hairline-b px-3 pb-2 mb-2">
+          <p className="eyebrow">Workspace</p>
         </div>
-        <ul className="space-y-1 md:space-y-0.5">
+        <ul className="space-y-1">
           {primaryNav.map((item) => (
             <li key={item.to}>
               <SidebarLink item={item} active={isActive(item.to, pathname)} onNavigate={onNavigate} />
@@ -173,10 +173,10 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
 
         {!isPending && role === Role.admin && (
           <>
-            <div className="px-3 pt-7 pb-2 md:px-2.5 md:pt-6 md:pb-1.5">
-              <p className="eyebrow text-[11px] md:text-[10px]">Administration</p>
+            <div className="hairline-b px-3 pt-7 pb-2 mb-2">
+              <p className="eyebrow">Administration</p>
             </div>
-            <ul className="space-y-1 md:space-y-0.5">
+            <ul className="space-y-1">
               {adminNav.map((item) => (
                 <li key={item.to}>
                   <SidebarLink item={item} active={isActive(item.to, pathname)} onNavigate={onNavigate} />
@@ -196,7 +196,7 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
             <button
               role="menuitem"
               onClick={toggleTheme}
-              className="flex w-full items-center gap-2.5 px-3 py-3 text-[14px] text-foreground hover:bg-accent transition-colors md:py-2 md:text-[13px]"
+              className="flex w-full items-center gap-2.5 px-3 py-3 text-[14px] text-foreground hover:bg-accent transition-colors"
             >
               {theme === "dark" ? (
                 <Sun className="size-4 text-muted-foreground" />
@@ -209,7 +209,7 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
             <button
               role="menuitem"
               onClick={handleSignOut}
-              className="flex w-full items-center gap-2.5 px-3 py-3 text-[14px] text-foreground hover:bg-accent transition-colors md:py-2 md:text-[13px]"
+              className="flex w-full items-center gap-2.5 px-3 py-3 text-[14px] text-foreground hover:bg-accent transition-colors"
             >
               <LogOut className="size-4 text-muted-foreground" />
               Sign out
@@ -222,20 +222,20 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
           aria-expanded={menuOpen}
           aria-haspopup="menu"
           onClick={() => setMenuOpen((v) => !v)}
-          className="flex w-full items-center gap-2.5 rounded-md px-2 py-2.5 text-left transition-colors hover:bg-accent/60 md:py-2"
+          className="flex w-full items-center gap-2.5 rounded-md px-2 py-2.5 text-left transition-colors hover:bg-accent/60"
         >
-          <div className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-[13px] font-medium text-primary md:size-8 md:text-[12px]">
+          <div className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-[13px] font-medium text-primary">
             {initial}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[14px] font-medium text-foreground leading-tight md:text-[13px]">
+            <p className="truncate text-[14px] font-medium text-foreground leading-tight">
               {name || "Account"}
             </p>
-            <p className="truncate font-mono text-[11px] text-muted-foreground leading-tight mt-0.5 md:text-[10px]">
+            <p className="truncate font-mono text-[11px] text-muted-foreground leading-tight mt-0.5">
               {role === Role.admin ? "Admin" : "Agent"}
             </p>
           </div>
-          <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground/60 md:size-3.5" />
+          <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground/60" />
         </button>
       </div>
     </>
