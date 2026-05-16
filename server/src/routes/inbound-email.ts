@@ -12,6 +12,7 @@ import { isAiAssigned } from "../lib/ai-user";
 import { AUTO_RESOLVE_TICKET_QUEUE } from "../lib/auto-resolve-ticket";
 import boss from "../lib/boss";
 import { CLASSIFY_TICKET_QUEUE } from "../lib/classify-ticket";
+import { env } from "../lib/env";
 import { prisma } from "../lib/prisma";
 import resend from "../lib/resend";
 import { firstIssue } from "../lib/validation";
@@ -75,7 +76,7 @@ router.post("/", async (req, res) => {
         timestamp: req.headers["svix-timestamp"] as string,
         signature: req.headers["svix-signature"] as string,
       },
-      webhookSecret: process.env.RESEND_WEBHOOK_SECRET!,
+      webhookSecret: env.RESEND_WEBHOOK_SECRET,
     });
   } catch {
     res.status(401).json({ error: "Invalid webhook signature" });

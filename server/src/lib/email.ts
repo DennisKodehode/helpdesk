@@ -1,6 +1,7 @@
+import { env } from "./env";
 import resend from "./resend";
 
-const EMAIL_FROM = process.env.EMAIL_FROM ?? "support@helpdesk.internal";
+const EMAIL_FROM = env.EMAIL_FROM;
 
 export interface SendReplyEmailParams {
   to: string;

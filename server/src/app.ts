@@ -3,6 +3,7 @@ import { toNodeHandler } from "better-auth/node";
 import cors from "cors";
 import express, { type ErrorRequestHandler, type RequestHandler } from "express";
 import { auth } from "./lib/auth";
+import { env } from "./lib/env";
 import agentsRouter from "./routes/agents";
 import inboundEmailRouter from "./routes/inbound-email";
 import notificationsRouter from "./routes/notifications";
@@ -12,11 +13,7 @@ import usersRouter from "./routes/users";
 
 const app = express();
 
-const clientOrigins = (process.env.CLIENT_URL ?? "")
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
-app.use(cors({ origin: clientOrigins, credentials: true }) as RequestHandler);
+app.use(cors({ origin: env.CLIENT_URL, credentials: true }) as RequestHandler);
 app.use(
   express.json({
     verify: (req: any, _res, buf) => {
@@ -44,7 +41,7 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   console.error(err);
   const status = err.status ?? err.statusCode ?? 500;
   res.status(status).json({
-    error: process.env.NODE_ENV === "production" ? "Internal server error" : err.message,
+    error: env.NODE_ENV === "production" ? "Internal server error" : err.message,
   });
 };
 app.use(errorHandler);
