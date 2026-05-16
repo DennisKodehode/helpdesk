@@ -10,12 +10,15 @@ import {
   LayoutDashboard,
   Inbox,
   Users,
+  UserCheck,
+  LineChart,
   LogOut,
   Sun,
   Moon,
   ChevronsUpDown,
 } from "lucide-react";
 import NotificationBell from "./NotificationBell";
+import { useMyOpenCount } from "@/lib/my-tickets";
 
 interface NavItem {
   to: string;
@@ -32,12 +35,15 @@ function SidebarLink({
   item,
   active,
   onNavigate,
+  badge,
 }: {
   item: NavItem;
   active: boolean;
   onNavigate?: () => void;
+  badge?: number;
 }) {
   const Icon = item.icon;
+  const showBadge = typeof badge === "number" && badge > 0;
   return (
     <Link
       to={item.to}
@@ -58,6 +64,14 @@ function SidebarLink({
       />
       <Icon className={cn("size-5 shrink-0 md:size-4", active ? "text-foreground" : "text-muted-foreground/70")} />
       <span className="leading-none">{item.label}</span>
+      {showBadge && (
+        <span
+          aria-label={`${badge} open`}
+          className="ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-primary/10 px-1.5 font-mono text-[10px] font-medium text-primary tabular leading-5 md:text-[10px]"
+        >
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </Link>
   );
 }
@@ -105,6 +119,11 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
     { to: "/tickets", label: "Tickets", icon: Inbox },
   ];
 
+  const isAgent = !isPending && role === Role.agent;
+  const myTicketsItem: NavItem = { to: "/my-tickets", label: "My tickets", icon: UserCheck };
+  const myStatsItem: NavItem = { to: "/my-stats", label: "My stats", icon: LineChart };
+  const { data: myOpenCount } = useMyOpenCount(isAgent);
+
   const adminNav: NavItem[] = [{ to: "/users", label: "Agents", icon: Users }];
 
   return (
@@ -131,6 +150,25 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
               <SidebarLink item={item} active={isActive(item.to, pathname)} onNavigate={onNavigate} />
             </li>
           ))}
+          {isAgent && (
+            <>
+              <li>
+                <SidebarLink
+                  item={myTicketsItem}
+                  active={isActive(myTicketsItem.to, pathname)}
+                  onNavigate={onNavigate}
+                  badge={myOpenCount?.count}
+                />
+              </li>
+              <li>
+                <SidebarLink
+                  item={myStatsItem}
+                  active={isActive(myStatsItem.to, pathname)}
+                  onNavigate={onNavigate}
+                />
+              </li>
+            </>
+          )}
         </ul>
 
         {!isPending && role === Role.admin && (

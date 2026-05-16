@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import FieldError from "@/components/ui/FieldError";
 import ErrorAlert from "@/components/ui/ErrorAlert";
+import { PERSONAL_STATS_QUERY_KEY } from "@/lib/personal-stats";
 
 interface Props {
   ticketId: string;
@@ -40,6 +41,7 @@ export default function ReplyForm({ ticketId }: Props) {
       setIsPolished(false);
       setRefinementNote("");
       queryClient.invalidateQueries({ queryKey: ["ticket-replies", ticketId] });
+      queryClient.invalidateQueries({ queryKey: PERSONAL_STATS_QUERY_KEY });
     },
   });
 

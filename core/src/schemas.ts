@@ -92,7 +92,7 @@ export const ticketSortSchema = z.object({
   sortOrder: z.enum(["asc", "desc"]).optional(),
   status: z.enum(TicketStatus).optional(),
   category: z.enum(TicketCategory).optional(),
-  assignee: z.enum(["unassigned"]).optional(),
+  assignee: z.enum(["unassigned", "me"]).optional(),
   search: z.string().optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(10),
@@ -167,6 +167,24 @@ export const notificationsResponseSchema = z.object({
 });
 
 export type NotificationsResponse = z.infer<typeof notificationsResponseSchema>;
+
+export const myOpenCountSchema = z.object({
+  count: z.number(),
+});
+
+export type MyOpenCount = z.infer<typeof myOpenCountSchema>;
+
+export const personalStatsResponseSchema = z.object({
+  openOnMyPlate: z.number(),
+  resolvedLifetime: z.number(),
+  resolved30d: z.number(),
+  avgResolutionMinutes: z.number().nullable(),
+  avgFirstResponseMinutes: z.number().nullable(),
+  repliesLifetime: z.number(),
+  replies30d: z.number(),
+});
+
+export type PersonalStatsResponse = z.infer<typeof personalStatsResponseSchema>;
 
 export const statsResponseSchema = z.object({
   totalTickets: z.number(),

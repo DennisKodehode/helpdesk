@@ -2,6 +2,7 @@ import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth-middleware";
 import { getAiUserId } from "../lib/ai-user";
+import { TicketStatus, SenderType } from "@helpdesk/core";
 
 type TicketStatsRow = {
   total_tickets: bigint;
@@ -33,6 +34,67 @@ router.get("/", requireAuth, async (_req, res) => {
     resolvedByAI: Number(row.ai_resolved),
     percentResolvedByAILast30d: Number(row.percent_resolved_by_ai_30d ?? 0),
     avgResolutionMinutes: row.avg_resolution_minutes != null ? Number(row.avg_resolution_minutes) : null,
+  });
+});
+
+router.get("/me", requireAuth, async (req, res) => {
+  const meId = req.user!.id;
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  const [
+    openOnMyPlate,
+    resolvedLifetime,
+    resolved30d,
+    repliesLifetime,
+    replies30d,
+    avgResRows,
+    avgFirstRows,
+  ] = await Promise.all([
+    prisma.ticket.count({ where: { assignedToId: meId, status: TicketStatus.open } }),
+    prisma.ticket.count({
+      where: { assignedToId: meId, status: { in: [TicketStatus.resolved, TicketStatus.closed] } },
+    }),
+    prisma.ticket.count({
+      where: {
+        assignedToId: meId,
+        status: { in: [TicketStatus.resolved, TicketStatus.closed] },
+        resolvedAt: { gte: thirtyDaysAgo },
+      },
+    }),
+    prisma.reply.count({ where: { authorId: meId, senderType: SenderType.agent } }),
+    prisma.reply.count({
+      where: { authorId: meId, senderType: SenderType.agent, createdAt: { gte: thirtyDaysAgo } },
+    }),
+    prisma.$queryRaw<{ minutes: number | null }[]>`
+      SELECT ROUND((EXTRACT(EPOCH FROM AVG("resolvedAt" - "createdAt")) / 60)::NUMERIC, 1) AS minutes
+      FROM ticket
+      WHERE "assignedToId" = ${meId} AND "resolvedAt" IS NOT NULL
+    `,
+    prisma.$queryRaw<{ minutes: number | null }[]>`
+      WITH first_agent_reply AS (
+        SELECT DISTINCT ON ("ticketId") "ticketId", "authorId", "createdAt" AS reply_at
+        FROM reply
+        WHERE "senderType" = 'agent'
+        ORDER BY "ticketId", "createdAt" ASC
+      )
+      SELECT ROUND((EXTRACT(EPOCH FROM AVG(far.reply_at - t."createdAt")) / 60)::NUMERIC, 1) AS minutes
+      FROM first_agent_reply far
+      JOIN ticket t ON t.id = far."ticketId"
+      WHERE far."authorId" = ${meId}
+    `,
+  ]);
+
+  const avgResMinutes = avgResRows[0]?.minutes;
+  const avgFirstMinutes = avgFirstRows[0]?.minutes;
+
+  res.json({
+    openOnMyPlate,
+    resolvedLifetime,
+    resolved30d,
+    avgResolutionMinutes: avgResMinutes != null ? Number(avgResMinutes) : null,
+    avgFirstResponseMinutes: avgFirstMinutes != null ? Number(avgFirstMinutes) : null,
+    repliesLifetime,
+    replies30d,
   });
 });
 

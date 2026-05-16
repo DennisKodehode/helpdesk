@@ -33,6 +33,7 @@ router.get("/", requireAuth, async (req, res) => {
     ...(status && { status }),
     ...(category && { category }),
     ...(assignee === "unassigned" && { assignedToId: null }),
+    ...(assignee === "me" && { assignedToId: req.user!.id }),
     ...(trimmed && {
       OR: [
         { subject: { contains: trimmed, mode: "insensitive" } },
@@ -65,6 +66,13 @@ router.get("/", requireAuth, async (req, res) => {
   ]);
 
   res.json({ data, total, page, pageSize });
+});
+
+router.get("/my-open-count", requireAuth, async (req, res) => {
+  const count = await prisma.ticket.count({
+    where: { assignedToId: req.user!.id, status: TicketStatus.open },
+  });
+  res.json({ count });
 });
 
 router.get("/:id", requireAuth, async (req, res) => {

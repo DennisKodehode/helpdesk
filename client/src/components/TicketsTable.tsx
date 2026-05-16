@@ -32,6 +32,8 @@ interface TicketsTableProps {
   isError: boolean;
   sorting: SortingState;
   onSortingChange: OnChangeFn<SortingState>;
+  emptyTitle?: string;
+  emptyDescription?: string;
 }
 
 const columns: ColumnDef<Ticket>[] = [
@@ -149,13 +151,11 @@ function MobileSkeleton() {
   );
 }
 
-function MobileEmpty() {
+function MobileEmpty({ title, description }: { title: string; description: string }) {
   return (
     <div className="rounded-lg border border-border bg-card p-8 text-center">
-      <p className="display-serif text-2xl text-muted-foreground">No tickets yet</p>
-      <p className="mt-1 text-[13px] text-muted-foreground/70">
-        When customers email in, they'll appear here.
-      </p>
+      <p className="display-serif text-2xl text-muted-foreground">{title}</p>
+      <p className="mt-1 text-[13px] text-muted-foreground/70">{description}</p>
     </div>
   );
 }
@@ -166,6 +166,8 @@ export default function TicketsTable({
   isError,
   sorting,
   onSortingChange,
+  emptyTitle = "No tickets yet",
+  emptyDescription = "When customers email in, they'll appear here.",
 }: TicketsTableProps) {
   const table = useReactTable({
     data: tickets,
@@ -218,10 +220,8 @@ export default function TicketsTable({
             ) : tickets.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="px-5 py-16 text-center">
-                  <p className="display-serif text-2xl text-muted-foreground">No tickets yet</p>
-                  <p className="mt-1 text-[13px] text-muted-foreground/70">
-                    When customers email in, they'll appear here.
-                  </p>
+                  <p className="display-serif text-2xl text-muted-foreground">{emptyTitle}</p>
+                  <p className="mt-1 text-[13px] text-muted-foreground/70">{emptyDescription}</p>
                 </td>
               </tr>
             ) : (
@@ -270,7 +270,7 @@ export default function TicketsTable({
         {isPending ? (
           <MobileSkeleton />
         ) : tickets.length === 0 ? (
-          <MobileEmpty />
+          <MobileEmpty title={emptyTitle} description={emptyDescription} />
         ) : (
           <ul className="space-y-2" aria-label="Tickets">
             {tickets.map((t) => (

@@ -1,0 +1,22 @@
+import axios from "axios";
+import { useQuery } from "@tanstack/react-query";
+import { type MyOpenCount } from "@helpdesk/core";
+
+export const MY_OPEN_COUNT_QUERY_KEY = ["my-open-count"] as const;
+
+const POLL_INTERVAL_MS = 30_000;
+
+async function fetchMyOpenCount(): Promise<MyOpenCount> {
+  const { data } = await axios.get<MyOpenCount>("/api/tickets/my-open-count");
+  return data;
+}
+
+export function useMyOpenCount(enabled: boolean) {
+  return useQuery({
+    queryKey: MY_OPEN_COUNT_QUERY_KEY,
+    queryFn: fetchMyOpenCount,
+    enabled,
+    refetchInterval: enabled ? POLL_INTERVAL_MS : false,
+    refetchOnWindowFocus: true,
+  });
+}

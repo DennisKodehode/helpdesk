@@ -18,6 +18,8 @@ import {
   SelectTrigger,
 } from "@/components/ui/select";
 import { useSession } from "@/lib/auth-client";
+import { MY_OPEN_COUNT_QUERY_KEY } from "@/lib/my-tickets";
+import { PERSONAL_STATS_QUERY_KEY } from "@/lib/personal-stats";
 
 interface Props {
   ticket: TicketDetail;
@@ -58,16 +60,22 @@ export default function TicketMeta({ ticket }: Props) {
   const updateCache = (response: { data: TicketDetail }) =>
     queryClient.setQueryData(["ticket", ticketId], response.data);
 
+  const updateCacheAndCount = (response: { data: TicketDetail }) => {
+    updateCache(response);
+    queryClient.invalidateQueries({ queryKey: MY_OPEN_COUNT_QUERY_KEY });
+    queryClient.invalidateQueries({ queryKey: PERSONAL_STATS_QUERY_KEY });
+  };
+
   const assignMutation = useMutation({
     mutationFn: (assignedToId: string | null) =>
       axios.patch<TicketDetail>(`/api/tickets/${ticketId}`, { assignedToId }),
-    onSuccess: updateCache,
+    onSuccess: updateCacheAndCount,
   });
 
   const statusMutation = useMutation({
     mutationFn: (status: TicketStatus) =>
       axios.patch<TicketDetail>(`/api/tickets/${ticketId}`, { status }),
-    onSuccess: updateCache,
+    onSuccess: updateCacheAndCount,
   });
 
   const categoryMutation = useMutation({

@@ -1053,3 +1053,113 @@ describe("POST /api/tickets/:id/summarize", () => {
     expect(res.body.error).toBeTypeOf("string");
   });
 });
+
+describe("GET /api/tickets — assignee=me filter & /my-open-count", () => {
+  let meCookie: string;
+  let meId: string;
+  let otherId: string;
+  let createdTicketIds: number[] = [];
+
+  beforeAll(async () => {
+    const ctx = await auth.$context;
+    const hashedPassword = await ctx.password.hash("Testpassword1!");
+    const now = new Date();
+
+    meId = generateId();
+    await prisma.user.create({
+      data: { id: meId, name: "Me Agent", email: "test-me-agent@example.com", emailVerified: true, role: "agent", createdAt: now, updatedAt: now },
+    });
+    await prisma.account.create({
+      data: { id: generateId(), accountId: meId, providerId: "credential", userId: meId, password: hashedPassword, createdAt: now, updatedAt: now },
+    });
+
+    const signInRes = await request(app)
+      .post("/api/auth/sign-in/email")
+      .send({ email: "test-me-agent@example.com", password: "Testpassword1!" });
+    const cookies = signInRes.headers["set-cookie"] as string[] | string;
+    meCookie = Array.isArray(cookies) ? cookies.join("; ") : cookies;
+
+    otherId = generateId();
+    await prisma.user.create({
+      data: { id: otherId, name: "Other Agent", email: "test-other-agent@example.com", emailVerified: true, role: "agent", createdAt: now, updatedAt: now },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.session.deleteMany({ where: { userId: meId } });
+    await prisma.account.deleteMany({ where: { userId: meId } });
+    await prisma.user.delete({ where: { id: meId } });
+    await prisma.user.delete({ where: { id: otherId } });
+  });
+
+  afterEach(async () => {
+    if (createdTicketIds.length > 0) {
+      await prisma.ticket.deleteMany({ where: { id: { in: createdTicketIds } } });
+      createdTicketIds = [];
+    }
+  });
+
+  it("assignee=me returns only tickets assigned to the session user", async () => {
+    const mine = await prisma.ticket.create({
+      data: { fromName: "X", fromEmail: "x@example.com", subject: "Mine", body: "", status: TicketStatus.open, assignedToId: meId },
+    });
+    const theirs = await prisma.ticket.create({
+      data: { fromName: "Y", fromEmail: "y@example.com", subject: "Theirs", body: "", status: TicketStatus.open, assignedToId: otherId },
+    });
+    const unassigned = await prisma.ticket.create({
+      data: { fromName: "Z", fromEmail: "z@example.com", subject: "Unassigned", body: "", status: TicketStatus.open },
+    });
+    createdTicketIds.push(mine.id, theirs.id, unassigned.id);
+
+    const res = await request(app).get("/api/tickets?assignee=me").set("Cookie", meCookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
+    expect(ids).toContain(mine.id);
+    expect(ids).not.toContain(theirs.id);
+    expect(ids).not.toContain(unassigned.id);
+  });
+
+  it("assignee=me returns an empty list when the user has no assignments", async () => {
+    const theirs = await prisma.ticket.create({
+      data: { fromName: "Y", fromEmail: "y@example.com", subject: "Theirs", body: "", status: TicketStatus.open, assignedToId: otherId },
+    });
+    createdTicketIds.push(theirs.id);
+
+    const res = await request(app).get("/api/tickets?assignee=me").set("Cookie", meCookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
+    expect(ids).not.toContain(theirs.id);
+    expect(res.body.total).toBe(0);
+  });
+
+  it("returns 400 for an unknown assignee value", async () => {
+    const res = await request(app).get("/api/tickets?assignee=somebody").set("Cookie", meCookie);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeTypeOf("string");
+  });
+
+  it("GET /my-open-count returns 401 when not authenticated", async () => {
+    const res = await request(app).get("/api/tickets/my-open-count");
+    expect(res.status).toBe(401);
+  });
+
+  it("GET /my-open-count counts only open tickets assigned to the session user", async () => {
+    const openMine = await prisma.ticket.create({
+      data: { fromName: "A", fromEmail: "a@example.com", subject: "Open mine", body: "", status: TicketStatus.open, assignedToId: meId },
+    });
+    const resolvedMine = await prisma.ticket.create({
+      data: { fromName: "B", fromEmail: "b@example.com", subject: "Resolved mine", body: "", status: TicketStatus.resolved, assignedToId: meId },
+    });
+    const closedMine = await prisma.ticket.create({
+      data: { fromName: "C", fromEmail: "c@example.com", subject: "Closed mine", body: "", status: TicketStatus.closed, assignedToId: meId },
+    });
+    const openTheirs = await prisma.ticket.create({
+      data: { fromName: "D", fromEmail: "d@example.com", subject: "Open theirs", body: "", status: TicketStatus.open, assignedToId: otherId },
+    });
+    createdTicketIds.push(openMine.id, resolvedMine.id, closedMine.id, openTheirs.id);
+
+    const res = await request(app).get("/api/tickets/my-open-count").set("Cookie", meCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.count).toBe(1);
+  });
+});
