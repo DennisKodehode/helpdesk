@@ -16,6 +16,7 @@ const mockTickets: Ticket[] = [
     category: TicketCategory.technical_question,
     priority: TicketPriority.urgent,
     assignedToId: null,
+    assigneeType: "none",
     createdAt: "2024-01-15T00:00:00Z",
   },
   {
@@ -27,6 +28,7 @@ const mockTickets: Ticket[] = [
     category: TicketCategory.refund_request,
     priority: TicketPriority.normal,
     assignedToId: null,
+    assigneeType: "none",
     createdAt: "2024-03-20T00:00:00Z",
   },
 ];

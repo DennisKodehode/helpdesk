@@ -47,6 +47,9 @@ export const inboundEmailSchema = z.object({
 
 export type InboundEmailData = z.infer<typeof inboundEmailSchema>;
 
+export const assigneeTypeSchema = z.enum(["human", "ai", "none"]);
+export type AssigneeType = z.infer<typeof assigneeTypeSchema>;
+
 export const ticketSchema = z.object({
   id: z.number(),
   fromName: z.string(),
@@ -56,6 +59,7 @@ export const ticketSchema = z.object({
   category: z.enum(TicketCategory).nullable(),
   priority: z.enum(TicketPriority),
   assignedToId: z.string().nullable(),
+  assigneeType: assigneeTypeSchema,
   createdAt: z.string(),
 });
 
@@ -73,6 +77,7 @@ export const ticketDetailSchema = z.object({
   priority: z.enum(TicketPriority),
   assignedToId: z.string().nullable(),
   assignedTo: z.object({ id: z.string(), name: z.string(), email: z.string() }).nullable(),
+  assigneeType: assigneeTypeSchema,
   createdAt: z.string(),
   updatedAt: z.string(),
 });

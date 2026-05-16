@@ -20,6 +20,7 @@ const mockPage: PaginatedTickets = {
       category: null,
       priority: TicketPriority.normal,
       assignedToId: null,
+      assigneeType: "none",
       createdAt: "2024-01-15T00:00:00Z",
     },
   ],

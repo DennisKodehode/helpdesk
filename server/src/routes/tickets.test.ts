@@ -287,6 +287,18 @@ describe("GET /api/tickets — sorting", () => {
     expect(seed?.priority).toBe(TicketPriority.normal);
   });
 
+  it("includes assigneeType on every list row", async () => {
+    const res = await request(app)
+      .get("/api/tickets?pageSize=100")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    for (const row of res.body.data as { assigneeType: string }[]) {
+      expect(["human", "ai", "none"]).toContain(row.assigneeType);
+    }
+    const seed = (res.body.data as { id: number; assigneeType: string }[]).find((t) => t.id === createdTicketIds[0]);
+    expect(seed?.assigneeType).toBe("none");
+  });
+
   it("filters by search term across subject, fromName, and fromEmail", async () => {
     const matchTicket = await prisma.ticket.create({
       data: { fromName: "Unique Person", fromEmail: "unique@example.com", subject: "Unique subject", body: "", status: TicketStatus.open },
@@ -413,6 +425,7 @@ describe("GET /api/tickets/:id", () => {
     expect(res.body.status).toBe(TicketStatus.open);
     expect(res.body.category).toBe(TicketCategory.technical_question);
     expect(res.body.assignedTo).toBeNull();
+    expect(res.body.assigneeType).toBe("none");
     expect(typeof res.body.createdAt).toBe("string");
     expect(typeof res.body.updatedAt).toBe("string");
   });

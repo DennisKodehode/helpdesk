@@ -23,6 +23,7 @@ const mockTicket: TicketDetail = {
   priority: TicketPriority.normal,
   assignedToId: null,
   assignedTo: null,
+  assigneeType: "none",
   createdAt: "2024-01-15T10:30:00Z",
   updatedAt: "2024-01-15T11:00:00Z",
 };

@@ -8,7 +8,7 @@ import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
 import boss from "../lib/boss";
 import { SEND_REPLY_EMAIL_QUEUE } from "../lib/send-reply-email-job";
-import { getAiUserId } from "../lib/ai-user";
+import { isAiAssigned, assigneeType } from "../lib/ai-user";
 
 const router = Router();
 
@@ -62,7 +62,7 @@ router.get("/", requireAuth, async (req, res) => {
     createdAt: true,
   };
 
-  const [data, total] = await Promise.all([
+  const [rows, total] = await Promise.all([
     prisma.ticket.findMany({
       where,
       orderBy,
@@ -72,6 +72,8 @@ router.get("/", requireAuth, async (req, res) => {
     }),
     prisma.ticket.count({ where }),
   ]);
+
+  const data = rows.map((t) => ({ ...t, assigneeType: assigneeType(t.assignedToId) }));
 
   res.json({ data, total, page, pageSize });
 });
@@ -114,7 +116,7 @@ router.get("/:id", requireAuth, async (req, res) => {
     return;
   }
 
-  res.json(ticket);
+  res.json({ ...ticket, assigneeType: assigneeType(ticket.assignedToId) });
 });
 
 router.patch("/:id", requireAuth, async (req, res) => {
@@ -167,12 +169,11 @@ router.patch("/:id", requireAuth, async (req, res) => {
       return;
     }
 
-    if (newStatus === TicketStatus.open && isTerminal && ticket.assignedToId && ticket.assignedToId === getAiUserId()) {
+    if (newStatus === TicketStatus.open && isTerminal && isAiAssigned(ticket.assignedToId)) {
       reopenUnassigns = true;
     }
   }
 
-  const aiUserId = getAiUserId();
   const previousAssigneeId = ticket.assignedToId;
   const nextAssigneeId =
     result.data.assignedToId !== undefined
@@ -184,7 +185,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
     nextAssigneeId !== null &&
     nextAssigneeId !== previousAssigneeId &&
     nextAssigneeId !== req.user!.id &&
-    nextAssigneeId !== aiUserId;
+    !isAiAssigned(nextAssigneeId);
 
   const updated = await prisma.ticket.update({
     where: { id },
@@ -224,7 +225,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
     });
   }
 
-  res.json(updated);
+  res.json({ ...updated, assigneeType: assigneeType(updated.assignedToId) });
 });
 
 const REPLY_SELECT = {

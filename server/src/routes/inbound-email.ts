@@ -9,7 +9,7 @@ import { AUTO_RESOLVE_TICKET_QUEUE } from "../lib/auto-resolve-ticket";
 import resend from "../lib/resend";
 import he from "he";
 import EmailReplyParser from "email-reply-parser";
-import { getAiUserId } from "../lib/ai-user";
+import { isAiAssigned } from "../lib/ai-user";
 
 const router = Router();
 
@@ -136,9 +136,8 @@ router.post("/", async (req, res) => {
   });
 
   if (existingTicket) {
-    const aiUserId = getAiUserId();
     const wasResolved = existingTicket.status === TicketStatus.resolved;
-    const shouldUnassignAi = wasResolved && existingTicket.assignedToId !== null && existingTicket.assignedToId === aiUserId;
+    const shouldUnassignAi = wasResolved && isAiAssigned(existingTicket.assignedToId);
     const now = new Date();
 
     const [reply, refreshedTicket] = await prisma.$transaction([
@@ -163,7 +162,7 @@ router.post("/", async (req, res) => {
       }),
     ]);
 
-    if (refreshedTicket.assignedToId && refreshedTicket.assignedToId !== aiUserId) {
+    if (refreshedTicket.assignedToId && !isAiAssigned(refreshedTicket.assignedToId)) {
       const agent = await prisma.user.findUnique({
         where: { id: refreshedTicket.assignedToId },
         select: { id: true, deletedAt: true },

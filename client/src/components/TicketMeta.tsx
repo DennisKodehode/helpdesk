@@ -23,6 +23,7 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
+import { Sparkles } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import { MY_OPEN_COUNT_QUERY_KEY } from "@/lib/my-tickets";
 import { PERSONAL_STATS_QUERY_KEY } from "@/lib/personal-stats";
@@ -240,7 +241,14 @@ export default function TicketMeta({ ticket }: Props) {
             disabled={isTerminal || isTriaging}
           >
             <span data-slot="select-value" className="flex flex-1 text-left">
-              {displayAgentName ?? (
+              {ticket.assigneeType === "ai" ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <Sparkles className="size-3 text-primary" aria-hidden />
+                  AI Agent
+                </span>
+              ) : displayAgentName ? (
+                displayAgentName
+              ) : (
                 <span className="text-muted-foreground">Unassigned</span>
               )}
             </span>

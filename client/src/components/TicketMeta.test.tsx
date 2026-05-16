@@ -28,6 +28,7 @@ const mockTicket: TicketDetail = {
   priority: TicketPriority.normal,
   assignedToId: "agent-1",
   assignedTo: { id: "agent-1", name: "Bob Agent", email: "bob@example.com" },
+  assigneeType: "human",
   createdAt: "2024-01-15T10:30:00Z",
   updatedAt: "2024-01-15T11:00:00Z",
 };
@@ -190,6 +191,30 @@ describe("priority interaction", () => {
     await waitFor(() => {
       expect(axios.patch).toHaveBeenCalledWith("/api/tickets/42", { priority: TicketPriority.urgent });
     });
+  });
+});
+
+describe("assigneeType display", () => {
+  it("renders 'AI Agent' label when assigneeType is 'ai'", async () => {
+    renderWithProviders(
+      <TicketMeta
+        ticket={{
+          ...mockTicket,
+          assigneeType: "ai",
+          assignedTo: { id: "ai-id", name: "AI", email: "ai@helpdesk.internal" },
+          assignedToId: "ai-id",
+        }}
+      />,
+    );
+    const trigger = await screen.findByRole("combobox", { name: /assign ticket/i });
+    expect(trigger).toHaveTextContent("AI Agent");
+  });
+
+  it("renders the human agent name when assigneeType is 'human'", async () => {
+    renderWithProviders(<TicketMeta ticket={mockTicket} />);
+    const trigger = await screen.findByRole("combobox", { name: /assign ticket/i });
+    expect(trigger).toHaveTextContent("Bob Agent");
+    expect(trigger).not.toHaveTextContent("AI Agent");
   });
 });
 
