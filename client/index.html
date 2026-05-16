@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Helpdesk</title>
     <script>
-      (function () {
+      (() => {
         try {
-          var stored = localStorage.getItem("theme");
-          var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+          const stored = localStorage.getItem("theme");
+          const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
           if (stored === "dark" || (!stored && prefersDark)) {
             document.documentElement.classList.add("dark");
           }
-        } catch (e) {}
+        } catch {}
       })();
     </script>
   </head>

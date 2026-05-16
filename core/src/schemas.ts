@@ -1,5 +1,12 @@
 import { z } from "zod";
-import { TicketStatus, TicketCategory, TicketPriority, SenderType, NotificationType, TRIAGING_FILTER_VALUE } from "./types";
+import {
+  NotificationType,
+  SenderType,
+  TicketCategory,
+  TicketPriority,
+  TicketStatus,
+  TRIAGING_FILTER_VALUE,
+} from "./types";
 
 export const userSchema = z.object({
   id: z.string(),
@@ -38,8 +45,14 @@ export type UpdateUserData = z.infer<typeof updateUserSchema>;
 export const inboundEmailSchema = z.object({
   fromName: z.string().trim().min(1).max(255),
   fromEmail: z.email("Invalid email address").max(255),
-  subject: z.string().trim().max(255)
-    .transform(s => s.replace(/^(\s*(re|fwd?|fw)(\[\d+\])?:\s*)+/gi, "").trim() || "(no subject)")
+  subject: z
+    .string()
+    .trim()
+    .max(255)
+    .transform(
+      (s) =>
+        s.replace(/^(\s*(re|fwd?|fw)(\[\d+\])?:\s*)+/gi, "").trim() || "(no subject)",
+    )
     .default("(no subject)"),
   body: z.string().max(10_000).optional(),
   bodyHtml: z.string().max(50_000).optional(),
@@ -76,7 +89,9 @@ export const ticketDetailSchema = z.object({
   category: z.enum(TicketCategory).nullable(),
   priority: z.enum(TicketPriority),
   assignedToId: z.string().nullable(),
-  assignedTo: z.object({ id: z.string(), name: z.string(), email: z.string() }).nullable(),
+  assignedTo: z
+    .object({ id: z.string(), name: z.string(), email: z.string() })
+    .nullable(),
   assigneeType: assigneeTypeSchema,
   createdAt: z.string(),
   updatedAt: z.string(),

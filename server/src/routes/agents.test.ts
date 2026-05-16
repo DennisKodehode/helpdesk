@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import request from "supertest";
+import { Role } from "@helpdesk/core";
 import { generateId } from "better-auth";
+import request from "supertest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import app from "../app";
 import { auth } from "../lib/auth";
 import { prisma } from "../lib/prisma";
-import { Role } from "@helpdesk/core";
 
 describe("GET /api/agents", () => {
   let authCookie: string;
@@ -18,10 +18,26 @@ describe("GET /api/agents", () => {
 
     const id = generateId();
     await prisma.user.create({
-      data: { id, name: "Agents Test Agent", email: "test-agents@example.com", emailVerified: true, role: Role.agent, createdAt: now, updatedAt: now },
+      data: {
+        id,
+        name: "Agents Test Agent",
+        email: "test-agents@example.com",
+        emailVerified: true,
+        role: Role.agent,
+        createdAt: now,
+        updatedAt: now,
+      },
     });
     await prisma.account.create({
-      data: { id: generateId(), accountId: id, providerId: "credential", userId: id, password: hashedPassword, createdAt: now, updatedAt: now },
+      data: {
+        id: generateId(),
+        accountId: id,
+        providerId: "credential",
+        userId: id,
+        password: hashedPassword,
+        createdAt: now,
+        updatedAt: now,
+      },
     });
     testAgentId = id;
 
@@ -33,7 +49,15 @@ describe("GET /api/agents", () => {
 
     const extra = generateId();
     await prisma.user.create({
-      data: { id: extra, name: "Extra Agent", email: "extra-agents@example.com", emailVerified: true, role: Role.agent, createdAt: now, updatedAt: now },
+      data: {
+        id: extra,
+        name: "Extra Agent",
+        email: "extra-agents@example.com",
+        emailVerified: true,
+        role: Role.agent,
+        createdAt: now,
+        updatedAt: now,
+      },
     });
     extraAgentId = extra;
   });
@@ -59,8 +83,9 @@ describe("GET /api/agents", () => {
   it("returns only id, name, and email fields", async () => {
     const res = await request(app).get("/api/agents").set("Cookie", authCookie);
     expect(res.status).toBe(200);
-    const agent = (res.body as { id: string; name: string; email: string; role?: string }[])
-      .find(a => a.id === testAgentId);
+    const agent = (
+      res.body as { id: string; name: string; email: string; role?: string }[]
+    ).find((a) => a.id === testAgentId);
     expect(agent).toBeDefined();
     expect(agent?.id).toBe(testAgentId);
     expect(agent?.name).toBe("Agents Test Agent");
@@ -72,11 +97,20 @@ describe("GET /api/agents", () => {
     const deletedId = generateId();
     const now = new Date();
     await prisma.user.create({
-      data: { id: deletedId, name: "Deleted Agent", email: "deleted-agents@example.com", emailVerified: true, role: Role.agent, deletedAt: now, createdAt: now, updatedAt: now },
+      data: {
+        id: deletedId,
+        name: "Deleted Agent",
+        email: "deleted-agents@example.com",
+        emailVerified: true,
+        role: Role.agent,
+        deletedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
     });
 
     const res = await request(app).get("/api/agents").set("Cookie", authCookie);
-    const ids = (res.body as { id: string }[]).map(a => a.id);
+    const ids = (res.body as { id: string }[]).map((a) => a.id);
     expect(ids).not.toContain(deletedId);
 
     await prisma.user.delete({ where: { id: deletedId } });

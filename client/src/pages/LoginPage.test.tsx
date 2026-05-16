@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { screen, waitFor, cleanup, renderWithProviders } from "../test/utils";
 import userEvent from "@testing-library/user-event";
-import LoginPage from "./LoginPage";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { signIn, useSession } from "../lib/auth-client";
+import { cleanup, renderWithProviders, screen, waitFor } from "../test/utils";
+import LoginPage from "./LoginPage";
 
 const mockNavigate = vi.fn();
 
@@ -46,7 +46,12 @@ describe("successful sign-in", () => {
     await user.type(screen.getByLabelText("Email"), "user@example.com");
     await user.type(screen.getByLabelText("Password"), "secret123");
     await user.click(screen.getByRole("button", { name: "Sign in" }));
-    await waitFor(() => expect(mockSignIn).toHaveBeenCalledWith({ email: "user@example.com", password: "secret123" }));
+    await waitFor(() =>
+      expect(mockSignIn).toHaveBeenCalledWith({
+        email: "user@example.com",
+        password: "secret123",
+      }),
+    );
     expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true });
   });
 });

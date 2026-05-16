@@ -32,13 +32,25 @@ async function main() {
     const id = generateId();
     const now = new Date();
     agent = await prisma.user.create({
-      data: { id, name: "Alice Agent", email: agentEmail, emailVerified: true, role: "agent", createdAt: now, updatedAt: now },
+      data: {
+        id,
+        name: "Alice Agent",
+        email: agentEmail,
+        emailVerified: true,
+        role: "agent",
+        createdAt: now,
+        updatedAt: now,
+      },
     });
     await prisma.account.create({
       data: {
-        id: generateId(), accountId: id, providerId: "credential", userId: id,
+        id: generateId(),
+        accountId: id,
+        providerId: "credential",
+        userId: id,
         password: await ctx.password.hash("Agent@Helpdesk2026!"),
-        createdAt: now, updatedAt: now,
+        createdAt: now,
+        updatedAt: now,
       },
     });
     console.log("Agent created:", agentEmail, "/ Agent@Helpdesk2026!");
@@ -49,7 +61,9 @@ async function main() {
   // Intro tickets — only seeded on a fresh DB. Detected via Bob Johnson,
   // the canonical starter ticket. Re-running the script on a populated DB
   // skips this block but still runs seedAliceHistory below.
-  const introSeeded = await prisma.ticket.findFirst({ where: { fromEmail: "bob@acme.com" } });
+  const introSeeded = await prisma.ticket.findFirst({
+    where: { fromEmail: "bob@acme.com" },
+  });
   if (introSeeded) {
     console.log("Intro tickets already seeded, skipping.");
     await seedPriorityShowcase();
@@ -62,74 +76,110 @@ async function main() {
 
   const tickets = [
     {
-      fromName: "Bob Johnson", fromEmail: "bob@acme.com",
+      fromName: "Bob Johnson",
+      fromEmail: "bob@acme.com",
       subject: "Cannot log into my account",
-      body: "Hi,\n\nI have been trying to log in since yesterday but keep getting an \"invalid credentials\" error. I have already reset my password twice.\n\nPlease help!\n\nBob",
-      status: "open" as const, category: "technical_question" as const, assignedToId: agent.id,
+      body: 'Hi,\n\nI have been trying to log in since yesterday but keep getting an "invalid credentials" error. I have already reset my password twice.\n\nPlease help!\n\nBob',
+      status: "open" as const,
+      category: "technical_question" as const,
+      assignedToId: agent.id,
       createdAt: hoursAgo(20),
     },
     {
-      fromName: "Sarah Chen", fromEmail: "sarah.chen@globex.com",
+      fromName: "Sarah Chen",
+      fromEmail: "sarah.chen@globex.com",
       subject: "Request for refund on order #4821",
       body: "Hello,\n\nI placed order #4821 on April 28th but the item arrived damaged. I took photos and would like a full refund.\n\nKind regards,\nSarah",
-      status: "open" as const, category: "refund_request" as const, assignedToId: null,
+      status: "open" as const,
+      category: "refund_request" as const,
+      assignedToId: null,
       createdAt: hoursAgo(40),
     },
     {
-      fromName: "Marcus Webb", fromEmail: "marcus@initech.io",
+      fromName: "Marcus Webb",
+      fromEmail: "marcus@initech.io",
       subject: "How do I export my data?",
       body: "Hi there,\n\nI need to export all my data for compliance reasons. Is there a way to do a full export from the dashboard?\n\nThanks,\nMarcus",
-      status: "open" as const, category: "general_question" as const, assignedToId: null,
+      status: "open" as const,
+      category: "general_question" as const,
+      assignedToId: null,
       createdAt: hoursAgo(60),
     },
     {
-      fromName: "Priya Patel", fromEmail: "priya@startup.dev",
+      fromName: "Priya Patel",
+      fromEmail: "priya@startup.dev",
       subject: "Billing discrepancy on invoice #2024-089",
       body: "Hi,\n\nI was charged $149 this month but my plan is $99/month. Could you please review invoice #2024-089 and issue a correction?\n\nBest,\nPriya",
-      status: "open" as const, category: "billing_inquiry" as const, assignedToId: agent.id,
+      status: "open" as const,
+      category: "billing_inquiry" as const,
+      assignedToId: agent.id,
       createdAt: hoursAgo(8),
     },
     {
-      fromName: "Tom Ridley", fromEmail: "tom.ridley@enterprise.co",
+      fromName: "Tom Ridley",
+      fromEmail: "tom.ridley@enterprise.co",
       subject: "Feature request: bulk ticket export",
       body: "Hello team,\n\nIt would be very helpful to have a bulk export feature for tickets in CSV format. We have a reporting requirement and this would save hours each week.\n\nRegards,\nTom",
-      status: "resolved" as const, category: "feature_request" as const, assignedToId: agent.id,
-      createdAt: hoursAgo(3 * 24 + 5), resolvedAt: daysAgo(3),
+      status: "resolved" as const,
+      category: "feature_request" as const,
+      assignedToId: agent.id,
+      createdAt: hoursAgo(3 * 24 + 5),
+      resolvedAt: daysAgo(3),
     },
     {
-      fromName: "Emily Ross", fromEmail: "emily@consulting.biz",
+      fromName: "Emily Ross",
+      fromEmail: "emily@consulting.biz",
       subject: "App crashes on mobile Safari",
       body: "Hi,\n\nEvery time I try to open the dashboard on my iPhone (Safari, iOS 17) the page crashes after about 5 seconds. Works fine on desktop Chrome.\n\nLet me know if you need more info.\n\nEmily",
-      status: "resolved" as const, category: "technical_question" as const, assignedToId: null,
-      createdAt: hoursAgo(7 * 24 + 6), resolvedAt: daysAgo(7),
+      status: "resolved" as const,
+      category: "technical_question" as const,
+      assignedToId: null,
+      createdAt: hoursAgo(7 * 24 + 6),
+      resolvedAt: daysAgo(7),
     },
     {
-      fromName: "James Liu", fromEmail: "james.liu@agency.net",
+      fromName: "James Liu",
+      fromEmail: "james.liu@agency.net",
       subject: "Upgrade to Pro plan",
       body: "Hi,\n\nI would like to upgrade from the Starter plan to Pro. Can you apply the upgrade and let me know if there is a prorated charge?\n\nThanks,\nJames",
-      status: "closed" as const, category: "billing_inquiry" as const, assignedToId: agent.id,
-      createdAt: hoursAgo(14 * 24 + 2), resolvedAt: daysAgo(14), closedAt: daysAgo(10),
+      status: "closed" as const,
+      category: "billing_inquiry" as const,
+      assignedToId: agent.id,
+      createdAt: hoursAgo(14 * 24 + 2),
+      resolvedAt: daysAgo(14),
+      closedAt: daysAgo(10),
     },
     {
-      fromName: "Natalie Dunn", fromEmail: "natalie@shop.com",
+      fromName: "Natalie Dunn",
+      fromEmail: "natalie@shop.com",
       subject: "Wrong item shipped",
       body: "Hello,\n\nI ordered the blue version but received the red one. Order number is #9034. Please arrange a return and ship the correct item.\n\nNatalie",
-      status: "open" as const, category: null, assignedToId: null,
+      status: "open" as const,
+      category: null,
+      assignedToId: null,
       createdAt: hoursAgo(16),
     },
     {
-      fromName: "Hannah Park", fromEmail: "hannah@design.studio",
+      fromName: "Hannah Park",
+      fromEmail: "hannah@design.studio",
       subject: "What's your refund policy?",
       body: "Hi,\n\nCould you point me to your refund policy? I want to know the standard window before I submit a request.\n\nHannah",
-      status: "resolved" as const, category: "general_question" as const, assignedToId: aiUser.id,
-      createdAt: hoursAgo(2 * 24 + 1), resolvedAt: daysAgo(2),
+      status: "resolved" as const,
+      category: "general_question" as const,
+      assignedToId: aiUser.id,
+      createdAt: hoursAgo(2 * 24 + 1),
+      resolvedAt: daysAgo(2),
     },
     {
-      fromName: "Daniel Okafor", fromEmail: "daniel@logistics.io",
+      fromName: "Daniel Okafor",
+      fromEmail: "daniel@logistics.io",
       subject: "How do I change my notification email?",
       body: "Hello,\n\nI need to change the email address that receives ticket notifications. Where is that setting in the dashboard?\n\nThanks,\nDaniel",
-      status: "resolved" as const, category: "general_question" as const, assignedToId: aiUser.id,
-      createdAt: hoursAgo(5 * 24 + 1), resolvedAt: daysAgo(5),
+      status: "resolved" as const,
+      category: "general_question" as const,
+      assignedToId: aiUser.id,
+      createdAt: hoursAgo(5 * 24 + 1),
+      resolvedAt: daysAgo(5),
     },
   ];
 
@@ -151,32 +201,44 @@ async function seedPriorityShowcase() {
 
   const showcase = [
     {
-      fromName: "Wendy Holloway", fromEmail: "wendy.holloway@bridgecorp.com",
+      fromName: "Wendy Holloway",
+      fromEmail: "wendy.holloway@bridgecorp.com",
       subject: "Just checking — does light mode follow system settings?",
       body: "Hi,\n\nNothing urgent. I'm just curious whether the dashboard's light/dark mode follows my OS preference automatically or if I have to toggle it manually.\n\nThanks,\nWendy",
-      category: "general_question" as const, priority: "low" as const,
-      status: "open" as const, createdAt: hoursAgo(4),
+      category: "general_question" as const,
+      priority: "low" as const,
+      status: "open" as const,
+      createdAt: hoursAgo(4),
     },
     {
-      fromName: "Diego Marin", fromEmail: "diego.marin@northstar.io",
+      fromName: "Diego Marin",
+      fromEmail: "diego.marin@northstar.io",
       subject: "Question about webhook retries",
       body: "Hello,\n\nWhen a webhook delivery fails, how many times does the system retry and at what intervals? Trying to size our consumer's idempotency window correctly.\n\nDiego",
-      category: "technical_question" as const, priority: "normal" as const,
-      status: "open" as const, createdAt: hoursAgo(10),
+      category: "technical_question" as const,
+      priority: "normal" as const,
+      status: "open" as const,
+      createdAt: hoursAgo(10),
     },
     {
-      fromName: "Aisha Rahman", fromEmail: "aisha@parallel.studio",
+      fromName: "Aisha Rahman",
+      fromEmail: "aisha@parallel.studio",
       subject: "Reports stopped generating since this morning",
       body: "Hi,\n\nOur scheduled reports normally drop at 7am and they didn't run today. The Reports page just shows a spinner that never resolves. This is blocking the team — please advise.\n\nAisha",
-      category: "technical_question" as const, priority: "high" as const,
-      status: "open" as const, createdAt: hoursAgo(3),
+      category: "technical_question" as const,
+      priority: "high" as const,
+      status: "open" as const,
+      createdAt: hoursAgo(3),
     },
     {
-      fromName: "Greg Volkov", fromEmail: "greg.volkov@meridian.fund",
+      fromName: "Greg Volkov",
+      fromEmail: "greg.volkov@meridian.fund",
       subject: "URGENT: payment failed and account is locked",
       body: "Hi,\n\nOur monthly card payment failed (the card has been replaced) and now my whole team is locked out of the dashboard mid-day. We have a customer call in 90 minutes and need access to the queue. Please help asap.\n\nGreg",
-      category: "billing_inquiry" as const, priority: "urgent" as const,
-      status: "open" as const, createdAt: hoursAgo(1),
+      category: "billing_inquiry" as const,
+      priority: "urgent" as const,
+      status: "open" as const,
+      createdAt: hoursAgo(1),
     },
   ];
 
@@ -214,120 +276,200 @@ async function seedAliceHistory(aliceId: string) {
     fromEmail: string;
     subject: string;
     body: string;
-    category: "general_question" | "technical_question" | "billing_inquiry" | "refund_request" | "feature_request" | null;
+    category:
+      | "general_question"
+      | "technical_question"
+      | "billing_inquiry"
+      | "refund_request"
+      | "feature_request"
+      | null;
     status: "open" | "resolved" | "closed";
     createdHoursAgo: number;
     resolvedHoursAgo?: number; // must be < createdHoursAgo
-    closedHoursAgo?: number;   // must be < resolvedHoursAgo
+    closedHoursAgo?: number; // must be < resolvedHoursAgo
     replies: Array<{ minutesAfter: number; body: string }>;
   };
 
   const specs: Spec[] = [
     // ── Resolved within the 30-day window — drives both lifetime + 30d ──
     {
-      fromName: "Jordan Bell", fromEmail: SENTINEL,
+      fromName: "Jordan Bell",
+      fromEmail: SENTINEL,
       subject: "Password reset loop",
       body: "Hi,\n\nReset link emails are arriving but every click sends me back to the login page with no session. Cleared cookies, tried Incognito, same thing.\n\nJordan",
-      category: "technical_question", status: "resolved",
-      createdHoursAgo: 28 * 24 + 4, resolvedHoursAgo: 28 * 24,
+      category: "technical_question",
+      status: "resolved",
+      createdHoursAgo: 28 * 24 + 4,
+      resolvedHoursAgo: 28 * 24,
       replies: [
-        { minutesAfter: 15, body: "Hi Jordan — taking a look now. Can you confirm which browser and OS you're on?" },
-        { minutesAfter: 220, body: "Found it — your account was flagged after several failed attempts and our middleware was eating the new session cookie. Flag is cleared, please try the reset link one more time. Sorry for the runaround." },
+        {
+          minutesAfter: 15,
+          body: "Hi Jordan — taking a look now. Can you confirm which browser and OS you're on?",
+        },
+        {
+          minutesAfter: 220,
+          body: "Found it — your account was flagged after several failed attempts and our middleware was eating the new session cookie. Flag is cleared, please try the reset link one more time. Sorry for the runaround.",
+        },
       ],
     },
     {
-      fromName: "Mei Tanaka", fromEmail: "alice-history-02@seed.local",
+      fromName: "Mei Tanaka",
+      fromEmail: "alice-history-02@seed.local",
       subject: "Billing on plan change",
       body: "Hi,\n\nWe downgraded from Team to Solo last week but the invoice today still charges the Team price. Could you check?\n\nMei",
-      category: "billing_inquiry", status: "resolved",
-      createdHoursAgo: 22 * 24 + 2, resolvedHoursAgo: 22 * 24,
+      category: "billing_inquiry",
+      status: "resolved",
+      createdHoursAgo: 22 * 24 + 2,
+      resolvedHoursAgo: 22 * 24,
       replies: [
-        { minutesAfter: 30, body: "Hi Mei — confirmed the downgrade went through but the proration credit didn't apply. I've issued a refund for the delta ($60). It should land in 3–5 business days." },
+        {
+          minutesAfter: 30,
+          body: "Hi Mei — confirmed the downgrade went through but the proration credit didn't apply. I've issued a refund for the delta ($60). It should land in 3–5 business days.",
+        },
       ],
     },
     {
-      fromName: "Ravi Shah", fromEmail: "alice-history-03@seed.local",
+      fromName: "Ravi Shah",
+      fromEmail: "alice-history-03@seed.local",
       subject: "Invoice for January",
       body: "Hello,\n\nOur accounting team needs the January invoice in PDF form. Could you send it across?\n\nThanks,\nRavi",
-      category: "billing_inquiry", status: "resolved",
-      createdHoursAgo: 18 * 24 + 1, resolvedHoursAgo: 18 * 24 - 1,
+      category: "billing_inquiry",
+      status: "resolved",
+      createdHoursAgo: 18 * 24 + 1,
+      resolvedHoursAgo: 18 * 24 - 1,
       replies: [
-        { minutesAfter: 20, body: "Hi Ravi — attached. You can also download any past invoice from Settings → Billing → Invoices going forward." },
+        {
+          minutesAfter: 20,
+          body: "Hi Ravi — attached. You can also download any past invoice from Settings → Billing → Invoices going forward.",
+        },
       ],
     },
     {
-      fromName: "Lena Acker", fromEmail: "alice-history-04@seed.local",
+      fromName: "Lena Acker",
+      fromEmail: "alice-history-04@seed.local",
       subject: "Two-factor auth not working",
       body: "Hey,\n\n2FA codes from the authenticator app are being rejected. Phone time is synced. Locked out completely.\n\nLena",
-      category: "technical_question", status: "resolved",
-      createdHoursAgo: 12 * 24 + 6, resolvedHoursAgo: 12 * 24,
+      category: "technical_question",
+      status: "resolved",
+      createdHoursAgo: 12 * 24 + 6,
+      resolvedHoursAgo: 12 * 24,
       replies: [
-        { minutesAfter: 12, body: "Hi Lena — I'll need to verify identity before resetting 2FA. Can you reply from the email on file with the last 4 digits of the card we have on record?" },
-        { minutesAfter: 240, body: "Verified, 2FA has been reset. Please re-enroll your authenticator and let me know if you hit any further issues." },
+        {
+          minutesAfter: 12,
+          body: "Hi Lena — I'll need to verify identity before resetting 2FA. Can you reply from the email on file with the last 4 digits of the card we have on record?",
+        },
+        {
+          minutesAfter: 240,
+          body: "Verified, 2FA has been reset. Please re-enroll your authenticator and let me know if you hit any further issues.",
+        },
       ],
     },
     {
-      fromName: "Owen Pratt", fromEmail: "alice-history-05@seed.local",
+      fromName: "Owen Pratt",
+      fromEmail: "alice-history-05@seed.local",
       subject: "Custom domain DNS",
       body: "Hi,\n\nI added support.ourcompany.co as a custom domain but it's been pending verification for 24h. CNAME is set per the docs.\n\nOwen",
-      category: "technical_question", status: "resolved",
-      createdHoursAgo: 9 * 24 + 24, resolvedHoursAgo: 9 * 24,
+      category: "technical_question",
+      status: "resolved",
+      createdHoursAgo: 9 * 24 + 24,
+      resolvedHoursAgo: 9 * 24,
       replies: [
-        { minutesAfter: 45, body: "Hi Owen — the CNAME looks right from here but our verifier is on a 6-hour cadence right now. I've kicked off a manual verify pass — back to you shortly." },
-        { minutesAfter: 480, body: "DNS is now verified our side. Last step on yours is generating the SSL cert from the dashboard — should take a couple minutes." },
-        { minutesAfter: 1380, body: "Cert issued, domain is live. Closing this out — flag me if anything pops up." },
+        {
+          minutesAfter: 45,
+          body: "Hi Owen — the CNAME looks right from here but our verifier is on a 6-hour cadence right now. I've kicked off a manual verify pass — back to you shortly.",
+        },
+        {
+          minutesAfter: 480,
+          body: "DNS is now verified our side. Last step on yours is generating the SSL cert from the dashboard — should take a couple minutes.",
+        },
+        {
+          minutesAfter: 1380,
+          body: "Cert issued, domain is live. Closing this out — flag me if anything pops up.",
+        },
       ],
     },
     {
-      fromName: "Priscilla Vo", fromEmail: "alice-history-06@seed.local",
+      fromName: "Priscilla Vo",
+      fromEmail: "alice-history-06@seed.local",
       subject: "API rate limit question",
       body: "Hi,\n\nWhat's the per-minute rate limit on the v2 endpoints? Docs only mention daily.\n\nThanks,\nPriscilla",
-      category: "general_question", status: "resolved",
-      createdHoursAgo: 5 * 24 + 3, resolvedHoursAgo: 5 * 24,
+      category: "general_question",
+      status: "resolved",
+      createdHoursAgo: 5 * 24 + 3,
+      resolvedHoursAgo: 5 * 24,
       replies: [
-        { minutesAfter: 10, body: "Hi Priscilla — 600 req/min for v2 on the Pro plan. I'll get the docs page updated, thanks for flagging." },
+        {
+          minutesAfter: 10,
+          body: "Hi Priscilla — 600 req/min for v2 on the Pro plan. I'll get the docs page updated, thanks for flagging.",
+        },
       ],
     },
     {
-      fromName: "Sam Whittle", fromEmail: "alice-history-07@seed.local",
+      fromName: "Sam Whittle",
+      fromEmail: "alice-history-07@seed.local",
       subject: "Webhook payload format",
       body: "Hi team,\n\nWe're seeing nested arrays instead of objects on the `attachments` field. Was the format changed?\n\nSam",
-      category: "technical_question", status: "resolved",
-      createdHoursAgo: 3 * 24 + 2, resolvedHoursAgo: 3 * 24,
+      category: "technical_question",
+      status: "resolved",
+      createdHoursAgo: 3 * 24 + 2,
+      resolvedHoursAgo: 3 * 24,
       replies: [
-        { minutesAfter: 18, body: "Hi Sam — yes, the `attachments` shape changed in last Thursday's release. New format is documented here: helpdesk.dev/docs/webhooks#attachments. Sorry we didn't surface this more loudly." },
+        {
+          minutesAfter: 18,
+          body: "Hi Sam — yes, the `attachments` shape changed in last Thursday's release. New format is documented here: helpdesk.dev/docs/webhooks#attachments. Sorry we didn't surface this more loudly.",
+        },
       ],
     },
     {
-      fromName: "Alex Hu", fromEmail: "alice-history-08@seed.local",
+      fromName: "Alex Hu",
+      fromEmail: "alice-history-08@seed.local",
       subject: "Export columns",
       body: "Hi,\n\nCSV export doesn't include the `assigned_to` field anymore. Can it be added back?\n\nAlex",
-      category: "feature_request", status: "resolved",
-      createdHoursAgo: 1 * 24 + 1, resolvedHoursAgo: 1 * 24,
+      category: "feature_request",
+      status: "resolved",
+      createdHoursAgo: 1 * 24 + 1,
+      resolvedHoursAgo: 1 * 24,
       replies: [
-        { minutesAfter: 25, body: "Hi Alex — quick fix, it's now included in the default export. Re-run your export and let me know if anything else is missing." },
+        {
+          minutesAfter: 25,
+          body: "Hi Alex — quick fix, it's now included in the default export. Re-run your export and let me know if anything else is missing.",
+        },
       ],
     },
 
     // ── Closed tickets older than 30 days — drive lifetime only ───────
     {
-      fromName: "Iris Holm", fromEmail: "alice-history-09@seed.local",
+      fromName: "Iris Holm",
+      fromEmail: "alice-history-09@seed.local",
       subject: "Onboarding help",
       body: "Hi,\n\nNew to the platform — is there a recommended setup order? Our team is 12 people.\n\nIris",
-      category: "general_question", status: "closed",
-      createdHoursAgo: 50 * 24 + 3, resolvedHoursAgo: 50 * 24, closedHoursAgo: 46 * 24,
+      category: "general_question",
+      status: "closed",
+      createdHoursAgo: 50 * 24 + 3,
+      resolvedHoursAgo: 50 * 24,
+      closedHoursAgo: 46 * 24,
       replies: [
-        { minutesAfter: 22, body: "Hi Iris — happy to walk you through it. For teams that size we usually recommend setting up roles first, then the inbound webhook, then inviting agents. I've sent a calendar link if you'd like a 20-min onboarding call." },
+        {
+          minutesAfter: 22,
+          body: "Hi Iris — happy to walk you through it. For teams that size we usually recommend setting up roles first, then the inbound webhook, then inviting agents. I've sent a calendar link if you'd like a 20-min onboarding call.",
+        },
       ],
     },
     {
-      fromName: "Felix Marr", fromEmail: "alice-history-10@seed.local",
+      fromName: "Felix Marr",
+      fromEmail: "alice-history-10@seed.local",
       subject: "Beta access request",
       body: "Hello,\n\nIs the AI auto-categorization beta still open? We'd love to try it on our queue.\n\nFelix",
-      category: "feature_request", status: "closed",
-      createdHoursAgo: 75 * 24 + 8, resolvedHoursAgo: 75 * 24, closedHoursAgo: 71 * 24,
+      category: "feature_request",
+      status: "closed",
+      createdHoursAgo: 75 * 24 + 8,
+      resolvedHoursAgo: 75 * 24,
+      closedHoursAgo: 71 * 24,
       replies: [
-        { minutesAfter: 35, body: "Hi Felix — yes, opened it for your account. You should see the toggle in Settings → AI within a few minutes. Beta means no SLA on the categorization quality yet, so please flag misses." },
+        {
+          minutesAfter: 35,
+          body: "Hi Felix — yes, opened it for your account. You should see the toggle in Settings → AI within a few minutes. Beta means no SLA on the categorization quality yet, so please flag misses.",
+        },
       ],
     },
 
@@ -335,24 +477,37 @@ async function seedAliceHistory(aliceId: string) {
     // These don't add to resolved counts but do contribute to avg first reply
     // and to lifetime/30d reply counts.
     {
-      fromName: "Maya Bose", fromEmail: "alice-history-11@seed.local",
+      fromName: "Maya Bose",
+      fromEmail: "alice-history-11@seed.local",
       subject: "Slack integration question",
       body: "Hey,\n\nCan the Slack integration post to a thread instead of a top-level channel message?\n\nMaya",
-      category: "general_question", status: "open",
+      category: "general_question",
+      status: "open",
       createdHoursAgo: 2 * 24,
       replies: [
-        { minutesAfter: 14, body: "Hi Maya — not today, but it's on the roadmap for Q3. In the meantime you can use the webhook + Slack Workflow Builder to route into a thread. Happy to share an example workflow if useful." },
-        { minutesAfter: 60, body: "Following up — also worth knowing: threading is the #1 ask we've heard for that integration, so it's likely to land sooner rather than later." },
+        {
+          minutesAfter: 14,
+          body: "Hi Maya — not today, but it's on the roadmap for Q3. In the meantime you can use the webhook + Slack Workflow Builder to route into a thread. Happy to share an example workflow if useful.",
+        },
+        {
+          minutesAfter: 60,
+          body: "Following up — also worth knowing: threading is the #1 ask we've heard for that integration, so it's likely to land sooner rather than later.",
+        },
       ],
     },
     {
-      fromName: "Theo Lange", fromEmail: "alice-history-12@seed.local",
+      fromName: "Theo Lange",
+      fromEmail: "alice-history-12@seed.local",
       subject: "Custom domain SSL renewal",
       body: "Hi,\n\nWe got a cert expiry email but the renewal seems to have failed. Is the auto-renew job stuck?\n\nTheo",
-      category: "technical_question", status: "open",
+      category: "technical_question",
+      status: "open",
       createdHoursAgo: 10,
       replies: [
-        { minutesAfter: 28, body: "Hi Theo — looking into it now. Our renewal worker had a hiccup overnight. I'll re-trigger it manually and get back to you shortly." },
+        {
+          minutesAfter: 28,
+          body: "Hi Theo — looking into it now. Our renewal worker had a hiccup overnight. I'll re-trigger it manually and get back to you shortly.",
+        },
       ],
     },
   ];
@@ -377,7 +532,8 @@ async function seedAliceHistory(aliceId: string) {
         status: s.status,
         assignedToId: aliceId,
         createdAt,
-        resolvedAt: s.resolvedHoursAgo !== undefined ? hoursAgo(s.resolvedHoursAgo) : null,
+        resolvedAt:
+          s.resolvedHoursAgo !== undefined ? hoursAgo(s.resolvedHoursAgo) : null,
         closedAt: s.closedHoursAgo !== undefined ? hoursAgo(s.closedHoursAgo) : null,
         firstAgentReplyAt: firstReplyAt,
       },
@@ -398,9 +554,14 @@ async function seedAliceHistory(aliceId: string) {
     }
   }
 
-  console.log(`Seeded Alice's demo history: ${ticketsCreated} tickets, ${repliesCreated} replies.`);
+  console.log(
+    `Seeded Alice's demo history: ${ticketsCreated} tickets, ${repliesCreated} replies.`,
+  );
 }
 
 main()
-  .catch((err) => { console.error(err); process.exit(1); })
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  })
   .finally(() => prisma.$disconnect());

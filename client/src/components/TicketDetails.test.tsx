@@ -1,7 +1,12 @@
-import { describe, it, expect, afterEach } from "vitest";
-import { renderWithProviders, screen, cleanup } from "../test/utils";
+import {
+  TicketCategory,
+  type TicketDetail,
+  TicketPriority,
+  TicketStatus,
+} from "@helpdesk/core";
+import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, renderWithProviders, screen } from "../test/utils";
 import TicketDetails from "./TicketDetails";
-import { TicketStatus, TicketCategory, TicketPriority, type TicketDetail } from "@helpdesk/core";
 
 afterEach(cleanup);
 
@@ -25,7 +30,9 @@ const mockTicket: TicketDetail = {
 describe("TicketDetails", () => {
   it("renders the ticket subject as a heading", () => {
     renderWithProviders(<TicketDetails ticket={mockTicket} />);
-    expect(screen.getByRole("heading", { name: "My printer is on fire" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "My printer is on fire" }),
+    ).toBeInTheDocument();
   });
 
   it("renders the case number", () => {

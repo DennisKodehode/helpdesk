@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
-import request from "supertest";
+import { SenderType, TicketStatus } from "@helpdesk/core";
 import { generateId } from "better-auth";
+import request from "supertest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import app from "../app";
+import { initAiUserId } from "../lib/ai-user";
 import { auth } from "../lib/auth";
 import { prisma } from "../lib/prisma";
-import { initAiUserId } from "../lib/ai-user";
-import { TicketStatus, SenderType } from "@helpdesk/core";
 
 describe("GET /api/stats", () => {
   let authCookie: string;
@@ -20,10 +20,26 @@ describe("GET /api/stats", () => {
 
     const id = generateId();
     await prisma.user.create({
-      data: { id, name: "Stats Test User", email: "test-stats@example.com", emailVerified: true, role: "agent", createdAt: now, updatedAt: now },
+      data: {
+        id,
+        name: "Stats Test User",
+        email: "test-stats@example.com",
+        emailVerified: true,
+        role: "agent",
+        createdAt: now,
+        updatedAt: now,
+      },
     });
     await prisma.account.create({
-      data: { id: generateId(), accountId: id, providerId: "credential", userId: id, password: hashedPassword, createdAt: now, updatedAt: now },
+      data: {
+        id: generateId(),
+        accountId: id,
+        providerId: "credential",
+        userId: id,
+        password: hashedPassword,
+        createdAt: now,
+        updatedAt: now,
+      },
     });
     testUserId = id;
 
@@ -37,9 +53,19 @@ describe("GET /api/stats", () => {
     await prisma.user.upsert({
       where: { email: "ai@helpdesk.internal" },
       update: {},
-      create: { id: aiId, name: "AI", email: "ai@helpdesk.internal", emailVerified: true, role: "agent", createdAt: now, updatedAt: now },
+      create: {
+        id: aiId,
+        name: "AI",
+        email: "ai@helpdesk.internal",
+        emailVerified: true,
+        role: "agent",
+        createdAt: now,
+        updatedAt: now,
+      },
     });
-    const aiUser = await prisma.user.findUnique({ where: { email: "ai@helpdesk.internal" } });
+    const aiUser = await prisma.user.findUnique({
+      where: { email: "ai@helpdesk.internal" },
+    });
     aiUserId = aiUser!.id;
     await initAiUserId();
   });
@@ -70,18 +96,29 @@ describe("GET /api/stats", () => {
     expect(typeof res.body.closedTickets).toBe("number");
     expect(typeof res.body.resolvedByAI).toBe("number");
     expect(typeof res.body.percentResolvedByAILast30d).toBe("number");
-    expect(res.body.avgResolutionMinutes === null || typeof res.body.avgResolutionMinutes === "number").toBe(true);
+    expect(
+      res.body.avgResolutionMinutes === null ||
+        typeof res.body.avgResolutionMinutes === "number",
+    ).toBe(true);
   });
 
   it("increments totalTickets when a new ticket is created", async () => {
-    const before = (await request(app).get("/api/stats").set("Cookie", authCookie)).body.totalTickets as number;
+    const before = (await request(app).get("/api/stats").set("Cookie", authCookie)).body
+      .totalTickets as number;
 
     const ticket = await prisma.ticket.create({
-      data: { fromName: "Test", fromEmail: "test-total@example.com", subject: "Total test", body: "Body", status: TicketStatus.open },
+      data: {
+        fromName: "Test",
+        fromEmail: "test-total@example.com",
+        subject: "Total test",
+        body: "Body",
+        status: TicketStatus.open,
+      },
     });
     createdTicketIds.push(ticket.id);
 
-    const after = (await request(app).get("/api/stats").set("Cookie", authCookie)).body.totalTickets as number;
+    const after = (await request(app).get("/api/stats").set("Cookie", authCookie)).body
+      .totalTickets as number;
     expect(after).toBe(before + 1);
   });
 
@@ -91,8 +128,10 @@ describe("GET /api/stats", () => {
 
     const ticket = await prisma.ticket.create({
       data: {
-        fromName: "AI Test", fromEmail: "ai-test@example.com",
-        subject: "AI resolved ticket", body: "Body",
+        fromName: "AI Test",
+        fromEmail: "ai-test@example.com",
+        subject: "AI resolved ticket",
+        body: "Body",
         status: TicketStatus.resolved,
         assignedToId: aiUserId,
         resolvedAt: new Date(),
@@ -117,8 +156,10 @@ describe("GET /api/stats", () => {
 
     const ticket = await prisma.ticket.create({
       data: {
-        fromName: "Avg Test", fromEmail: "avg-test@example.com",
-        subject: "Avg resolution test", body: "Body",
+        fromName: "Avg Test",
+        fromEmail: "avg-test@example.com",
+        subject: "Avg resolution test",
+        body: "Body",
         status: TicketStatus.resolved,
         createdAt,
         resolvedAt,
@@ -146,10 +187,26 @@ describe("GET /api/stats/me", () => {
 
     meId = generateId();
     await prisma.user.create({
-      data: { id: meId, name: "Personal Stats Me", email: "test-personal-stats-me@example.com", emailVerified: true, role: "agent", createdAt: now, updatedAt: now },
+      data: {
+        id: meId,
+        name: "Personal Stats Me",
+        email: "test-personal-stats-me@example.com",
+        emailVerified: true,
+        role: "agent",
+        createdAt: now,
+        updatedAt: now,
+      },
     });
     await prisma.account.create({
-      data: { id: generateId(), accountId: meId, providerId: "credential", userId: meId, password: hashedPassword, createdAt: now, updatedAt: now },
+      data: {
+        id: generateId(),
+        accountId: meId,
+        providerId: "credential",
+        userId: meId,
+        password: hashedPassword,
+        createdAt: now,
+        updatedAt: now,
+      },
     });
 
     const signInRes = await request(app)
@@ -160,7 +217,15 @@ describe("GET /api/stats/me", () => {
 
     otherId = generateId();
     await prisma.user.create({
-      data: { id: otherId, name: "Personal Stats Other", email: "test-personal-stats-other@example.com", emailVerified: true, role: "agent", createdAt: now, updatedAt: now },
+      data: {
+        id: otherId,
+        name: "Personal Stats Other",
+        email: "test-personal-stats-other@example.com",
+        emailVerified: true,
+        role: "agent",
+        createdAt: now,
+        updatedAt: now,
+      },
     });
   });
 
@@ -205,19 +270,60 @@ describe("GET /api/stats/me", () => {
     const oldResolved = new Date(now.getTime() - 40 * 24 * 60 * 60 * 1000);
 
     const t1 = await prisma.ticket.create({
-      data: { fromName: "A", fromEmail: "a@example.com", subject: "A", body: "", status: TicketStatus.resolved, assignedToId: meId, resolvedAt: now },
+      data: {
+        fromName: "A",
+        fromEmail: "a@example.com",
+        subject: "A",
+        body: "",
+        status: TicketStatus.resolved,
+        assignedToId: meId,
+        resolvedAt: now,
+      },
     });
     const t2 = await prisma.ticket.create({
-      data: { fromName: "B", fromEmail: "b@example.com", subject: "B", body: "", status: TicketStatus.closed, assignedToId: meId, resolvedAt: now, closedAt: now },
+      data: {
+        fromName: "B",
+        fromEmail: "b@example.com",
+        subject: "B",
+        body: "",
+        status: TicketStatus.closed,
+        assignedToId: meId,
+        resolvedAt: now,
+        closedAt: now,
+      },
     });
     const tOld = await prisma.ticket.create({
-      data: { fromName: "Old", fromEmail: "old@example.com", subject: "Old", body: "", status: TicketStatus.resolved, assignedToId: meId, resolvedAt: oldResolved, createdAt: oldResolved },
+      data: {
+        fromName: "Old",
+        fromEmail: "old@example.com",
+        subject: "Old",
+        body: "",
+        status: TicketStatus.resolved,
+        assignedToId: meId,
+        resolvedAt: oldResolved,
+        createdAt: oldResolved,
+      },
     });
     const tOther = await prisma.ticket.create({
-      data: { fromName: "Other", fromEmail: "other@example.com", subject: "Other", body: "", status: TicketStatus.resolved, assignedToId: otherId, resolvedAt: now },
+      data: {
+        fromName: "Other",
+        fromEmail: "other@example.com",
+        subject: "Other",
+        body: "",
+        status: TicketStatus.resolved,
+        assignedToId: otherId,
+        resolvedAt: now,
+      },
     });
     const tOpen = await prisma.ticket.create({
-      data: { fromName: "Open", fromEmail: "open@example.com", subject: "Open", body: "", status: TicketStatus.open, assignedToId: meId },
+      data: {
+        fromName: "Open",
+        fromEmail: "open@example.com",
+        subject: "Open",
+        body: "",
+        status: TicketStatus.open,
+        assignedToId: meId,
+      },
     });
     createdTicketIds.push(t1.id, t2.id, tOld.id, tOther.id, tOpen.id);
 
@@ -232,11 +338,29 @@ describe("GET /api/stats/me", () => {
     const resolvedAt = new Date();
 
     const mine = await prisma.ticket.create({
-      data: { fromName: "Mine", fromEmail: "mine@example.com", subject: "Mine", body: "", status: TicketStatus.resolved, assignedToId: meId, createdAt, resolvedAt },
+      data: {
+        fromName: "Mine",
+        fromEmail: "mine@example.com",
+        subject: "Mine",
+        body: "",
+        status: TicketStatus.resolved,
+        assignedToId: meId,
+        createdAt,
+        resolvedAt,
+      },
     });
     // Other agent's quickly resolved ticket — must NOT affect my average.
     const theirs = await prisma.ticket.create({
-      data: { fromName: "Theirs", fromEmail: "theirs@example.com", subject: "Theirs", body: "", status: TicketStatus.resolved, assignedToId: otherId, createdAt: new Date(Date.now() - 60 * 1000), resolvedAt },
+      data: {
+        fromName: "Theirs",
+        fromEmail: "theirs@example.com",
+        subject: "Theirs",
+        body: "",
+        status: TicketStatus.resolved,
+        assignedToId: otherId,
+        createdAt: new Date(Date.now() - 60 * 1000),
+        resolvedAt,
+      },
     });
     createdTicketIds.push(mine.id, theirs.id);
 
@@ -252,21 +376,53 @@ describe("GET /api/stats/me", () => {
 
     // Ticket where I replied first (10-minute first response).
     const t1 = await prisma.ticket.create({
-      data: { fromName: "T1", fromEmail: "t1@example.com", subject: "T1", body: "", status: TicketStatus.open, createdAt: tenMinutesAgo },
+      data: {
+        fromName: "T1",
+        fromEmail: "t1@example.com",
+        subject: "T1",
+        body: "",
+        status: TicketStatus.open,
+        createdAt: tenMinutesAgo,
+      },
     });
     await prisma.reply.create({
-      data: { ticketId: t1.id, authorId: meId, senderType: SenderType.agent, body: "Hi", createdAt: now },
+      data: {
+        ticketId: t1.id,
+        authorId: meId,
+        senderType: SenderType.agent,
+        body: "Hi",
+        createdAt: now,
+      },
     });
 
     // Ticket where someone else replied first — must NOT be counted toward my average.
     const t2 = await prisma.ticket.create({
-      data: { fromName: "T2", fromEmail: "t2@example.com", subject: "T2", body: "", status: TicketStatus.open, createdAt: new Date(Date.now() - 60 * 60 * 1000) },
+      data: {
+        fromName: "T2",
+        fromEmail: "t2@example.com",
+        subject: "T2",
+        body: "",
+        status: TicketStatus.open,
+        createdAt: new Date(Date.now() - 60 * 60 * 1000),
+      },
     });
     await prisma.reply.create({
-      data: { ticketId: t2.id, authorId: otherId, senderType: SenderType.agent, body: "First", createdAt: new Date(Date.now() - 50 * 60 * 1000) },
+      data: {
+        ticketId: t2.id,
+        authorId: otherId,
+        senderType: SenderType.agent,
+        body: "First",
+        createdAt: new Date(Date.now() - 50 * 60 * 1000),
+      },
     });
     await prisma.reply.create({
-      data: { ticketId: t2.id, authorId: meId, senderType: SenderType.agent, body: "Second", createdAt: now },
+      data: {
+        ticketId: t2.id,
+        authorId: meId,
+        senderType: SenderType.agent,
+        body: "Second",
+        createdAt: now,
+      },
     });
 
     createdTicketIds.push(t1.id, t2.id);
@@ -282,21 +438,51 @@ describe("GET /api/stats/me", () => {
     const fortyDaysAgo = new Date(now.getTime() - 40 * 24 * 60 * 60 * 1000);
 
     const ticket = await prisma.ticket.create({
-      data: { fromName: "RT", fromEmail: "rt@example.com", subject: "RT", body: "", status: TicketStatus.open },
+      data: {
+        fromName: "RT",
+        fromEmail: "rt@example.com",
+        subject: "RT",
+        body: "",
+        status: TicketStatus.open,
+      },
     });
     createdTicketIds.push(ticket.id);
 
     await prisma.reply.create({
-      data: { ticketId: ticket.id, authorId: meId, senderType: SenderType.agent, body: "today", createdAt: now },
+      data: {
+        ticketId: ticket.id,
+        authorId: meId,
+        senderType: SenderType.agent,
+        body: "today",
+        createdAt: now,
+      },
     });
     await prisma.reply.create({
-      data: { ticketId: ticket.id, authorId: meId, senderType: SenderType.agent, body: "old", createdAt: fortyDaysAgo },
+      data: {
+        ticketId: ticket.id,
+        authorId: meId,
+        senderType: SenderType.agent,
+        body: "old",
+        createdAt: fortyDaysAgo,
+      },
     });
     await prisma.reply.create({
-      data: { ticketId: ticket.id, authorId: otherId, senderType: SenderType.agent, body: "from other agent", createdAt: now },
+      data: {
+        ticketId: ticket.id,
+        authorId: otherId,
+        senderType: SenderType.agent,
+        body: "from other agent",
+        createdAt: now,
+      },
     });
     await prisma.reply.create({
-      data: { ticketId: ticket.id, authorId: null, senderType: SenderType.customer, body: "from customer", createdAt: now },
+      data: {
+        ticketId: ticket.id,
+        authorId: null,
+        senderType: SenderType.customer,
+        body: "from customer",
+        createdAt: now,
+      },
     });
 
     const res = await request(app).get("/api/stats/me").set("Cookie", meCookie);

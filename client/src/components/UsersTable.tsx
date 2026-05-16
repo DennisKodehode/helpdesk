@@ -1,7 +1,7 @@
 import { Role, type User } from "@helpdesk/core";
-import ErrorAlert from "@/components/ui/ErrorAlert";
 import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ErrorAlert from "@/components/ui/ErrorAlert";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface UsersTableProps {
@@ -109,11 +109,20 @@ export default function UsersTable({
           <tbody>
             {isPending ? (
               Array.from({ length: 5 }).map((_, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholder; never reorders
                 <tr key={i} className="hairline-b">
-                  <td className="px-5 py-3.5"><Skeleton className="h-3.5 w-32" /></td>
-                  <td className="px-5 py-3.5"><Skeleton className="h-3.5 w-48" /></td>
-                  <td className="px-5 py-3.5"><Skeleton className="h-5 w-16 rounded-full" /></td>
-                  <td className="px-5 py-3.5"><Skeleton className="h-3.5 w-20" /></td>
+                  <td className="px-5 py-3.5">
+                    <Skeleton className="h-3.5 w-32" />
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <Skeleton className="h-3.5 w-48" />
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <Skeleton className="h-3.5 w-20" />
+                  </td>
                   <td className="px-5 py-3.5 text-right">
                     <div className="flex items-center justify-end gap-1.5">
                       <Skeleton className="h-7 w-7" />
@@ -180,6 +189,7 @@ export default function UsersTable({
           <ul className="space-y-2" aria-label="Loading agents">
             {Array.from({ length: 5 }).map((_, i) => (
               <li
+                // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholder; never reorders
                 key={`m-${i}`}
                 className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-4"
               >
@@ -199,9 +209,7 @@ export default function UsersTable({
           </ul>
         ) : users.length === 0 ? (
           <div className="rounded-lg border border-border bg-card p-8 text-center">
-            <p className="display-serif text-2xl text-muted-foreground">
-              No agents yet
-            </p>
+            <p className="display-serif text-2xl text-muted-foreground">No agents yet</p>
             <p className="mt-1 text-[13px] text-muted-foreground/70">
               Add your first teammate to get started.
             </p>

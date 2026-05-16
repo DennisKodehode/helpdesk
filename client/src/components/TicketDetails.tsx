@@ -1,4 +1,4 @@
-import { type TicketDetail } from "@helpdesk/core";
+import type { TicketDetail } from "@helpdesk/core";
 
 interface Props {
   ticket: TicketDetail;
@@ -17,7 +17,11 @@ export default function TicketDetails({ ticket }: Props) {
           Case · <span className="tabular text-foreground">#{caseId}</span>
         </span>
         <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground tabular">
-          Received {received.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+          Received{" "}
+          {received.toLocaleString(undefined, {
+            dateStyle: "medium",
+            timeStyle: "short",
+          })}
         </span>
       </div>
 

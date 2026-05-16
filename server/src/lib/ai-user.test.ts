@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { generateId } from "better-auth";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { assigneeType, getAiUserId, initAiUserId, isAiAssigned } from "./ai-user";
 import { prisma } from "./prisma";
-import { initAiUserId, getAiUserId, isAiAssigned, assigneeType } from "./ai-user";
 
 describe("ai-user helpers", () => {
   let aiId: string;
@@ -12,9 +12,19 @@ describe("ai-user helpers", () => {
     await prisma.user.upsert({
       where: { email: "ai@helpdesk.internal" },
       update: {},
-      create: { id: aiId, name: "AI", email: "ai@helpdesk.internal", emailVerified: true, role: "agent", createdAt: now, updatedAt: now },
+      create: {
+        id: aiId,
+        name: "AI",
+        email: "ai@helpdesk.internal",
+        emailVerified: true,
+        role: "agent",
+        createdAt: now,
+        updatedAt: now,
+      },
     });
-    const found = await prisma.user.findUnique({ where: { email: "ai@helpdesk.internal" } });
+    const found = await prisma.user.findUnique({
+      where: { email: "ai@helpdesk.internal" },
+    });
     aiId = found!.id;
     await initAiUserId();
   });

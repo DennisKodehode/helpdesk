@@ -1,5 +1,5 @@
-import { Link } from "@/components/ui/link";
 import { ArrowLeft } from "lucide-react";
+import { Link } from "@/components/ui/link";
 
 interface Props {
   to: string;

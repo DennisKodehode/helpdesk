@@ -1,10 +1,10 @@
-import { Router } from "express";
+import { createUserSchema, Role, updateUserSchema } from "@helpdesk/core";
 import { generateId } from "better-auth";
-import { Role, createUserSchema, updateUserSchema } from "@helpdesk/core";
+import { Router } from "express";
 import { auth } from "../lib/auth";
 import { prisma } from "../lib/prisma";
-import { requireAdminChain } from "../middleware/auth-middleware";
 import { firstIssue } from "../lib/validation";
+import { requireAdminChain } from "../middleware/auth-middleware";
 
 const router = Router();
 
@@ -30,18 +30,37 @@ router.post("/", ...requireAdminChain, async (req, res) => {
     return;
   }
   if (existing?.deletedAt) {
-    await prisma.user.update({ where: { id: existing.id }, data: { email: `deleted-${existing.id}@deleted.invalid` } });
+    await prisma.user.update({
+      where: { id: existing.id },
+      data: { email: `deleted-${existing.id}@deleted.invalid` },
+    });
   }
   const ctx = await auth.$context;
   const hashedPassword = await ctx.password.hash(password);
   const id = generateId();
   const now = new Date();
   const user = await prisma.user.create({
-    data: { id, name, email, emailVerified: true, role: Role.agent, createdAt: now, updatedAt: now },
+    data: {
+      id,
+      name,
+      email,
+      emailVerified: true,
+      role: Role.agent,
+      createdAt: now,
+      updatedAt: now,
+    },
     select: { id: true, name: true, email: true, role: true, createdAt: true },
   });
   await prisma.account.create({
-    data: { id: generateId(), accountId: id, providerId: "credential", userId: id, password: hashedPassword, createdAt: now, updatedAt: now },
+    data: {
+      id: generateId(),
+      accountId: id,
+      providerId: "credential",
+      userId: id,
+      password: hashedPassword,
+      createdAt: now,
+      updatedAt: now,
+    },
   });
   res.status(201).json(user);
 });
@@ -62,8 +81,14 @@ router.delete("/:id", ...requireAdminChain, async (req, res) => {
     return;
   }
   const now = new Date();
-  await prisma.ticket.updateMany({ where: { assignedToId: id }, data: { assignedToId: null } });
-  await prisma.user.update({ where: { id }, data: { email: `deleted-${id}@deleted.invalid`, deletedAt: now } });
+  await prisma.ticket.updateMany({
+    where: { assignedToId: id },
+    data: { assignedToId: null },
+  });
+  await prisma.user.update({
+    where: { id },
+    data: { email: `deleted-${id}@deleted.invalid`, deletedAt: now },
+  });
   await prisma.session.deleteMany({ where: { userId: id } });
   await prisma.account.deleteMany({ where: { userId: id } });
   res.status(204).send();

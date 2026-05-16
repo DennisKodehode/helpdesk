@@ -1,11 +1,13 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { renderWithProviders, screen, cleanup } from "../test/utils";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, renderWithProviders, screen } from "../test/utils";
 import TicketPagination from "./TicketPagination";
 
 afterEach(cleanup);
 
-function renderPagination(overrides: Partial<Parameters<typeof TicketPagination>[0]> = {}) {
+function renderPagination(
+  overrides: Partial<Parameters<typeof TicketPagination>[0]> = {},
+) {
   const defaults = {
     page: 1,
     totalPages: 3,

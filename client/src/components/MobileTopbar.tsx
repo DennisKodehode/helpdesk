@@ -8,10 +8,7 @@ interface Props {
 
 export default function MobileTopbar({ onMenuClick }: Props) {
   return (
-    <header
-      aria-label="Mobile header"
-      className="fixed inset-x-0 top-0 z-20 flex h-14 items-center justify-between border-b border-border bg-background/85 px-3 supports-backdrop-filter:backdrop-blur md:hidden"
-    >
+    <header className="fixed inset-x-0 top-0 z-20 flex h-14 items-center justify-between border-b border-border bg-background/85 px-3 supports-backdrop-filter:backdrop-blur md:hidden">
       <button
         type="button"
         aria-label="Open navigation"

@@ -1,11 +1,11 @@
 import { ArrowUpRight, Inbox } from "lucide-react";
-import { Link } from "@/components/ui/link";
-import { Skeleton } from "@/components/ui/skeleton";
 import ErrorAlert from "@/components/ui/ErrorAlert";
+import { Link } from "@/components/ui/link";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
-import { usePersonalStats } from "@/lib/personal-stats";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatMinutes } from "@/lib/format";
+import { usePersonalStats } from "@/lib/personal-stats";
 import { cn } from "@/lib/utils";
 
 const RESOLVED_DRILL = "/my-tickets?active=resolved";
@@ -152,8 +152,9 @@ export default function MyStatsPage() {
             <span className="font-mono uppercase tracking-[0.14em] text-muted-foreground/60">
               Note —{" "}
             </span>
-            Throughput and resolution time credit the agent currently assigned to a ticket.
-            Reply counts and first-response time follow your authorship and are unaffected by reassignment.
+            Throughput and resolution time credit the agent currently assigned to a
+            ticket. Reply counts and first-response time follow your authorship and are
+            unaffected by reassignment.
           </p>
         </div>
       )}
@@ -165,7 +166,7 @@ export default function MyStatsPage() {
 
 function LoadingShell() {
   return (
-    <div className="space-y-6" aria-label="Loading stats">
+    <div className="space-y-6" role="status" aria-label="Loading stats">
       <div className="rounded-lg border border-border bg-card">
         <div className="grid items-stretch md:grid-cols-[1.4fr_1fr]">
           <div className="p-8 xl:p-12 2xl:p-16">

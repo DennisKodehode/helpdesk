@@ -1,21 +1,24 @@
-import * as Sentry from "@sentry/node";
-import { readFileSync } from "fs";
-import { join, dirname } from "path";
-import { fileURLToPath } from "url";
-import type { Job } from "pg-boss";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { google } from "@ai-sdk/google";
-import { generateText } from "ai";
 import { SenderType, TicketStatus } from "@helpdesk/core";
-import { prisma } from "./prisma";
+import * as Sentry from "@sentry/node";
+import { generateText } from "ai";
+import type { Job } from "pg-boss";
 import { getAiUserId } from "./ai-user";
 import boss from "./boss";
+import { prisma } from "./prisma";
 import { SEND_REPLY_EMAIL_QUEUE } from "./send-reply-email-job";
 
 export const AUTO_RESOLVE_TICKET_QUEUE = "auto-resolve-ticket";
 
 type AutoResolveJobData = { id: number; fromName: string; subject: string; body: string };
 
-const KNOWLEDGE_BASE = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../knowledge-base.md"), "utf-8");
+const KNOWLEDGE_BASE = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), "../../knowledge-base.md"),
+  "utf-8",
+);
 
 async function runAutoResolve(data: AutoResolveJobData) {
   const aiUserId = getAiUserId();
@@ -57,7 +60,10 @@ async function runAutoResolve(data: AutoResolveJobData) {
   } catch (err) {
     console.error("auto-resolve generateText failed:", err);
     Sentry.captureException(err);
-    await prisma.ticket.update({ where: { id: data.id }, data: { status: TicketStatus.open, assignedToId: null } });
+    await prisma.ticket.update({
+      where: { id: data.id },
+      data: { status: TicketStatus.open, assignedToId: null },
+    });
     return;
   }
 
@@ -67,7 +73,10 @@ async function runAutoResolve(data: AutoResolveJobData) {
   } catch {
     console.error("auto-resolve: failed to parse AI response:", text);
     Sentry.captureMessage("auto-resolve: AI response was not valid JSON", "error");
-    await prisma.ticket.update({ where: { id: data.id }, data: { status: TicketStatus.open, assignedToId: null } });
+    await prisma.ticket.update({
+      where: { id: data.id },
+      data: { status: TicketStatus.open, assignedToId: null },
+    });
     return;
   }
 
@@ -106,7 +115,10 @@ async function runAutoResolve(data: AutoResolveJobData) {
       });
     }
   } else {
-    await prisma.ticket.update({ where: { id: data.id }, data: { status: TicketStatus.open, assignedToId: null } });
+    await prisma.ticket.update({
+      where: { id: data.id },
+      data: { status: TicketStatus.open, assignedToId: null },
+    });
   }
 }
 

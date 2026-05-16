@@ -1,18 +1,14 @@
-import { useEffect, useState } from "react";
-import axios from "axios";
-import { useForm } from "react-hook-form";
+import { type CreateReplyData, createReplySchema, type Reply } from "@helpdesk/core";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Sparkles, Send } from "lucide-react";
-import {
-  type CreateReplyData,
-  type Reply,
-  createReplySchema,
-} from "@helpdesk/core";
+import axios from "axios";
+import { Send, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import FieldError from "@/components/ui/FieldError";
 import ErrorAlert from "@/components/ui/ErrorAlert";
+import FieldError from "@/components/ui/FieldError";
+import { Textarea } from "@/components/ui/textarea";
 import { PERSONAL_STATS_QUERY_KEY } from "@/lib/personal-stats";
 
 interface Props {
@@ -58,13 +54,7 @@ export default function ReplyForm({ ticketId }: Props) {
   }, [bodyValue, isPolished]);
 
   const polishMutation = useMutation({
-    mutationFn: ({
-      body,
-      refinementNote,
-    }: {
-      body: string;
-      refinementNote?: string;
-    }) =>
+    mutationFn: ({ body, refinementNote }: { body: string; refinementNote?: string }) =>
       axios.post<{ body: string }>(`/api/tickets/${ticketId}/polish-reply`, {
         body,
         refinementNote,
@@ -126,9 +116,7 @@ export default function ReplyForm({ ticketId }: Props) {
                 variant={refinementNote.trim() ? "default" : "outline"}
                 size="sm"
                 disabled={!refinementNote.trim() || polishMutation.isPending}
-                onClick={() =>
-                  polishMutation.mutate({ body: bodyValue, refinementNote })
-                }
+                onClick={() => polishMutation.mutate({ body: bodyValue, refinementNote })}
               >
                 <Sparkles />
                 {polishMutation.isPending ? "Refining…" : "Refine"}

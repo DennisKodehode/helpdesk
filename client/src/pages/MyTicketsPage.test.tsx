@@ -1,12 +1,18 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { type PaginatedTickets, TicketPriority, TicketStatus } from "@helpdesk/core";
 import userEvent from "@testing-library/user-event";
 import axios from "axios";
-import { renderWithProviders, screen, waitFor, cleanup, within } from "../test/utils";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, renderWithProviders, screen, waitFor, within } from "../test/utils";
 import MyTicketsPage from "./MyTicketsPage";
-import { TicketStatus, TicketPriority, type PaginatedTickets } from "@helpdesk/core";
 
 vi.mock("axios", () => ({
-  default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn(), isAxiosError: vi.fn() },
+  default: {
+    get: vi.fn(),
+    post: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+    isAxiosError: vi.fn(),
+  },
 }));
 
 const emptyPage: PaginatedTickets = { data: [], total: 0, page: 1, pageSize: 10 };
@@ -52,11 +58,13 @@ const closedPage: PaginatedTickets = {
 };
 
 function setupAxiosByStatus(map: Partial<Record<TicketStatus, PaginatedTickets>>) {
-  vi.mocked(axios.get).mockImplementation(async (_url: string, config?: { params?: Record<string, unknown> }) => {
-    const status = config?.params?.status as TicketStatus | undefined;
-    if (status && map[status]) return { data: map[status]! };
-    return { data: emptyPage };
-  });
+  vi.mocked(axios.get).mockImplementation(
+    async (_url: string, config?: { params?: Record<string, unknown> }) => {
+      const status = config?.params?.status as TicketStatus | undefined;
+      if (status && map[status]) return { data: map[status]! };
+      return { data: emptyPage };
+    },
+  );
 }
 
 beforeEach(() => {
@@ -74,15 +82,29 @@ describe("MyTicketsPage", () => {
 
     renderWithProviders(<MyTicketsPage />);
 
-    expect(screen.getByRole("heading", { level: 2, name: /active/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: /closed/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: /active/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: /closed/i }),
+    ).toBeInTheDocument();
 
     await waitFor(() => {
       expect(axios.get).toHaveBeenCalledWith("/api/tickets", {
-        params: expect.objectContaining({ assignee: "me", status: TicketStatus.open, page: 1, pageSize: 10 }),
+        params: expect.objectContaining({
+          assignee: "me",
+          status: TicketStatus.open,
+          page: 1,
+          pageSize: 10,
+        }),
       });
       expect(axios.get).toHaveBeenCalledWith("/api/tickets", {
-        params: expect.objectContaining({ assignee: "me", status: TicketStatus.closed, page: 1, pageSize: 10 }),
+        params: expect.objectContaining({
+          assignee: "me",
+          status: TicketStatus.closed,
+          page: 1,
+          pageSize: 10,
+        }),
       });
     });
 
@@ -106,14 +128,18 @@ describe("MyTicketsPage", () => {
 
     await waitFor(() => {
       expect(axios.get).toHaveBeenCalledWith("/api/tickets", {
-        params: expect.objectContaining({ assignee: "me", status: TicketStatus.resolved, page: 1, pageSize: 10 }),
+        params: expect.objectContaining({
+          assignee: "me",
+          status: TicketStatus.resolved,
+          page: 1,
+          pageSize: 10,
+        }),
       });
     });
 
-    expect(within(activeSection).getByRole("button", { name: /resolved/i })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(
+      within(activeSection).getByRole("button", { name: /resolved/i }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 
   it("initializes Active filter from the ?active=resolved URL param", async () => {
@@ -122,11 +148,16 @@ describe("MyTicketsPage", () => {
       [TicketStatus.closed]: emptyPage,
     });
 
-    renderWithProviders(<MyTicketsPage />, { initialEntries: ["/my-tickets?active=resolved"] });
+    renderWithProviders(<MyTicketsPage />, {
+      initialEntries: ["/my-tickets?active=resolved"],
+    });
 
     await waitFor(() => {
       expect(axios.get).toHaveBeenCalledWith("/api/tickets", {
-        params: expect.objectContaining({ assignee: "me", status: TicketStatus.resolved }),
+        params: expect.objectContaining({
+          assignee: "me",
+          status: TicketStatus.resolved,
+        }),
       });
     });
   });
@@ -146,7 +177,9 @@ describe("MyTicketsPage", () => {
     renderWithProviders(<MyTicketsPage />);
 
     await waitFor(() => {
-      expect(screen.getAllByText("Failed to load tickets").length).toBeGreaterThanOrEqual(2);
+      expect(screen.getAllByText("Failed to load tickets").length).toBeGreaterThanOrEqual(
+        2,
+      );
     });
   });
 });

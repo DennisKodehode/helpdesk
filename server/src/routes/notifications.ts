@@ -50,7 +50,10 @@ router.patch("/:id/read", requireAuth, async (req, res) => {
   });
 
   if (result.count === 0) {
-    const exists = await prisma.notification.findFirst({ where: { id, userId }, select: { id: true } });
+    const exists = await prisma.notification.findFirst({
+      where: { id, userId },
+      select: { id: true },
+    });
     if (!exists) {
       res.status(404).json({ error: "Notification not found" });
       return;

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router";
-import { signIn, useSession } from "../lib/auth-client";
 import LoginForm from "@/components/LoginForm";
+import { signIn, useSession } from "../lib/auth-client";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -44,14 +44,16 @@ export default function LoginPage() {
 
           <div className="relative space-y-7">
             <h1 className="display-serif text-[64px] leading-[0.95] tracking-[-0.02em] text-foreground xl:text-[80px] 2xl:text-[96px]">
-              AI-powered<br />
-              ticket<br />
+              AI-powered
+              <br />
+              ticket
+              <br />
               <span className="italic text-primary">management.</span>
             </h1>
             <p className="max-w-sm text-[15px] leading-relaxed text-muted-foreground xl:max-w-md xl:text-[16px] 2xl:text-[17px]">
-              Tickets are auto-classified on arrival, AI polishes your draft
-              replies before you send them, and the obvious questions resolve
-              themselves. Your team handles what needs a human.
+              Tickets are auto-classified on arrival, AI polishes your draft replies
+              before you send them, and the obvious questions resolve themselves. Your
+              team handles what needs a human.
             </p>
           </div>
 

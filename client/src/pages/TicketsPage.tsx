@@ -1,14 +1,18 @@
-import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router";
+import type {
+  PaginatedTickets,
+  TicketCategory,
+  TicketPriority,
+  TicketSortField,
+} from "@helpdesk/core";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import type { SortingState } from "@tanstack/react-table";
 import axios from "axios";
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { type SortingState } from "@tanstack/react-table";
-import TicketsTable from "@/components/TicketsTable";
-import TicketFilters from "@/components/TicketFilters";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
+import TicketFilters, { type StatusFilterValue } from "@/components/TicketFilters";
 import TicketPagination from "@/components/TicketPagination";
+import TicketsTable from "@/components/TicketsTable";
 import PageHeader from "@/components/ui/PageHeader";
-import { type PaginatedTickets, type TicketSortField, TicketStatus, TicketCategory, TicketPriority } from "@helpdesk/core";
-import { type StatusFilterValue } from "@/components/TicketFilters";
 
 const PAGE_SIZE = 10;
 
@@ -35,7 +39,7 @@ async function fetchTickets(
   priority: TicketPriority | "",
   assignee: string,
   search: string,
-  page: number
+  page: number,
 ): Promise<PaginatedTickets> {
   const { data } = await axios.get<PaginatedTickets>("/api/tickets", {
     params: {
@@ -86,8 +90,28 @@ export default function TicketsPage() {
   const sortOrder = sorting[0]?.desc === false ? "asc" : "desc";
 
   const { data, isPending, isError } = useQuery({
-    queryKey: ["tickets", sortBy, sortOrder, status, category, priority, assignee, searchFromUrl, page],
-    queryFn: () => fetchTickets(sortBy, sortOrder, status, category, priority, assignee, searchFromUrl, page),
+    queryKey: [
+      "tickets",
+      sortBy,
+      sortOrder,
+      status,
+      category,
+      priority,
+      assignee,
+      searchFromUrl,
+      page,
+    ],
+    queryFn: () =>
+      fetchTickets(
+        sortBy,
+        sortOrder,
+        status,
+        category,
+        priority,
+        assignee,
+        searchFromUrl,
+        page,
+      ),
     placeholderData: keepPreviousData,
   });
 
@@ -113,7 +137,9 @@ export default function TicketsPage() {
     });
   }
 
-  const handleSortingChange = (updater: SortingState | ((prev: SortingState) => SortingState)) => {
+  const handleSortingChange = (
+    updater: SortingState | ((prev: SortingState) => SortingState),
+  ) => {
     setSorting(updater);
     setPageParam(1);
   };

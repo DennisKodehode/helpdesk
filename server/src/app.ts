@@ -1,14 +1,14 @@
 import * as Sentry from "@sentry/node";
-import express, { type ErrorRequestHandler, type RequestHandler } from "express";
-import cors from "cors";
 import { toNodeHandler } from "better-auth/node";
+import cors from "cors";
+import express, { type ErrorRequestHandler, type RequestHandler } from "express";
 import { auth } from "./lib/auth";
 import agentsRouter from "./routes/agents";
-import usersRouter from "./routes/users";
-import ticketsRouter from "./routes/tickets";
-import statsRouter from "./routes/stats";
 import inboundEmailRouter from "./routes/inbound-email";
 import notificationsRouter from "./routes/notifications";
+import statsRouter from "./routes/stats";
+import ticketsRouter from "./routes/tickets";
+import usersRouter from "./routes/users";
 
 const app = express();
 
@@ -44,8 +44,7 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   console.error(err);
   const status = err.status ?? err.statusCode ?? 500;
   res.status(status).json({
-    error:
-      process.env.NODE_ENV === "production" ? "Internal server error" : err.message,
+    error: process.env.NODE_ENV === "production" ? "Internal server error" : err.message,
   });
 };
 app.use(errorHandler);

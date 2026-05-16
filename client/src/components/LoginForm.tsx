@@ -1,13 +1,13 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Eye, EyeOff } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import ErrorAlert from "@/components/ui/ErrorAlert";
+import FieldError from "@/components/ui/FieldError";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import FieldError from "@/components/ui/FieldError";
-import ErrorAlert from "@/components/ui/ErrorAlert";
 
 const schema = z.object({
   email: z.string().email("Invalid email address"),
@@ -69,7 +69,11 @@ export default function LoginForm({ onSubmit, serverError }: Props) {
             aria-pressed={showPassword}
             className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground/60 transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-md"
           >
-            {showPassword ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
+            {showPassword ? (
+              <EyeOff className="size-4" aria-hidden />
+            ) : (
+              <Eye className="size-4" aria-hidden />
+            )}
           </button>
         </div>
         <FieldError message={errors.password?.message} />

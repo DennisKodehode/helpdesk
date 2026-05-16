@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { screen, waitFor, cleanup, renderWithProviders } from "../test/utils";
 import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, renderWithProviders, screen, waitFor } from "../test/utils";
 import LoginForm from "./LoginForm";
 
 afterEach(cleanup);

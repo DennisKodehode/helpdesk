@@ -1,9 +1,16 @@
-import boss from "./boss";
 import { initAiUserId } from "./ai-user";
+import {
+  AUTO_CLOSE_CRON,
+  AUTO_CLOSE_TICKETS_QUEUE,
+  autoCloseTicketsWorker,
+} from "./auto-close-tickets";
+import {
+  AUTO_RESOLVE_TICKET_QUEUE,
+  autoResolveTicketWorker,
+} from "./auto-resolve-ticket";
+import boss from "./boss";
 import { CLASSIFY_TICKET_QUEUE, classifyTicketWorker } from "./classify-ticket";
-import { AUTO_RESOLVE_TICKET_QUEUE, autoResolveTicketWorker } from "./auto-resolve-ticket";
 import { SEND_REPLY_EMAIL_QUEUE, sendReplyEmailWorker } from "./send-reply-email-job";
-import { AUTO_CLOSE_TICKETS_QUEUE, autoCloseTicketsWorker, AUTO_CLOSE_CRON } from "./auto-close-tickets";
 
 export async function setupQueues() {
   await initAiUserId();

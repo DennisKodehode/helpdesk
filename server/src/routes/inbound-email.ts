@@ -1,15 +1,20 @@
+import {
+  inboundEmailSchema,
+  NotificationType,
+  SenderType,
+  TicketStatus,
+} from "@helpdesk/core";
 import * as Sentry from "@sentry/node";
+import EmailReplyParser from "email-reply-parser";
 import { Router } from "express";
-import { inboundEmailSchema, TicketStatus, SenderType, NotificationType } from "@helpdesk/core";
-import { prisma } from "../lib/prisma";
-import { firstIssue } from "../lib/validation";
+import he from "he";
+import { isAiAssigned } from "../lib/ai-user";
+import { AUTO_RESOLVE_TICKET_QUEUE } from "../lib/auto-resolve-ticket";
 import boss from "../lib/boss";
 import { CLASSIFY_TICKET_QUEUE } from "../lib/classify-ticket";
-import { AUTO_RESOLVE_TICKET_QUEUE } from "../lib/auto-resolve-ticket";
+import { prisma } from "../lib/prisma";
 import resend from "../lib/resend";
-import he from "he";
-import EmailReplyParser from "email-reply-parser";
-import { isAiAssigned } from "../lib/ai-user";
+import { firstIssue } from "../lib/validation";
 
 const router = Router();
 
@@ -21,7 +26,10 @@ function parseFrom(from: string): { fromName: string; fromEmail: string } {
   return { fromName: from.trim(), fromEmail: from.trim() };
 }
 
-function findHeader(headers: Record<string, string> | null | undefined, name: string): string | undefined {
+function findHeader(
+  headers: Record<string, string> | null | undefined,
+  name: string,
+): string | undefined {
   if (!headers) return undefined;
   const lower = name.toLowerCase();
   for (const key of Object.keys(headers)) {
@@ -30,7 +38,9 @@ function findHeader(headers: Record<string, string> | null | undefined, name: st
   return undefined;
 }
 
-function isAutoSubmittedOrBounce(headers: Record<string, string> | null | undefined): string | null {
+function isAutoSubmittedOrBounce(
+  headers: Record<string, string> | null | undefined,
+): string | null {
   const autoSubmitted = findHeader(headers, "Auto-Submitted");
   if (autoSubmitted && autoSubmitted.trim().toLowerCase() !== "no") {
     return `Auto-Submitted: ${autoSubmitted}`;
@@ -107,7 +117,9 @@ router.post("/", async (req, res) => {
   }
 
   const rawText = emailResult.data?.text ?? "";
-  const bodyText = rawText ? new EmailReplyParser().parseReply(he.decode(rawText)) : undefined;
+  const bodyText = rawText
+    ? new EmailReplyParser().parseReply(he.decode(rawText))
+    : undefined;
   const bodyHtml = undefined;
 
   const { fromName, fromEmail } = parseFrom(event.data.from ?? "");
@@ -130,7 +142,14 @@ router.post("/", async (req, res) => {
     where: {
       fromEmail: parsedEmail,
       subject,
-      status: { in: [TicketStatus.new, TicketStatus.processing, TicketStatus.open, TicketStatus.resolved] },
+      status: {
+        in: [
+          TicketStatus.new,
+          TicketStatus.processing,
+          TicketStatus.open,
+          TicketStatus.resolved,
+        ],
+      },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -183,11 +202,28 @@ router.post("/", async (req, res) => {
   }
 
   const ticket = await prisma.ticket.create({
-    data: { fromName: parsedName, fromEmail: parsedEmail, subject, body: body ?? "", bodyHtml: bodyHtml ?? null, status: TicketStatus.new, resendEmailId: emailId },
+    data: {
+      fromName: parsedName,
+      fromEmail: parsedEmail,
+      subject,
+      body: body ?? "",
+      bodyHtml: bodyHtml ?? null,
+      status: TicketStatus.new,
+      resendEmailId: emailId,
+    },
   });
 
-  await boss.send(CLASSIFY_TICKET_QUEUE, { id: ticket.id, subject: ticket.subject, body: ticket.body });
-  await boss.send(AUTO_RESOLVE_TICKET_QUEUE, { id: ticket.id, fromName: ticket.fromName, subject: ticket.subject, body: ticket.body });
+  await boss.send(CLASSIFY_TICKET_QUEUE, {
+    id: ticket.id,
+    subject: ticket.subject,
+    body: ticket.body,
+  });
+  await boss.send(AUTO_RESOLVE_TICKET_QUEUE, {
+    id: ticket.id,
+    fromName: ticket.fromName,
+    subject: ticket.subject,
+    body: ticket.body,
+  });
 
   res.status(201).json({ type: "ticket", ticket });
 });

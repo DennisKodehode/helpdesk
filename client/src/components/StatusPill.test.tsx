@@ -1,7 +1,7 @@
-import { describe, it, expect, afterEach } from "vitest";
-import { renderWithProviders, screen, cleanup } from "../test/utils";
-import StatusPill from "./StatusPill";
 import { TicketStatus } from "@helpdesk/core";
+import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, renderWithProviders, screen } from "../test/utils";
+import StatusPill from "./StatusPill";
 
 afterEach(cleanup);
 

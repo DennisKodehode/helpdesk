@@ -1,11 +1,17 @@
-import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import axios from "axios";
 import userEvent from "@testing-library/user-event";
-import { renderWithProviders, screen, waitFor, cleanup } from "../test/utils";
+import axios from "axios";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, renderWithProviders, screen, waitFor } from "../test/utils";
 import ReplyForm from "./ReplyForm";
 
 vi.mock("axios", () => ({
-  default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn(), isAxiosError: vi.fn() },
+  default: {
+    get: vi.fn(),
+    post: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+    isAxiosError: vi.fn(),
+  },
 }));
 
 afterEach(cleanup);
@@ -34,7 +40,9 @@ describe("ReplyForm", () => {
     await user.click(screen.getByRole("button", { name: /send reply/i }));
 
     await waitFor(() => {
-      expect(axios.post).toHaveBeenCalledWith("/api/tickets/42/replies", { body: "Hello there." });
+      expect(axios.post).toHaveBeenCalledWith("/api/tickets/42/replies", {
+        body: "Hello there.",
+      });
     });
   });
 
@@ -61,7 +69,9 @@ describe("ReplyForm", () => {
     await user.click(screen.getByRole("button", { name: /polish/i }));
 
     await waitFor(() => {
-      expect(axios.post).toHaveBeenCalledWith("/api/tickets/42/polish-reply", { body: "draft" });
+      expect(axios.post).toHaveBeenCalledWith("/api/tickets/42/polish-reply", {
+        body: "draft",
+      });
     });
   });
 
@@ -74,7 +84,9 @@ describe("ReplyForm", () => {
     await user.click(screen.getByRole("button", { name: /polish/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole("textbox", { name: /reply body/i })).toHaveValue("Polished reply.");
+      expect(screen.getByRole("textbox", { name: /reply body/i })).toHaveValue(
+        "Polished reply.",
+      );
     });
     expect(screen.getByRole("button", { name: /refine/i })).toBeInTheDocument();
   });
@@ -114,13 +126,17 @@ describe("ReplyForm", () => {
     await user.click(screen.getByRole("button", { name: /polish/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole("textbox", { name: /refinement note/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("textbox", { name: /refinement note/i }),
+      ).toBeInTheDocument();
     });
 
     await user.clear(replyTextarea);
 
     await waitFor(() => {
-      expect(screen.queryByRole("textbox", { name: /refinement note/i })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("textbox", { name: /refinement note/i }),
+      ).not.toBeInTheDocument();
     });
     expect(screen.getByRole("button", { name: /polish/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /refine/i })).not.toBeInTheDocument();
@@ -136,14 +152,18 @@ describe("ReplyForm", () => {
     await user.click(screen.getByRole("button", { name: /polish/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole("textbox", { name: /refinement note/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("textbox", { name: /refinement note/i }),
+      ).toBeInTheDocument();
     });
 
     await user.clear(replyTextarea);
     await user.type(replyTextarea, "   ");
 
     await waitFor(() => {
-      expect(screen.queryByRole("textbox", { name: /refinement note/i })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("textbox", { name: /refinement note/i }),
+      ).not.toBeInTheDocument();
     });
   });
 });

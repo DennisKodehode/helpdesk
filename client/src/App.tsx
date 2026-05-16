@@ -1,15 +1,15 @@
+import { Role } from "@helpdesk/core";
 import { useEffect, useState } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
-import Sidebar from "./components/Sidebar";
 import MobileTopbar from "./components/MobileTopbar";
+import Sidebar from "./components/Sidebar";
 import { useSession } from "./lib/auth-client";
-import { Role } from "@helpdesk/core";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
-import TicketsPage from "./pages/TicketsPage";
-import TicketDetailPage from "./pages/TicketDetailPage";
-import MyTicketsPage from "./pages/MyTicketsPage";
 import MyStatsPage from "./pages/MyStatsPage";
+import MyTicketsPage from "./pages/MyTicketsPage";
+import TicketDetailPage from "./pages/TicketDetailPage";
+import TicketsPage from "./pages/TicketsPage";
 import UsersPage from "./pages/UsersPage";
 
 function ProtectedLayout() {
@@ -17,6 +17,7 @@ function ProtectedLayout() {
   const { pathname } = useLocation();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: pathname is the trigger — body doesn't read it
   useEffect(() => {
     setMobileNavOpen(false);
   }, [pathname]);

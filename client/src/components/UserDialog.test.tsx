@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { Role, type User } from "@helpdesk/core";
 import userEvent from "@testing-library/user-event";
 import axios from "axios";
-import { renderWithProviders, screen, waitFor, cleanup } from "../test/utils";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, renderWithProviders, screen, waitFor } from "../test/utils";
 import UserDialog from "./UserDialog";
-import { Role, type User } from "@helpdesk/core";
 
 vi.mock("axios", () => ({
   default: {
@@ -51,7 +51,9 @@ describe("create mode", () => {
     it("does not render the form when closed", () => {
       renderCreate(false);
 
-      expect(screen.queryByRole("heading", { name: "New agent" })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("heading", { name: "New agent" }),
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -63,10 +65,14 @@ describe("create mode", () => {
       await user.click(screen.getByRole("button", { name: "Create agent" }));
 
       await waitFor(() => {
-        expect(screen.getByText("Name must be at least 3 characters")).toBeInTheDocument();
+        expect(
+          screen.getByText("Name must be at least 3 characters"),
+        ).toBeInTheDocument();
       });
       expect(screen.getByText("Invalid email address")).toBeInTheDocument();
-      expect(screen.getByText("Password must be at least 8 characters")).toBeInTheDocument();
+      expect(
+        screen.getByText("Password must be at least 8 characters"),
+      ).toBeInTheDocument();
     });
 
     it("shows an error when name is shorter than 3 characters", async () => {
@@ -77,7 +83,9 @@ describe("create mode", () => {
       await user.click(screen.getByRole("button", { name: "Create agent" }));
 
       await waitFor(() => {
-        expect(screen.getByText("Name must be at least 3 characters")).toBeInTheDocument();
+        expect(
+          screen.getByText("Name must be at least 3 characters"),
+        ).toBeInTheDocument();
       });
     });
 
@@ -100,7 +108,9 @@ describe("create mode", () => {
       await user.click(screen.getByRole("button", { name: "Create agent" }));
 
       await waitFor(() => {
-        expect(screen.getByText("Name must be at least 3 characters")).toBeInTheDocument();
+        expect(
+          screen.getByText("Name must be at least 3 characters"),
+        ).toBeInTheDocument();
       });
       expect(axios.post).not.toHaveBeenCalled();
     });
@@ -178,7 +188,7 @@ describe("create mode", () => {
 describe("edit mode", () => {
   function renderEdit(open = true, user: User | null = mockUser, onOpenChange = vi.fn()) {
     return renderWithProviders(
-      <UserDialog open={open} user={user} onOpenChange={onOpenChange} />
+      <UserDialog open={open} user={user} onOpenChange={onOpenChange} />,
     );
   }
 
@@ -195,7 +205,9 @@ describe("edit mode", () => {
     it("does not render the form when closed", () => {
       renderEdit(false);
 
-      expect(screen.queryByRole("heading", { name: "Edit agent" })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("heading", { name: "Edit agent" }),
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -223,7 +235,9 @@ describe("edit mode", () => {
       await user.click(screen.getByRole("button", { name: "Save changes" }));
 
       await waitFor(() => {
-        expect(screen.getByText("Name must be at least 3 characters")).toBeInTheDocument();
+        expect(
+          screen.getByText("Name must be at least 3 characters"),
+        ).toBeInTheDocument();
       });
     });
 
@@ -236,7 +250,9 @@ describe("edit mode", () => {
       await user.click(screen.getByRole("button", { name: "Save changes" }));
 
       await waitFor(() => {
-        expect(screen.getByText("Name must be at least 3 characters")).toBeInTheDocument();
+        expect(
+          screen.getByText("Name must be at least 3 characters"),
+        ).toBeInTheDocument();
       });
     });
 
@@ -249,7 +265,9 @@ describe("edit mode", () => {
       await user.click(screen.getByRole("button", { name: "Save changes" }));
 
       await waitFor(() => {
-        expect(screen.getByText("Password must be at least 8 characters")).toBeInTheDocument();
+        expect(
+          screen.getByText("Password must be at least 8 characters"),
+        ).toBeInTheDocument();
       });
     });
 
@@ -263,7 +281,9 @@ describe("edit mode", () => {
       await waitFor(() => {
         expect(axios.patch).toHaveBeenCalled();
       });
-      expect(screen.queryByText("Password must be at least 8 characters")).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("Password must be at least 8 characters"),
+      ).not.toBeInTheDocument();
     });
 
     it("does not call PATCH when the form is invalid", async () => {
@@ -274,7 +294,9 @@ describe("edit mode", () => {
       await user.click(screen.getByRole("button", { name: "Save changes" }));
 
       await waitFor(() => {
-        expect(screen.getByText("Name must be at least 3 characters")).toBeInTheDocument();
+        expect(
+          screen.getByText("Name must be at least 3 characters"),
+        ).toBeInTheDocument();
       });
       expect(axios.patch).not.toHaveBeenCalled();
     });
@@ -314,9 +336,12 @@ describe("edit mode", () => {
       await user.click(screen.getByRole("button", { name: "Save changes" }));
 
       await waitFor(() => {
-        expect(axios.patch).toHaveBeenCalledWith("/api/users/1", expect.objectContaining({
-          password: "newpassword123",
-        }));
+        expect(axios.patch).toHaveBeenCalledWith(
+          "/api/users/1",
+          expect.objectContaining({
+            password: "newpassword123",
+          }),
+        );
       });
     });
 

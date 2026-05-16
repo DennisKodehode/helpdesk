@@ -1,6 +1,6 @@
-import axios from "axios";
+import type { MyOpenCount } from "@helpdesk/core";
 import { useQuery } from "@tanstack/react-query";
-import { type MyOpenCount } from "@helpdesk/core";
+import axios from "axios";
 
 export const MY_OPEN_COUNT_QUERY_KEY = ["my-open-count"] as const;
 

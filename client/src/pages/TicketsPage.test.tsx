@@ -1,9 +1,14 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import {
+  type PaginatedTickets,
+  TicketCategory,
+  TicketPriority,
+  TicketStatus,
+} from "@helpdesk/core";
 import userEvent from "@testing-library/user-event";
 import axios from "axios";
-import { renderWithProviders, screen, waitFor, cleanup } from "../test/utils";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, renderWithProviders, screen, waitFor } from "../test/utils";
 import TicketsPage from "./TicketsPage";
-import { TicketStatus, TicketCategory, TicketPriority, type PaginatedTickets } from "@helpdesk/core";
 
 vi.mock("axios", () => ({
   default: { get: vi.fn(), post: vi.fn(), delete: vi.fn(), isAxiosError: vi.fn() },
@@ -53,7 +58,11 @@ describe("TicketsPage", () => {
 
     await waitFor(() => {
       expect(axios.get).toHaveBeenLastCalledWith("/api/tickets", {
-        params: expect.objectContaining({ status: TicketStatus.open, page: 1, pageSize: 10 }),
+        params: expect.objectContaining({
+          status: TicketStatus.open,
+          page: 1,
+          pageSize: 10,
+        }),
       });
     });
   });
@@ -105,7 +114,11 @@ describe("TicketsPage", () => {
 
     await waitFor(() => {
       expect(axios.get).toHaveBeenLastCalledWith("/api/tickets", {
-        params: expect.objectContaining({ status: TicketStatus.open, page: 1, pageSize: 10 }),
+        params: expect.objectContaining({
+          status: TicketStatus.open,
+          page: 1,
+          pageSize: 10,
+        }),
       });
     });
   });
@@ -118,11 +131,14 @@ describe("TicketsPage", () => {
 
     await user.type(screen.getByRole("textbox", { name: /search/i }), "Alice");
 
-    await waitFor(() => {
-      expect(axios.get).toHaveBeenLastCalledWith("/api/tickets", {
-        params: expect.objectContaining({ search: "Alice", page: 1, pageSize: 10 }),
-      });
-    }, { timeout: 1000 });
+    await waitFor(
+      () => {
+        expect(axios.get).toHaveBeenLastCalledWith("/api/tickets", {
+          params: expect.objectContaining({ search: "Alice", page: 1, pageSize: 10 }),
+        });
+      },
+      { timeout: 1000 },
+    );
   });
 
   it("refetches with category filter when category dropdown changes", async () => {
@@ -134,11 +150,17 @@ describe("TicketsPage", () => {
     await user.click(screen.getByRole("combobox", { name: /category/i }));
     await user.click(await screen.findByRole("option", { name: /technical/i }));
 
-    expect(screen.getByRole("combobox", { name: /category/i })).toHaveTextContent("Technical");
+    expect(screen.getByRole("combobox", { name: /category/i })).toHaveTextContent(
+      "Technical",
+    );
 
     await waitFor(() => {
       expect(axios.get).toHaveBeenLastCalledWith("/api/tickets", {
-        params: expect.objectContaining({ category: TicketCategory.technical_question, page: 1, pageSize: 10 }),
+        params: expect.objectContaining({
+          category: TicketCategory.technical_question,
+          page: 1,
+          pageSize: 10,
+        }),
       });
     });
   });

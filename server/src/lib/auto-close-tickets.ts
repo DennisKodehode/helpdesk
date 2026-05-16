@@ -1,6 +1,6 @@
+import { TicketStatus } from "@helpdesk/core";
 import * as Sentry from "@sentry/node";
 import type { Job } from "pg-boss";
-import { TicketStatus } from "@helpdesk/core";
 import { prisma } from "./prisma";
 
 export const AUTO_CLOSE_TICKETS_QUEUE = "auto-close-tickets";
@@ -20,7 +20,9 @@ export async function runAutoCloseTickets(): Promise<{ closedCount: number }> {
   });
 
   if (result.count > 0) {
-    console.log(`auto-close-tickets: closed ${result.count} resolved ticket(s) older than ${AUTO_CLOSE_AGE_HOURS}h`);
+    console.log(
+      `auto-close-tickets: closed ${result.count} resolved ticket(s) older than ${AUTO_CLOSE_AGE_HOURS}h`,
+    );
   }
   return { closedCount: result.count };
 }

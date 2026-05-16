@@ -1,13 +1,25 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import axios from "axios";
+import {
+  type Agent,
+  TicketCategory,
+  type TicketDetail,
+  TicketPriority,
+  TicketStatus,
+} from "@helpdesk/core";
 import userEvent from "@testing-library/user-event";
-import { renderWithProviders, screen, waitFor, cleanup } from "../test/utils";
-import TicketMeta from "./TicketMeta";
-import { TicketStatus, TicketCategory, TicketPriority, type TicketDetail, type Agent } from "@helpdesk/core";
+import axios from "axios";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useSession } from "@/lib/auth-client";
+import { cleanup, renderWithProviders, screen, waitFor } from "../test/utils";
+import TicketMeta from "./TicketMeta";
 
 vi.mock("axios", () => ({
-  default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn(), isAxiosError: vi.fn() },
+  default: {
+    get: vi.fn(),
+    post: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+    isAxiosError: vi.fn(),
+  },
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -46,7 +58,9 @@ function mockGetResponses(agents = mockAgents) {
 }
 
 function mockSession(role = "agent") {
-  vi.mocked(useSession).mockReturnValue({ data: { user: { role } } } as unknown as ReturnType<typeof useSession>);
+  vi.mocked(useSession).mockReturnValue({
+    data: { user: { role } },
+  } as unknown as ReturnType<typeof useSession>);
 }
 
 beforeEach(() => {
@@ -58,61 +72,91 @@ beforeEach(() => {
 describe("TicketMeta", () => {
   it("shows the current status in the status select", async () => {
     renderWithProviders(<TicketMeta ticket={mockTicket} />);
-    expect(await screen.findByRole("combobox", { name: /change ticket status/i })).toHaveTextContent("Open");
+    expect(
+      await screen.findByRole("combobox", { name: /change ticket status/i }),
+    ).toHaveTextContent("Open");
   });
 
   it("shows the current category in the category select", async () => {
     renderWithProviders(<TicketMeta ticket={mockTicket} />);
-    expect(await screen.findByRole("combobox", { name: /change ticket category/i })).toHaveTextContent("Technical");
+    expect(
+      await screen.findByRole("combobox", { name: /change ticket category/i }),
+    ).toHaveTextContent("Technical");
   });
 
   it("shows None placeholder when category is null", async () => {
     renderWithProviders(<TicketMeta ticket={{ ...mockTicket, category: null }} />);
-    expect(await screen.findByRole("combobox", { name: /change ticket category/i })).toHaveTextContent(/none/i);
+    expect(
+      await screen.findByRole("combobox", { name: /change ticket category/i }),
+    ).toHaveTextContent(/none/i);
   });
 
   it("shows a static status badge (no select) when ticket is closed and user is not admin", async () => {
-    renderWithProviders(<TicketMeta ticket={{ ...mockTicket, status: TicketStatus.closed }} />);
+    renderWithProviders(
+      <TicketMeta ticket={{ ...mockTicket, status: TicketStatus.closed }} />,
+    );
     await waitFor(() => expect(axios.get).toHaveBeenCalledWith("/api/agents"));
-    expect(screen.queryByRole("combobox", { name: /change ticket status/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: /change ticket status/i }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("Closed")).toBeInTheDocument();
   });
 
   it("shows status select for closed ticket when user is admin", async () => {
     mockSession("admin");
-    renderWithProviders(<TicketMeta ticket={{ ...mockTicket, status: TicketStatus.closed }} />);
-    expect(await screen.findByRole("combobox", { name: /change ticket status/i })).toBeInTheDocument();
+    renderWithProviders(
+      <TicketMeta ticket={{ ...mockTicket, status: TicketStatus.closed }} />,
+    );
+    expect(
+      await screen.findByRole("combobox", { name: /change ticket status/i }),
+    ).toBeInTheDocument();
   });
 
   it("shows a static status badge for resolved ticket when user is not admin", async () => {
-    renderWithProviders(<TicketMeta ticket={{ ...mockTicket, status: TicketStatus.resolved }} />);
+    renderWithProviders(
+      <TicketMeta ticket={{ ...mockTicket, status: TicketStatus.resolved }} />,
+    );
     await waitFor(() => expect(axios.get).toHaveBeenCalledWith("/api/agents"));
-    expect(screen.queryByRole("combobox", { name: /change ticket status/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: /change ticket status/i }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("Resolved")).toBeInTheDocument();
   });
 
   it("shows status select for resolved ticket when user is admin", async () => {
     mockSession("admin");
-    renderWithProviders(<TicketMeta ticket={{ ...mockTicket, status: TicketStatus.resolved }} />);
-    expect(await screen.findByRole("combobox", { name: /change ticket status/i })).toBeInTheDocument();
+    renderWithProviders(
+      <TicketMeta ticket={{ ...mockTicket, status: TicketStatus.resolved }} />,
+    );
+    expect(
+      await screen.findByRole("combobox", { name: /change ticket status/i }),
+    ).toBeInTheDocument();
   });
 
   it("shows Closed as an option for admin on an open ticket", async () => {
     mockSession("admin");
     const user = userEvent.setup();
     renderWithProviders(<TicketMeta ticket={mockTicket} />);
-    await user.click(await screen.findByRole("combobox", { name: /change ticket status/i }));
+    await user.click(
+      await screen.findByRole("combobox", { name: /change ticket status/i }),
+    );
     expect(await screen.findByRole("option", { name: "Closed" })).toBeInTheDocument();
   });
 
   it("shows the current assignee name in the assign select trigger", async () => {
     renderWithProviders(<TicketMeta ticket={mockTicket} />);
-    expect(await screen.findByRole("combobox", { name: /assign ticket/i })).toHaveTextContent("Bob Agent");
+    expect(
+      await screen.findByRole("combobox", { name: /assign ticket/i }),
+    ).toHaveTextContent("Bob Agent");
   });
 
   it("shows Unassigned placeholder when assignedTo is null", async () => {
-    renderWithProviders(<TicketMeta ticket={{ ...mockTicket, assignedToId: null, assignedTo: null }} />);
-    expect(await screen.findByRole("combobox", { name: /assign ticket/i })).toHaveTextContent(/unassigned/i);
+    renderWithProviders(
+      <TicketMeta ticket={{ ...mockTicket, assignedToId: null, assignedTo: null }} />,
+    );
+    expect(
+      await screen.findByRole("combobox", { name: /assign ticket/i }),
+    ).toHaveTextContent(/unassigned/i);
   });
 
   it("fetches the agents list", async () => {
@@ -131,11 +175,15 @@ describe("status interaction", () => {
     const user = userEvent.setup();
     renderWithProviders(<TicketMeta ticket={mockTicket} />);
 
-    await user.click(await screen.findByRole("combobox", { name: /change ticket status/i }));
+    await user.click(
+      await screen.findByRole("combobox", { name: /change ticket status/i }),
+    );
     await user.click(await screen.findByRole("option", { name: "Resolved" }));
 
     await waitFor(() => {
-      expect(axios.patch).toHaveBeenCalledWith("/api/tickets/42", { status: TicketStatus.resolved });
+      expect(axios.patch).toHaveBeenCalledWith("/api/tickets/42", {
+        status: TicketStatus.resolved,
+      });
     });
   });
 });
@@ -148,11 +196,15 @@ describe("category interaction", () => {
     const user = userEvent.setup();
     renderWithProviders(<TicketMeta ticket={mockTicket} />);
 
-    await user.click(await screen.findByRole("combobox", { name: /change ticket category/i }));
+    await user.click(
+      await screen.findByRole("combobox", { name: /change ticket category/i }),
+    );
     await user.click(await screen.findByRole("option", { name: "Billing" }));
 
     await waitFor(() => {
-      expect(axios.patch).toHaveBeenCalledWith("/api/tickets/42", { category: TicketCategory.billing_inquiry });
+      expect(axios.patch).toHaveBeenCalledWith("/api/tickets/42", {
+        category: TicketCategory.billing_inquiry,
+      });
     });
   });
 
@@ -163,7 +215,9 @@ describe("category interaction", () => {
     const user = userEvent.setup();
     renderWithProviders(<TicketMeta ticket={mockTicket} />);
 
-    await user.click(await screen.findByRole("combobox", { name: /change ticket category/i }));
+    await user.click(
+      await screen.findByRole("combobox", { name: /change ticket category/i }),
+    );
     await user.click(await screen.findByRole("option", { name: /none/i }));
 
     await waitFor(() => {
@@ -175,7 +229,9 @@ describe("category interaction", () => {
 describe("priority interaction", () => {
   it("shows the current priority in the priority select", async () => {
     renderWithProviders(<TicketMeta ticket={mockTicket} />);
-    expect(await screen.findByRole("combobox", { name: /change ticket priority/i })).toHaveTextContent("Normal");
+    expect(
+      await screen.findByRole("combobox", { name: /change ticket priority/i }),
+    ).toHaveTextContent("Normal");
   });
 
   it("calls PATCH with the selected priority", async () => {
@@ -185,11 +241,15 @@ describe("priority interaction", () => {
     const user = userEvent.setup();
     renderWithProviders(<TicketMeta ticket={mockTicket} />);
 
-    await user.click(await screen.findByRole("combobox", { name: /change ticket priority/i }));
+    await user.click(
+      await screen.findByRole("combobox", { name: /change ticket priority/i }),
+    );
     await user.click(await screen.findByRole("option", { name: "Urgent" }));
 
     await waitFor(() => {
-      expect(axios.patch).toHaveBeenCalledWith("/api/tickets/42", { priority: TicketPriority.urgent });
+      expect(axios.patch).toHaveBeenCalledWith("/api/tickets/42", {
+        priority: TicketPriority.urgent,
+      });
     });
   });
 });
@@ -221,7 +281,11 @@ describe("assigneeType display", () => {
 describe("assign interaction", () => {
   it("calls PATCH with the selected agent id", async () => {
     vi.mocked(axios.patch).mockResolvedValue({
-      data: { ...mockTicket, assignedToId: "agent-2", assignedTo: { id: "agent-2", name: "Carol Agent", email: "carol@example.com" } },
+      data: {
+        ...mockTicket,
+        assignedToId: "agent-2",
+        assignedTo: { id: "agent-2", name: "Carol Agent", email: "carol@example.com" },
+      },
     });
     const user = userEvent.setup();
     renderWithProviders(<TicketMeta ticket={mockTicket} />);
@@ -230,7 +294,9 @@ describe("assign interaction", () => {
     await user.click(await screen.findByRole("option", { name: "Carol Agent" }));
 
     await waitFor(() => {
-      expect(axios.patch).toHaveBeenCalledWith("/api/tickets/42", { assignedToId: "agent-2" });
+      expect(axios.patch).toHaveBeenCalledWith("/api/tickets/42", {
+        assignedToId: "agent-2",
+      });
     });
   });
 
@@ -250,14 +316,18 @@ describe("assign interaction", () => {
   });
 
   it("disables the assign select on resolved tickets and shows the reopen hint", async () => {
-    renderWithProviders(<TicketMeta ticket={{ ...mockTicket, status: TicketStatus.resolved }} />);
+    renderWithProviders(
+      <TicketMeta ticket={{ ...mockTicket, status: TicketStatus.resolved }} />,
+    );
     const trigger = await screen.findByRole("combobox", { name: /assign ticket/i });
     expect(trigger).toBeDisabled();
     expect(screen.getByText(/reopen the ticket to reassign/i)).toBeInTheDocument();
   });
 
   it("disables the assign select on closed tickets and shows the reopen hint", async () => {
-    renderWithProviders(<TicketMeta ticket={{ ...mockTicket, status: TicketStatus.closed }} />);
+    renderWithProviders(
+      <TicketMeta ticket={{ ...mockTicket, status: TicketStatus.closed }} />,
+    );
     const trigger = await screen.findByRole("combobox", { name: /assign ticket/i });
     expect(trigger).toBeDisabled();
     expect(screen.getByText(/reopen the ticket to reassign/i)).toBeInTheDocument();

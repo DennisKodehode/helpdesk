@@ -3,7 +3,8 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./prisma";
 
 const BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET;
-if (!BETTER_AUTH_SECRET) throw new Error("BETTER_AUTH_SECRET environment variable is required");
+if (!BETTER_AUTH_SECRET)
+  throw new Error("BETTER_AUTH_SECRET environment variable is required");
 
 const CLIENT_URL = process.env.CLIENT_URL;
 if (!CLIENT_URL) throw new Error("CLIENT_URL environment variable is required");
@@ -11,7 +12,9 @@ if (!CLIENT_URL) throw new Error("CLIENT_URL environment variable is required");
 const BETTER_AUTH_URL = process.env.BETTER_AUTH_URL;
 if (!BETTER_AUTH_URL) throw new Error("BETTER_AUTH_URL environment variable is required");
 
-const trustedOrigins = CLIENT_URL.split(",").map((s) => s.trim()).filter(Boolean);
+const trustedOrigins = CLIENT_URL.split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 export const auth = betterAuth({
   baseURL: BETTER_AUTH_URL,

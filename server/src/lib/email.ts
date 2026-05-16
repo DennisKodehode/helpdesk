@@ -9,7 +9,12 @@ export interface SendReplyEmailParams {
   replyBody: string;
 }
 
-export async function sendReplyEmail({ to, toName, subject, replyBody }: SendReplyEmailParams): Promise<void> {
+export async function sendReplyEmail({
+  to,
+  toName,
+  subject,
+  replyBody,
+}: SendReplyEmailParams): Promise<void> {
   const { error } = await resend.emails.send({
     from: EMAIL_FROM,
     to: `${toName} <${to}>`,

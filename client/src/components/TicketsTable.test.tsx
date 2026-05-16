@@ -1,8 +1,13 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import {
+  type Ticket,
+  TicketCategory,
+  TicketPriority,
+  TicketStatus,
+} from "@helpdesk/core";
 import userEvent from "@testing-library/user-event";
-import { renderWithProviders, screen, within, cleanup } from "../test/utils";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, renderWithProviders, screen, within } from "../test/utils";
 import TicketsTable from "./TicketsTable";
-import { TicketStatus, TicketCategory, TicketPriority, type Ticket } from "@helpdesk/core";
 
 afterEach(cleanup);
 
@@ -111,7 +116,7 @@ describe("sorting", () => {
     const user = userEvent.setup();
     const onSortingChange = vi.fn();
     renderWithProviders(
-      <TicketsTable {...defaultProps} sorting={[]} onSortingChange={onSortingChange} />
+      <TicketsTable {...defaultProps} sorting={[]} onSortingChange={onSortingChange} />,
     );
     await user.click(screen.getByRole("columnheader", { name: /subject/i }));
     expect(onSortingChange).toHaveBeenCalledOnce();

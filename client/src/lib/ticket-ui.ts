@@ -1,4 +1,9 @@
-import { TicketStatus, TicketCategory, TicketPriority, TRIAGING_STATUSES } from "@helpdesk/core";
+import {
+  TicketCategory,
+  TicketPriority,
+  TicketStatus,
+  TRIAGING_STATUSES,
+} from "@helpdesk/core";
 
 export function isTriagingStatus(status: TicketStatus): boolean {
   return (TRIAGING_STATUSES as TicketStatus[]).includes(status);
@@ -32,8 +37,7 @@ export const STATUS_STYLES: Record<TicketStatus, string> = {
     "bg-amber-500/8 text-amber-700 border-amber-500/20 dark:text-amber-300 dark:bg-amber-400/10 dark:border-amber-400/20",
   [TicketStatus.resolved]:
     "bg-emerald-500/8 text-emerald-700 border-emerald-500/20 dark:text-emerald-300 dark:bg-emerald-400/10 dark:border-emerald-400/20",
-  [TicketStatus.closed]:
-    "bg-muted text-muted-foreground border-border",
+  [TicketStatus.closed]: "bg-muted text-muted-foreground border-border",
 };
 
 export const STATUS_LABELS: Record<TicketStatus, string> = {
@@ -45,8 +49,7 @@ export const STATUS_LABELS: Record<TicketStatus, string> = {
 };
 
 // Categories: no color tint, just a neutral pill — these are taxonomy, not state.
-export const CATEGORY_BADGE =
-  "bg-transparent text-muted-foreground border-border";
+export const CATEGORY_BADGE = "bg-transparent text-muted-foreground border-border";
 
 export const CATEGORY_LABELS: Record<TicketCategory, string> = {
   [TicketCategory.general_question]: "General",
@@ -59,10 +62,8 @@ export const CATEGORY_LABELS: Record<TicketCategory, string> = {
 // Priority: only the attention-grabbing levels get a colored pill;
 // normal/low stay neutral so the queue doesn't look like a Christmas tree.
 export const PRIORITY_STYLES: Record<TicketPriority, string> = {
-  [TicketPriority.low]:
-    "bg-transparent text-muted-foreground/70 border-border",
-  [TicketPriority.normal]:
-    "bg-transparent text-muted-foreground border-border",
+  [TicketPriority.low]: "bg-transparent text-muted-foreground/70 border-border",
+  [TicketPriority.normal]: "bg-transparent text-muted-foreground border-border",
   [TicketPriority.high]:
     "bg-orange-500/8 text-orange-700 border-orange-500/20 dark:text-orange-300 dark:bg-orange-400/10 dark:border-orange-400/20",
   [TicketPriority.urgent]:

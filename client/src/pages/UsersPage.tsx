@@ -1,13 +1,13 @@
-import { useState } from "react";
+import type { User } from "@helpdesk/core";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import PageHeader from "@/components/ui/PageHeader";
+import { useState } from "react";
+import DeleteUserDialog from "@/components/DeleteUserDialog";
 import UserDialog from "@/components/UserDialog";
 import UsersTable from "@/components/UsersTable";
-import DeleteUserDialog from "@/components/DeleteUserDialog";
-import { type User } from "@helpdesk/core";
+import { Button } from "@/components/ui/button";
+import PageHeader from "@/components/ui/PageHeader";
 
 async function fetchUsers(): Promise<User[]> {
   const { data } = await axios.get<User[]>("/api/users");
@@ -19,7 +19,11 @@ export default function UsersPage() {
   const [dialogTarget, setDialogTarget] = useState<User | "create" | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
 
-  const { data: users = [], isPending, isError } = useQuery({
+  const {
+    data: users = [],
+    isPending,
+    isError,
+  } = useQuery({
     queryKey: ["users"],
     queryFn: fetchUsers,
   });
@@ -58,7 +62,9 @@ export default function UsersPage() {
         key={dialogTarget === "create" ? "create" : (dialogTarget?.id ?? "closed")}
         open={dialogTarget !== null}
         user={dialogTarget === "create" ? null : dialogTarget}
-        onOpenChange={(open) => { if (!open) setDialogTarget(null); }}
+        onOpenChange={(open) => {
+          if (!open) setDialogTarget(null);
+        }}
       />
 
       <DeleteUserDialog

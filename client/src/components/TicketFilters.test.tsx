@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { TicketCategory, TicketPriority, TicketStatus } from "@helpdesk/core";
 import userEvent from "@testing-library/user-event";
-import { renderWithProviders, screen, cleanup } from "../test/utils";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, renderWithProviders, screen } from "../test/utils";
 import TicketFilters from "./TicketFilters";
-import { TicketStatus, TicketCategory, TicketPriority } from "@helpdesk/core";
 
 afterEach(cleanup);
 
@@ -38,7 +38,9 @@ describe("TicketFilters", () => {
   it("calls onCategoryChange with the selected value when a category option is chosen", async () => {
     const onCategoryChange = vi.fn();
     const user = userEvent.setup();
-    renderWithProviders(<TicketFilters {...baseProps} onCategoryChange={onCategoryChange} />);
+    renderWithProviders(
+      <TicketFilters {...baseProps} onCategoryChange={onCategoryChange} />,
+    );
     await user.click(screen.getByRole("combobox", { name: /category/i }));
     await user.click(await screen.findByRole("option", { name: /technical/i }));
     expect(onCategoryChange).toHaveBeenCalledWith(TicketCategory.technical_question);
@@ -56,7 +58,9 @@ describe("TicketFilters", () => {
   it("calls onPriorityChange with the selected value when a priority option is chosen", async () => {
     const onPriorityChange = vi.fn();
     const user = userEvent.setup();
-    renderWithProviders(<TicketFilters {...baseProps} onPriorityChange={onPriorityChange} />);
+    renderWithProviders(
+      <TicketFilters {...baseProps} onPriorityChange={onPriorityChange} />,
+    );
     await user.click(screen.getByRole("combobox", { name: /priority/i }));
     await user.click(await screen.findByRole("option", { name: /^urgent$/i }));
     expect(onPriorityChange).toHaveBeenCalledWith(TicketPriority.urgent);

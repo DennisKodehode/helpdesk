@@ -1,5 +1,5 @@
-import { type RequestHandler } from "express";
 import { fromNodeHeaders } from "better-auth/node";
+import type { RequestHandler } from "express";
 import { auth, type Session } from "../lib/auth";
 
 declare global {

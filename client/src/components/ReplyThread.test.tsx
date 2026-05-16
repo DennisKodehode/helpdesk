@@ -1,12 +1,25 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import axios from "axios";
+import {
+  type Reply,
+  SenderType,
+  TicketCategory,
+  type TicketDetail,
+  TicketPriority,
+  TicketStatus,
+} from "@helpdesk/core";
 import userEvent from "@testing-library/user-event";
-import { renderWithProviders, screen, within, waitFor, cleanup } from "../test/utils";
+import axios from "axios";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, renderWithProviders, screen, waitFor, within } from "../test/utils";
 import ReplyThread from "./ReplyThread";
-import { SenderType, TicketStatus, TicketCategory, TicketPriority, type TicketDetail, type Reply } from "@helpdesk/core";
 
 vi.mock("axios", () => ({
-  default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn(), isAxiosError: vi.fn() },
+  default: {
+    get: vi.fn(),
+    post: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+    isAxiosError: vi.fn(),
+  },
 }));
 
 afterEach(cleanup);
@@ -33,7 +46,9 @@ describe("ReplyThread", () => {
     vi.mocked(axios.get).mockResolvedValue({ data: [] });
     renderWithProviders(<ReplyThread ticket={mockTicket} />);
     const thread = await screen.findByRole("list", { name: /reply thread/i });
-    expect(within(thread).getByText("It started smoking and then caught fire.")).toBeInTheDocument();
+    expect(
+      within(thread).getByText("It started smoking and then caught fire."),
+    ).toBeInTheDocument();
   });
 
   it("labels the original message as Customer", async () => {
@@ -60,7 +75,9 @@ describe("ReplyThread", () => {
     vi.mocked(axios.get).mockResolvedValue({ data: replies });
     renderWithProviders(<ReplyThread ticket={mockTicket} />);
     const thread = await screen.findByRole("list", { name: /reply thread/i });
-    expect(await within(thread).findByText("We are looking into it.")).toBeInTheDocument();
+    expect(
+      await within(thread).findByText("We are looking into it."),
+    ).toBeInTheDocument();
     expect(within(thread).getByText("Bob Agent")).toBeInTheDocument();
     expect(within(thread).getAllByText("Agent").length).toBeGreaterThan(0);
   });
@@ -106,14 +123,18 @@ describe("ReplyThread", () => {
 
   it("displays the summary after a successful request", async () => {
     vi.mocked(axios.get).mockResolvedValue({ data: [] });
-    vi.mocked(axios.post).mockResolvedValue({ data: { summary: "The printer caught fire and the agent is investigating." } });
+    vi.mocked(axios.post).mockResolvedValue({
+      data: { summary: "The printer caught fire and the agent is investigating." },
+    });
     const user = userEvent.setup();
     renderWithProviders(<ReplyThread ticket={mockTicket} />);
     await screen.findByRole("list", { name: /reply thread/i });
 
     await user.click(screen.getByRole("button", { name: /summarize/i }));
 
-    expect(await screen.findByText("The printer caught fire and the agent is investigating.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("The printer caught fire and the agent is investigating."),
+    ).toBeInTheDocument();
   });
 
   it("shows an error alert when the summarize request fails", async () => {

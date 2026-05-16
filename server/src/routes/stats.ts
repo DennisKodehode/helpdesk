@@ -1,8 +1,8 @@
+import { SenderType, TicketStatus } from "@helpdesk/core";
 import { Router } from "express";
+import { getAiUserId } from "../lib/ai-user";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth-middleware";
-import { getAiUserId } from "../lib/ai-user";
-import { TicketStatus, SenderType } from "@helpdesk/core";
 
 type TicketStatsRow = {
   total_tickets: bigint;
@@ -23,7 +23,9 @@ const router = Router();
 router.get("/", requireAuth, async (_req, res) => {
   const aiUserId = getAiUserId();
 
-  const [row] = await prisma.$queryRaw<[TicketStatsRow]>`SELECT * FROM get_ticket_stats(${aiUserId})`;
+  const [row] = await prisma.$queryRaw<
+    [TicketStatsRow]
+  >`SELECT * FROM get_ticket_stats(${aiUserId})`;
 
   res.json({
     totalTickets: Number(row.total_tickets),
@@ -33,7 +35,8 @@ router.get("/", requireAuth, async (_req, res) => {
     closedTickets: Number(row.closed_tickets),
     resolvedByAI: Number(row.ai_resolved),
     percentResolvedByAILast30d: Number(row.percent_resolved_by_ai_30d ?? 0),
-    avgResolutionMinutes: row.avg_resolution_minutes != null ? Number(row.avg_resolution_minutes) : null,
+    avgResolutionMinutes:
+      row.avg_resolution_minutes != null ? Number(row.avg_resolution_minutes) : null,
   });
 });
 
@@ -52,7 +55,10 @@ router.get("/me", requireAuth, async (req, res) => {
   ] = await Promise.all([
     prisma.ticket.count({ where: { assignedToId: meId, status: TicketStatus.open } }),
     prisma.ticket.count({
-      where: { assignedToId: meId, status: { in: [TicketStatus.resolved, TicketStatus.closed] } },
+      where: {
+        assignedToId: meId,
+        status: { in: [TicketStatus.resolved, TicketStatus.closed] },
+      },
     }),
     prisma.ticket.count({
       where: {
@@ -63,7 +69,11 @@ router.get("/me", requireAuth, async (req, res) => {
     }),
     prisma.reply.count({ where: { authorId: meId, senderType: SenderType.agent } }),
     prisma.reply.count({
-      where: { authorId: meId, senderType: SenderType.agent, createdAt: { gte: thirtyDaysAgo } },
+      where: {
+        authorId: meId,
+        senderType: SenderType.agent,
+        createdAt: { gte: thirtyDaysAgo },
+      },
     }),
     prisma.$queryRaw<{ minutes: number | null }[]>`
       SELECT ROUND((EXTRACT(EPOCH FROM AVG("resolvedAt" - "createdAt")) / 60)::NUMERIC, 1) AS minutes

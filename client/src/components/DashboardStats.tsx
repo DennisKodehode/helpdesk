@@ -1,6 +1,6 @@
+import { type StatsResponse, TicketStatus } from "@helpdesk/core";
 import { ArrowUpRight, TrendingUp } from "lucide-react";
 import { Link } from "@/components/ui/link";
-import { type StatsResponse, TicketStatus } from "@helpdesk/core";
 import StatCard from "@/components/ui/StatCard";
 import { formatMinutes } from "@/lib/format";
 
@@ -9,9 +9,21 @@ const STAT_LINK_BASE =
   "hover:bg-accent/40 " +
   "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring";
 
-function StatCardLink({ to, label, value }: { to: string; label: string; value: string }) {
+function StatCardLink({
+  to,
+  label,
+  value,
+}: {
+  to: string;
+  label: string;
+  value: string;
+}) {
   return (
-    <Link to={to} className={STAT_LINK_BASE} aria-label={`${label}: ${value} — view tickets`}>
+    <Link
+      to={to}
+      className={STAT_LINK_BASE}
+      aria-label={`${label}: ${value} — view tickets`}
+    >
       <ArrowUpRight
         className="pointer-events-none absolute right-4 top-4 size-3 text-muted-foreground/30 transition-colors duration-150 group-hover:text-foreground group-focus-visible:text-foreground"
         aria-hidden
@@ -51,15 +63,13 @@ export default function DashboardStats({ stats }: { stats: StatsResponse }) {
                 <span className="display-serif tabular text-[96px] leading-[0.85] tracking-[-0.02em] text-foreground xl:text-[128px] 2xl:text-[160px]">
                   {aiRate.toFixed(1)}
                 </span>
-                <span className="display-serif text-4xl text-muted-foreground/60">
-                  %
-                </span>
+                <span className="display-serif text-4xl text-muted-foreground/60">%</span>
               </div>
 
               <p className="max-w-sm text-[13px] leading-relaxed text-muted-foreground">
-                <span className="text-foreground tabular">{Math.round(aiRate)}%</span>{" "}
-                of tickets received in the last 30 days were resolved
-                automatically — without an agent ever touching them.
+                <span className="text-foreground tabular">{Math.round(aiRate)}%</span> of
+                tickets received in the last 30 days were resolved automatically — without
+                an agent ever touching them.
               </p>
             </div>
           </div>
@@ -81,11 +91,31 @@ export default function DashboardStats({ stats }: { stats: StatsResponse }) {
 
       {/* Supporting row — quiet stats, each a drill-down to filtered tickets */}
       <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-        <StatCardLink to="/tickets" label="Total tickets" value={stats.totalTickets.toLocaleString()} />
-        <StatCardLink to={`/tickets?status=${TicketStatus.open}`} label="Open" value={stats.openTickets.toLocaleString()} />
-        <StatCardLink to={`/tickets?status=${TicketStatus.open}&assignee=unassigned`} label="Unassigned" value={stats.unassignedTickets.toLocaleString()} />
-        <StatCardLink to={`/tickets?status=${TicketStatus.resolved}`} label="Resolved" value={stats.resolvedTickets.toLocaleString()} />
-        <StatCardLink to={`/tickets?status=${TicketStatus.closed}`} label="Closed" value={stats.closedTickets.toLocaleString()} />
+        <StatCardLink
+          to="/tickets"
+          label="Total tickets"
+          value={stats.totalTickets.toLocaleString()}
+        />
+        <StatCardLink
+          to={`/tickets?status=${TicketStatus.open}`}
+          label="Open"
+          value={stats.openTickets.toLocaleString()}
+        />
+        <StatCardLink
+          to={`/tickets?status=${TicketStatus.open}&assignee=unassigned`}
+          label="Unassigned"
+          value={stats.unassignedTickets.toLocaleString()}
+        />
+        <StatCardLink
+          to={`/tickets?status=${TicketStatus.resolved}`}
+          label="Resolved"
+          value={stats.resolvedTickets.toLocaleString()}
+        />
+        <StatCardLink
+          to={`/tickets?status=${TicketStatus.closed}`}
+          label="Closed"
+          value={stats.closedTickets.toLocaleString()}
+        />
       </div>
     </div>
   );

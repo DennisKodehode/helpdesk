@@ -1,3 +1,10 @@
+import {
+  TicketCategory,
+  TicketPriority,
+  TicketStatus,
+  TRIAGING_FILTER_VALUE,
+  type TriagingFilterValue,
+} from "@helpdesk/core";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -7,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TicketStatus, TicketCategory, TicketPriority, TRIAGING_FILTER_VALUE, type TriagingFilterValue } from "@helpdesk/core";
 
 export type StatusFilterValue = TicketStatus | TriagingFilterValue | "";
 
@@ -73,8 +79,15 @@ export default function TicketFilters({
         />
       </div>
 
-      <Select<StatusFilterValue> value={status} onValueChange={(v) => onStatusChange(v as StatusFilterValue)}>
-        <SelectTrigger aria-label="Status" size="sm" className="h-10 w-full sm:h-9 sm:w-36">
+      <Select<StatusFilterValue>
+        value={status}
+        onValueChange={(v) => onStatusChange(v as StatusFilterValue)}
+      >
+        <SelectTrigger
+          aria-label="Status"
+          size="sm"
+          className="h-10 w-full sm:h-9 sm:w-36"
+        >
           <SelectValue>{(v: string | null) => STATUS_LABELS[v ?? ""]}</SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -86,8 +99,15 @@ export default function TicketFilters({
         </SelectContent>
       </Select>
 
-      <Select<TicketCategory | ""> value={category} onValueChange={(v) => onCategoryChange(v as TicketCategory | "")}>
-        <SelectTrigger aria-label="Category" size="sm" className="h-10 w-full sm:h-9 sm:w-40">
+      <Select<TicketCategory | "">
+        value={category}
+        onValueChange={(v) => onCategoryChange(v as TicketCategory | "")}
+      >
+        <SelectTrigger
+          aria-label="Category"
+          size="sm"
+          className="h-10 w-full sm:h-9 sm:w-40"
+        >
           <SelectValue>{(v: string | null) => CATEGORY_LABELS[v ?? ""]}</SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -100,9 +120,18 @@ export default function TicketFilters({
         </SelectContent>
       </Select>
 
-      <Select<TicketPriority | ""> value={priority} onValueChange={(v) => onPriorityChange(v as TicketPriority | "")}>
-        <SelectTrigger aria-label="Priority" size="sm" className="h-10 w-full sm:h-9 sm:w-36">
-          <SelectValue>{(v: string | null) => PRIORITY_FILTER_LABELS[v ?? ""]}</SelectValue>
+      <Select<TicketPriority | "">
+        value={priority}
+        onValueChange={(v) => onPriorityChange(v as TicketPriority | "")}
+      >
+        <SelectTrigger
+          aria-label="Priority"
+          size="sm"
+          className="h-10 w-full sm:h-9 sm:w-36"
+        >
+          <SelectValue>
+            {(v: string | null) => PRIORITY_FILTER_LABELS[v ?? ""]}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="">All priorities</SelectItem>

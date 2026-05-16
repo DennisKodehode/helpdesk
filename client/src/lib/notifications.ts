@@ -1,6 +1,6 @@
+import { type NotificationsResponse, NotificationType } from "@helpdesk/core";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { NotificationType, type NotificationsResponse } from "@helpdesk/core";
 
 const QUERY_KEY = ["notifications"] as const;
 
@@ -37,7 +37,10 @@ export function useMarkAllNotificationsRead() {
   });
 }
 
-export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, (actorName: string | null) => string> = {
+export const NOTIFICATION_TYPE_LABEL: Record<
+  NotificationType,
+  (actorName: string | null) => string
+> = {
   [NotificationType.customer_reply]: () => "Customer replied",
   [NotificationType.ticket_assigned]: (actor) =>
     actor ? `${actor} assigned you a ticket` : "You were assigned a ticket",

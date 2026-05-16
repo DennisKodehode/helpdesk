@@ -1,8 +1,8 @@
-import DOMPurify from "dompurify";
+import { type Reply, SenderType, type TicketDetail } from "@helpdesk/core";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import axios from "axios";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import DOMPurify from "dompurify";
 import { Sparkles } from "lucide-react";
-import { type TicketDetail, type Reply, SenderType } from "@helpdesk/core";
 import ErrorAlert from "@/components/ui/ErrorAlert";
 
 interface Props {
@@ -51,9 +51,7 @@ export default function ReplyThread({ ticket }: Props) {
       isAgent: r.senderType === SenderType.agent,
       senderLabel: r.senderType === SenderType.agent ? "Agent" : "Customer",
       senderName:
-        r.senderType === SenderType.agent
-          ? r.author?.name ?? "AI"
-          : ticket.fromName,
+        r.senderType === SenderType.agent ? (r.author?.name ?? "AI") : ticket.fromName,
       html: r.bodyHtml ?? r.body.replace(/\n/g, "<br>"),
       createdAt: r.createdAt,
     })),
@@ -65,6 +63,7 @@ export default function ReplyThread({ ticket }: Props) {
       <div className="flex items-center justify-between">
         <h2 className="eyebrow">Conversation · {messages.length}</h2>
         <button
+          type="button"
           className="inline-flex min-h-9 items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:text-primary disabled:opacity-40"
           disabled={summarizeMutation.isPending}
           onClick={() => summarizeMutation.mutate()}
@@ -141,6 +140,7 @@ export default function ReplyThread({ ticket }: Props) {
                           ? "bg-primary/[0.04] ring-1 ring-primary/15 dark:bg-primary/[0.07] dark:ring-primary/20"
                           : "bg-card ring-1 ring-border"
                       }`}
+                      // biome-ignore lint/security/noDangerouslySetInnerHtml: rendered HTML is sanitized with DOMPurify
                       dangerouslySetInnerHTML={{
                         __html: DOMPurify.sanitize(msg.html),
                       }}

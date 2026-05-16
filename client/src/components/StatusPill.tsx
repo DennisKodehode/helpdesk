@@ -1,13 +1,13 @@
-import { TicketStatus } from "@helpdesk/core";
+import type { TicketStatus } from "@helpdesk/core";
 import {
   BADGE_BASE,
-  STATUS_STYLES,
+  isTriagingStatus,
   STATUS_DOT,
   STATUS_LABELS,
+  STATUS_STYLES,
+  TRIAGING_DOT,
   TRIAGING_LABEL,
   TRIAGING_STYLE,
-  TRIAGING_DOT,
-  isTriagingStatus,
 } from "@/lib/ticket-ui";
 
 export default function StatusPill({ status }: { status: TicketStatus }) {

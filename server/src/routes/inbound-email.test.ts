@@ -1,12 +1,12 @@
-import { describe, it, expect, afterEach, afterAll, beforeEach, vi } from "vitest";
-import request from "supertest";
+import { NotificationType, SenderType, TicketStatus } from "@helpdesk/core";
 import { generateId } from "better-auth";
+import request from "supertest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import app from "../app";
-import { prisma } from "../lib/prisma";
-import { TicketStatus, SenderType, NotificationType } from "@helpdesk/core";
-import resend from "../lib/resend";
-import boss from "../lib/boss";
 import { initAiUserId } from "../lib/ai-user";
+import boss from "../lib/boss";
+import { prisma } from "../lib/prisma";
+import resend from "../lib/resend";
 
 vi.mock("../lib/resend", () => ({
   default: {
@@ -17,7 +17,9 @@ vi.mock("../lib/resend", () => ({
     },
   },
 }));
-vi.mock("../lib/boss", () => ({ default: { send: vi.fn().mockResolvedValue("mock-job-id") } }));
+vi.mock("../lib/boss", () => ({
+  default: { send: vi.fn().mockResolvedValue("mock-job-id") },
+}));
 
 let nextEmailIdCounter = 1;
 function uniqueEmailId(prefix = "email-test") {
@@ -31,7 +33,9 @@ const SVIX_HEADERS = {
 };
 
 // from/subject come from the webhook payload; body comes from the API
-const makeEvent = (overrides: { from?: string; subject?: string; email_id?: string } = {}) => ({
+const makeEvent = (
+  overrides: { from?: string; subject?: string; email_id?: string } = {},
+) => ({
   type: "email.received",
   data: {
     email_id: overrides.email_id ?? uniqueEmailId(),
@@ -50,7 +54,11 @@ describe("POST /api/inbound-email", () => {
   beforeEach(() => {
     vi.mocked(resend.webhooks.verify).mockReset();
     vi.mocked(resend.emails.receiving.get).mockReset();
-    vi.mocked(resend.emails.receiving.get).mockResolvedValue({ data: MOCK_API_BODY as any, error: null, headers: null });
+    vi.mocked(resend.emails.receiving.get).mockResolvedValue({
+      data: MOCK_API_BODY as any,
+      error: null,
+      headers: null,
+    });
   });
 
   afterEach(async () => {
@@ -69,7 +77,10 @@ describe("POST /api/inbound-email", () => {
       throw new Error("Invalid signature");
     });
 
-    const res = await request(app).post("/api/inbound-email").set(SVIX_HEADERS).send(makeEvent());
+    const res = await request(app)
+      .post("/api/inbound-email")
+      .set(SVIX_HEADERS)
+      .send(makeEvent());
 
     expect(res.status).toBe(401);
     expect(res.body.error).toBeTypeOf("string");
@@ -86,7 +97,10 @@ describe("POST /api/inbound-email", () => {
   });
 
   it("returns 201 and creates a new ticket when no existing ticket matches the email", async () => {
-    const res = await request(app).post("/api/inbound-email").set(SVIX_HEADERS).send(makeEvent());
+    const res = await request(app)
+      .post("/api/inbound-email")
+      .set(SVIX_HEADERS)
+      .send(makeEvent());
 
     expect(res.status).toBe(201);
     expect(res.body.type).toBe("ticket");
@@ -103,9 +117,16 @@ describe("POST /api/inbound-email", () => {
   });
 
   it("creates a ticket with empty body when the API call to retrieve email body fails", async () => {
-    vi.mocked(resend.emails.receiving.get).mockResolvedValueOnce({ data: null, error: { name: "api_error", message: "API error" } as any, headers: null });
+    vi.mocked(resend.emails.receiving.get).mockResolvedValueOnce({
+      data: null,
+      error: { name: "api_error", message: "API error" } as any,
+      headers: null,
+    });
 
-    const res = await request(app).post("/api/inbound-email").set(SVIX_HEADERS).send(makeEvent({ from: "Bob <apierror@example.com>" }));
+    const res = await request(app)
+      .post("/api/inbound-email")
+      .set(SVIX_HEADERS)
+      .send(makeEvent({ from: "Bob <apierror@example.com>" }));
 
     expect(res.status).toBe(201);
     expect(res.body.type).toBe("ticket");
@@ -136,7 +157,9 @@ describe("POST /api/inbound-email", () => {
     const res = await request(app)
       .post("/api/inbound-email")
       .set(SVIX_HEADERS)
-      .send(makeEvent({ from: "Strip Test <strip-test@example.com>", subject: rawSubject }));
+      .send(
+        makeEvent({ from: "Strip Test <strip-test@example.com>", subject: rawSubject }),
+      );
 
     expect(res.status).toBe(201);
     expect(res.body.ticket.subject).toBe(cleanSubject);
@@ -145,7 +168,13 @@ describe("POST /api/inbound-email", () => {
 
   it("creates a customer reply on the existing open ticket when fromEmail and subject match", async () => {
     const existing = await prisma.ticket.create({
-      data: { fromName: "Alice", fromEmail: "alice@example.com", subject: "Hello", body: "First message", status: TicketStatus.open },
+      data: {
+        fromName: "Alice",
+        fromEmail: "alice@example.com",
+        subject: "Hello",
+        body: "First message",
+        status: TicketStatus.open,
+      },
     });
     createdTicketId = existing.id;
 
@@ -155,7 +184,10 @@ describe("POST /api/inbound-email", () => {
       headers: null,
     });
 
-    const res = await request(app).post("/api/inbound-email").set(SVIX_HEADERS).send(makeEvent({ subject: "Re: Hello" }));
+    const res = await request(app)
+      .post("/api/inbound-email")
+      .set(SVIX_HEADERS)
+      .send(makeEvent({ subject: "Re: Hello" }));
 
     expect(res.status).toBe(201);
     expect(res.body.type).toBe("reply");
@@ -167,7 +199,13 @@ describe("POST /api/inbound-email", () => {
 
   it("creates a new ticket when fromEmail matches but subject is different", async () => {
     const existing = await prisma.ticket.create({
-      data: { fromName: "Alice", fromEmail: "alice@example.com", subject: "Hello", body: "First message", status: TicketStatus.open },
+      data: {
+        fromName: "Alice",
+        fromEmail: "alice@example.com",
+        subject: "Hello",
+        body: "First message",
+        status: TicketStatus.open,
+      },
     });
 
     const res = await request(app)
@@ -184,7 +222,14 @@ describe("POST /api/inbound-email", () => {
 
   it("auto-reopens a resolved ticket when a customer reply arrives", async () => {
     const existing = await prisma.ticket.create({
-      data: { fromName: "Alice", fromEmail: "alice@example.com", subject: "Hello", body: "First message", status: TicketStatus.resolved, resolvedAt: new Date() },
+      data: {
+        fromName: "Alice",
+        fromEmail: "alice@example.com",
+        subject: "Hello",
+        body: "First message",
+        status: TicketStatus.resolved,
+        resolvedAt: new Date(),
+      },
     });
     createdTicketId = existing.id;
 
@@ -194,7 +239,10 @@ describe("POST /api/inbound-email", () => {
       headers: null,
     });
 
-    const res = await request(app).post("/api/inbound-email").set(SVIX_HEADERS).send(makeEvent({ subject: "Re: Hello" }));
+    const res = await request(app)
+      .post("/api/inbound-email")
+      .set(SVIX_HEADERS)
+      .send(makeEvent({ subject: "Re: Hello" }));
 
     expect(res.status).toBe(201);
     expect(res.body.type).toBe("reply");
@@ -203,14 +251,23 @@ describe("POST /api/inbound-email", () => {
     expect(res.body.reopened).toBe(true);
     createdReplyId = res.body.reply.id;
 
-    const refreshed = await prisma.ticket.findUnique({ where: { id: existing.id }, select: { status: true, resolvedAt: true } });
+    const refreshed = await prisma.ticket.findUnique({
+      where: { id: existing.id },
+      select: { status: true, resolvedAt: true },
+    });
     expect(refreshed!.status).toBe(TicketStatus.open);
     expect(refreshed!.resolvedAt).toBeNull();
   });
 
   it("does not reopen when the reply lands on an already-open ticket", async () => {
     const existing = await prisma.ticket.create({
-      data: { fromName: "Alice", fromEmail: "alice@example.com", subject: "Open status", body: "First message", status: TicketStatus.open },
+      data: {
+        fromName: "Alice",
+        fromEmail: "alice@example.com",
+        subject: "Open status",
+        body: "First message",
+        status: TicketStatus.open,
+      },
     });
     createdTicketId = existing.id;
 
@@ -220,7 +277,10 @@ describe("POST /api/inbound-email", () => {
       headers: null,
     });
 
-    const res = await request(app).post("/api/inbound-email").set(SVIX_HEADERS).send(makeEvent({ subject: "Re: Open status" }));
+    const res = await request(app)
+      .post("/api/inbound-email")
+      .set(SVIX_HEADERS)
+      .send(makeEvent({ subject: "Re: Open status" }));
 
     expect(res.status).toBe(201);
     expect(res.body.reopened).toBe(false);
@@ -229,10 +289,19 @@ describe("POST /api/inbound-email", () => {
 
   it("creates a new ticket when the only existing ticket from that email is closed", async () => {
     const existing = await prisma.ticket.create({
-      data: { fromName: "Alice", fromEmail: "alice@example.com", subject: "Old issue", body: "Resolved long ago", status: TicketStatus.closed },
+      data: {
+        fromName: "Alice",
+        fromEmail: "alice@example.com",
+        subject: "Old issue",
+        body: "Resolved long ago",
+        status: TicketStatus.closed,
+      },
     });
 
-    const res = await request(app).post("/api/inbound-email").set(SVIX_HEADERS).send(makeEvent({ subject: "Old issue" }));
+    const res = await request(app)
+      .post("/api/inbound-email")
+      .set(SVIX_HEADERS)
+      .send(makeEvent({ subject: "Old issue" }));
 
     expect(res.status).toBe(201);
     expect(res.body.type).toBe("ticket");
@@ -244,8 +313,8 @@ describe("POST /api/inbound-email", () => {
   it.each([
     [{ "Auto-Submitted": "auto-replied" }, "Auto-Submitted"],
     [{ "auto-submitted": "auto-generated" }, "Auto-Submitted (case-insensitive)"],
-    [{ "Precedence": "bulk" }, "Precedence: bulk"],
-    [{ "Precedence": "auto_reply" }, "Precedence: auto_reply"],
+    [{ Precedence: "bulk" }, "Precedence: bulk"],
+    [{ Precedence: "auto_reply" }, "Precedence: auto_reply"],
     [{ "X-Auto-Response-Suppress": "All" }, "X-Auto-Response-Suppress: All"],
     [{ "Return-Path": "<>" }, "Return-Path: <> (bounce)"],
   ])("drops the email (200) without creating a ticket when headers indicate %o", async (headers, _label) => {
@@ -256,7 +325,10 @@ describe("POST /api/inbound-email", () => {
     });
 
     const beforeCount = await prisma.ticket.count();
-    const res = await request(app).post("/api/inbound-email").set(SVIX_HEADERS).send(makeEvent({ from: `Loop Sender <loop-${Date.now()}@example.com>` }));
+    const res = await request(app)
+      .post("/api/inbound-email")
+      .set(SVIX_HEADERS)
+      .send(makeEvent({ from: `Loop Sender <loop-${Date.now()}@example.com>` }));
 
     expect(res.status).toBe(200);
     expect(res.body.dropped).toBe(true);
@@ -271,7 +343,10 @@ describe("POST /api/inbound-email", () => {
       headers: null,
     });
 
-    const res = await request(app).post("/api/inbound-email").set(SVIX_HEADERS).send(makeEvent({ from: `Normal Sender <normal-${Date.now()}@example.com>` }));
+    const res = await request(app)
+      .post("/api/inbound-email")
+      .set(SVIX_HEADERS)
+      .send(makeEvent({ from: `Normal Sender <normal-${Date.now()}@example.com>` }));
 
     expect(res.status).toBe(201);
     expect(res.body.type).toBe("ticket");
@@ -290,7 +365,12 @@ describe("POST /api/inbound-email", () => {
     const firstRes = await request(app)
       .post("/api/inbound-email")
       .set(SVIX_HEADERS)
-      .send(makeEvent({ from: `Dedup Sender <dedup-${Date.now()}@example.com>`, email_id: stableEmailId }));
+      .send(
+        makeEvent({
+          from: `Dedup Sender <dedup-${Date.now()}@example.com>`,
+          email_id: stableEmailId,
+        }),
+      );
     expect(firstRes.status).toBe(201);
     createdTicketId = firstRes.body.ticket.id;
     const ticketCountAfterFirst = await prisma.ticket.count();
@@ -298,7 +378,12 @@ describe("POST /api/inbound-email", () => {
     const secondRes = await request(app)
       .post("/api/inbound-email")
       .set(SVIX_HEADERS)
-      .send(makeEvent({ from: `Dedup Sender <dedup-second@example.com>`, email_id: stableEmailId }));
+      .send(
+        makeEvent({
+          from: `Dedup Sender <dedup-second@example.com>`,
+          email_id: stableEmailId,
+        }),
+      );
     expect(secondRes.status).toBe(200);
     expect(secondRes.body.deduplicated).toBe(true);
 
@@ -316,7 +401,11 @@ describe("POST /api/inbound-email — AI auto-unassign + agent notification", ()
   beforeEach(async () => {
     vi.mocked(resend.webhooks.verify).mockReset();
     vi.mocked(resend.emails.receiving.get).mockReset();
-    vi.mocked(resend.emails.receiving.get).mockResolvedValue({ data: { text: "Reply text", headers: null } as any, error: null, headers: null });
+    vi.mocked(resend.emails.receiving.get).mockResolvedValue({
+      data: { text: "Reply text", headers: null } as any,
+      error: null,
+      headers: null,
+    });
     vi.mocked(boss.send).mockClear();
   });
 
@@ -342,24 +431,53 @@ describe("POST /api/inbound-email — AI auto-unassign + agent notification", ()
     await prisma.user.upsert({
       where: { email: "ai@helpdesk.internal" },
       update: {},
-      create: { id: aiId, name: "AI", email: "ai@helpdesk.internal", emailVerified: true, role: "agent", createdAt: now, updatedAt: now },
+      create: {
+        id: aiId,
+        name: "AI",
+        email: "ai@helpdesk.internal",
+        emailVerified: true,
+        role: "agent",
+        createdAt: now,
+        updatedAt: now,
+      },
     });
-    const aiUser = await prisma.user.findUnique({ where: { email: "ai@helpdesk.internal" } });
+    const aiUser = await prisma.user.findUnique({
+      where: { email: "ai@helpdesk.internal" },
+    });
     aiUserId = aiUser!.id;
     await initAiUserId();
 
     const existing = await prisma.ticket.create({
-      data: { fromName: "Alice", fromEmail: "alice-airepol@example.com", subject: "AI reopen test", body: "First", status: TicketStatus.resolved, resolvedAt: new Date(), assignedToId: aiUserId },
+      data: {
+        fromName: "Alice",
+        fromEmail: "alice-airepol@example.com",
+        subject: "AI reopen test",
+        body: "First",
+        status: TicketStatus.resolved,
+        resolvedAt: new Date(),
+        assignedToId: aiUserId,
+      },
     });
     createdTicketId = existing.id;
 
-    const res = await request(app).post("/api/inbound-email").set(SVIX_HEADERS).send(makeEvent({ from: "Alice <alice-airepol@example.com>", subject: "Re: AI reopen test" }));
+    const res = await request(app)
+      .post("/api/inbound-email")
+      .set(SVIX_HEADERS)
+      .send(
+        makeEvent({
+          from: "Alice <alice-airepol@example.com>",
+          subject: "Re: AI reopen test",
+        }),
+      );
 
     expect(res.status).toBe(201);
     expect(res.body.reopened).toBe(true);
     createdReplyId = res.body.reply.id;
 
-    const refreshed = await prisma.ticket.findUnique({ where: { id: existing.id }, select: { status: true, assignedToId: true } });
+    const refreshed = await prisma.ticket.findUnique({
+      where: { id: existing.id },
+      select: { status: true, assignedToId: true },
+    });
     expect(refreshed!.status).toBe(TicketStatus.open);
     expect(refreshed!.assignedToId).toBeNull();
   });
@@ -370,30 +488,69 @@ describe("POST /api/inbound-email — AI auto-unassign + agent notification", ()
     await prisma.user.upsert({
       where: { email: "ai@helpdesk.internal" },
       update: {},
-      create: { id: aiId, name: "AI", email: "ai@helpdesk.internal", emailVerified: true, role: "agent", createdAt: now, updatedAt: now },
+      create: {
+        id: aiId,
+        name: "AI",
+        email: "ai@helpdesk.internal",
+        emailVerified: true,
+        role: "agent",
+        createdAt: now,
+        updatedAt: now,
+      },
     });
     await initAiUserId();
 
     humanAgentId = generateId();
     await prisma.user.create({
-      data: { id: humanAgentId, name: "Helper Agent", email: "helper@example.com", emailVerified: true, role: "agent", createdAt: now, updatedAt: now },
+      data: {
+        id: humanAgentId,
+        name: "Helper Agent",
+        email: "helper@example.com",
+        emailVerified: true,
+        role: "agent",
+        createdAt: now,
+        updatedAt: now,
+      },
     });
 
     const existing = await prisma.ticket.create({
-      data: { fromName: "Bob", fromEmail: "bob-humanrepol@example.com", subject: "Human reopen test", body: "First", status: TicketStatus.resolved, resolvedAt: new Date(), assignedToId: humanAgentId },
+      data: {
+        fromName: "Bob",
+        fromEmail: "bob-humanrepol@example.com",
+        subject: "Human reopen test",
+        body: "First",
+        status: TicketStatus.resolved,
+        resolvedAt: new Date(),
+        assignedToId: humanAgentId,
+      },
     });
     createdTicketId = existing.id;
 
-    const res = await request(app).post("/api/inbound-email").set(SVIX_HEADERS).send(makeEvent({ from: "Bob <bob-humanrepol@example.com>", subject: "Re: Human reopen test" }));
+    const res = await request(app)
+      .post("/api/inbound-email")
+      .set(SVIX_HEADERS)
+      .send(
+        makeEvent({
+          from: "Bob <bob-humanrepol@example.com>",
+          subject: "Re: Human reopen test",
+        }),
+      );
 
     expect(res.status).toBe(201);
     createdReplyId = res.body.reply.id;
 
-    const refreshed = await prisma.ticket.findUnique({ where: { id: existing.id }, select: { assignedToId: true } });
+    const refreshed = await prisma.ticket.findUnique({
+      where: { id: existing.id },
+      select: { assignedToId: true },
+    });
     expect(refreshed!.assignedToId).toBe(humanAgentId);
 
     const notif = await prisma.notification.findFirst({
-      where: { userId: humanAgentId, ticketId: existing.id, type: NotificationType.customer_reply },
+      where: {
+        userId: humanAgentId,
+        ticketId: existing.id,
+        type: NotificationType.customer_reply,
+      },
     });
     expect(notif).not.toBeNull();
     await prisma.notification.deleteMany({ where: { userId: humanAgentId } });
@@ -405,18 +562,43 @@ describe("POST /api/inbound-email — AI auto-unassign + agent notification", ()
     await prisma.user.upsert({
       where: { email: "ai@helpdesk.internal" },
       update: {},
-      create: { id: aiId, name: "AI", email: "ai@helpdesk.internal", emailVerified: true, role: "agent", createdAt: now, updatedAt: now },
+      create: {
+        id: aiId,
+        name: "AI",
+        email: "ai@helpdesk.internal",
+        emailVerified: true,
+        role: "agent",
+        createdAt: now,
+        updatedAt: now,
+      },
     });
-    const aiUser = await prisma.user.findUnique({ where: { email: "ai@helpdesk.internal" } });
+    const aiUser = await prisma.user.findUnique({
+      where: { email: "ai@helpdesk.internal" },
+    });
     aiUserId = aiUser!.id;
     await initAiUserId();
 
     const existing = await prisma.ticket.create({
-      data: { fromName: "Carol", fromEmail: "carol-ainotify@example.com", subject: "AI notify test", body: "First", status: TicketStatus.open, assignedToId: aiUserId },
+      data: {
+        fromName: "Carol",
+        fromEmail: "carol-ainotify@example.com",
+        subject: "AI notify test",
+        body: "First",
+        status: TicketStatus.open,
+        assignedToId: aiUserId,
+      },
     });
     createdTicketId = existing.id;
 
-    const res = await request(app).post("/api/inbound-email").set(SVIX_HEADERS).send(makeEvent({ from: "Carol <carol-ainotify@example.com>", subject: "Re: AI notify test" }));
+    const res = await request(app)
+      .post("/api/inbound-email")
+      .set(SVIX_HEADERS)
+      .send(
+        makeEvent({
+          from: "Carol <carol-ainotify@example.com>",
+          subject: "Re: AI notify test",
+        }),
+      );
 
     expect(res.status).toBe(201);
     createdReplyId = res.body.reply.id;

@@ -1,11 +1,15 @@
+import {
+  type PaginatedTickets,
+  type TicketSortField,
+  TicketStatus,
+} from "@helpdesk/core";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import type { SortingState } from "@tanstack/react-table";
+import axios from "axios";
 import { useState } from "react";
 import { useSearchParams } from "react-router";
-import axios from "axios";
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { type SortingState } from "@tanstack/react-table";
-import TicketsTable from "@/components/TicketsTable";
 import TicketPagination from "@/components/TicketPagination";
-import { type PaginatedTickets, type TicketSortField, TicketStatus } from "@helpdesk/core";
+import TicketsTable from "@/components/TicketsTable";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 10;
@@ -85,7 +89,9 @@ export default function MyTicketsSection(props: Props) {
     });
   }
 
-  function handleSortingChange(updater: SortingState | ((prev: SortingState) => SortingState)) {
+  function handleSortingChange(
+    updater: SortingState | ((prev: SortingState) => SortingState),
+  ) {
     setSorting(updater);
     setPageParam(1);
   }
@@ -106,6 +112,7 @@ export default function MyTicketsSection(props: Props) {
           </h2>
         </div>
         {scope === "active" && (
+          // biome-ignore lint/a11y/useSemanticElements: compact pill toggle; fieldset/legend is too heavy here
           <div
             role="group"
             aria-label="Active status"

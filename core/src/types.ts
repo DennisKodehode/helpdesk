@@ -11,7 +11,10 @@ export enum TicketStatus {
   closed = "closed",
 }
 
-export const TRIAGING_STATUSES: TicketStatus[] = [TicketStatus.new, TicketStatus.processing];
+export const TRIAGING_STATUSES: TicketStatus[] = [
+  TicketStatus.new,
+  TicketStatus.processing,
+];
 
 export const TRIAGING_FILTER_VALUE = "triaging" as const;
 export type TriagingFilterValue = typeof TRIAGING_FILTER_VALUE;

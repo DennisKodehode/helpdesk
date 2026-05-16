@@ -1,7 +1,7 @@
-import { describe, it, expect, afterEach } from "vitest";
-import { prisma } from "./prisma";
 import { TicketStatus } from "@helpdesk/core";
-import { runAutoCloseTickets, AUTO_CLOSE_AGE_HOURS } from "./auto-close-tickets";
+import { afterEach, describe, expect, it } from "vitest";
+import { AUTO_CLOSE_AGE_HOURS, runAutoCloseTickets } from "./auto-close-tickets";
+import { prisma } from "./prisma";
 
 const HOUR = 60 * 60 * 1000;
 
@@ -31,7 +31,10 @@ describe("runAutoCloseTickets", () => {
 
     await runAutoCloseTickets();
 
-    const refreshed = await prisma.ticket.findUnique({ where: { id: ticket.id }, select: { status: true, closedAt: true } });
+    const refreshed = await prisma.ticket.findUnique({
+      where: { id: ticket.id },
+      select: { status: true, closedAt: true },
+    });
     expect(refreshed!.status).toBe(TicketStatus.closed);
     expect(refreshed!.closedAt).not.toBeNull();
   });
@@ -52,7 +55,10 @@ describe("runAutoCloseTickets", () => {
 
     await runAutoCloseTickets();
 
-    const refreshed = await prisma.ticket.findUnique({ where: { id: ticket.id }, select: { status: true, closedAt: true } });
+    const refreshed = await prisma.ticket.findUnique({
+      where: { id: ticket.id },
+      select: { status: true, closedAt: true },
+    });
     expect(refreshed!.status).toBe(TicketStatus.resolved);
     expect(refreshed!.closedAt).toBeNull();
   });
@@ -72,7 +78,10 @@ describe("runAutoCloseTickets", () => {
 
     await runAutoCloseTickets();
 
-    const refreshed = await prisma.ticket.findUnique({ where: { id: ticket.id }, select: { status: true } });
+    const refreshed = await prisma.ticket.findUnique({
+      where: { id: ticket.id },
+      select: { status: true },
+    });
     expect(refreshed!.status).toBe(TicketStatus.open);
   });
 
@@ -91,7 +100,10 @@ describe("runAutoCloseTickets", () => {
 
     await runAutoCloseTickets();
 
-    const refreshed = await prisma.ticket.findUnique({ where: { id: ticket.id }, select: { status: true } });
+    const refreshed = await prisma.ticket.findUnique({
+      where: { id: ticket.id },
+      select: { status: true },
+    });
     expect(refreshed!.status).toBe(TicketStatus.resolved);
   });
 });

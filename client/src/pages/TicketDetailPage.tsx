@@ -1,14 +1,14 @@
-import { useParams } from "react-router";
-import axios from "axios";
+import type { TicketDetail, TicketStatus } from "@helpdesk/core";
 import { useQuery } from "@tanstack/react-query";
-import { type TicketDetail, TicketStatus } from "@helpdesk/core";
-import { Skeleton } from "@/components/ui/skeleton";
-import ErrorAlert from "@/components/ui/ErrorAlert";
-import BackLink from "@/components/ui/BackLink";
+import axios from "axios";
+import { useParams } from "react-router";
 import ReplyForm from "@/components/ReplyForm";
 import ReplyThread from "@/components/ReplyThread";
 import TicketDetails from "@/components/TicketDetails";
 import TicketMeta from "@/components/TicketMeta";
+import BackLink from "@/components/ui/BackLink";
+import ErrorAlert from "@/components/ui/ErrorAlert";
+import { Skeleton } from "@/components/ui/skeleton";
 import { isTriagingStatus } from "@/lib/ticket-ui";
 
 async function fetchTicket(id: string): Promise<TicketDetail> {
@@ -18,7 +18,7 @@ async function fetchTicket(id: string): Promise<TicketDetail> {
 
 function TicketDetailSkeleton() {
   return (
-    <div className="space-y-6" aria-label="Loading ticket">
+    <div className="space-y-6" role="status" aria-label="Loading ticket">
       <Skeleton className="h-3 w-32" />
       <Skeleton className="h-10 w-2/3" />
       <Skeleton className="h-4 w-48" />
@@ -30,7 +30,11 @@ function TicketDetailSkeleton() {
 export default function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
 
-  const { data: ticket, isPending, isError } = useQuery({
+  const {
+    data: ticket,
+    isPending,
+    isError,
+  } = useQuery({
     queryKey: ["ticket", id],
     queryFn: () => fetchTicket(id!),
     enabled: !!id,
@@ -58,7 +62,8 @@ export default function TicketDetailPage() {
                   role="status"
                   className="rounded-lg border border-dashed border-border bg-card px-5 py-6 text-center text-[13px] text-muted-foreground"
                 >
-                  AI is triaging this ticket — actions unlock once it has been opened or auto-resolved.
+                  AI is triaging this ticket — actions unlock once it has been opened or
+                  auto-resolved.
                 </div>
               ) : (
                 <ReplyForm ticketId={id!} />

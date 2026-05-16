@@ -1,14 +1,27 @@
-import { Router } from "express";
-import { Prisma } from "../generated/prisma/client";
-import { prisma } from "../lib/prisma";
-import { requireAuth } from "../middleware/auth-middleware";
-import { ticketSortSchema, updateTicketSchema, createReplySchema, polishReplySchema, Role, TicketStatus, SenderType, NotificationType, VALID_TRANSITIONS, ADMIN_VALID_TRANSITIONS, TRIAGING_STATUSES, TRIAGING_FILTER_VALUE } from "@helpdesk/core";
-import { firstIssue } from "../lib/validation";
-import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
+import {
+  ADMIN_VALID_TRANSITIONS,
+  createReplySchema,
+  NotificationType,
+  polishReplySchema,
+  Role,
+  SenderType,
+  TicketStatus,
+  TRIAGING_FILTER_VALUE,
+  TRIAGING_STATUSES,
+  ticketSortSchema,
+  updateTicketSchema,
+  VALID_TRANSITIONS,
+} from "@helpdesk/core";
+import { generateText } from "ai";
+import { Router } from "express";
+import type { Prisma } from "../generated/prisma/client";
+import { assigneeType, isAiAssigned } from "../lib/ai-user";
 import boss from "../lib/boss";
+import { prisma } from "../lib/prisma";
 import { SEND_REPLY_EMAIL_QUEUE } from "../lib/send-reply-email-job";
-import { isAiAssigned, assigneeType } from "../lib/ai-user";
+import { firstIssue } from "../lib/validation";
+import { requireAuth } from "../middleware/auth-middleware";
 
 const router = Router();
 
@@ -19,7 +32,17 @@ router.get("/", requireAuth, async (req, res) => {
     return;
   }
 
-  const { sortBy = "createdAt", sortOrder = "desc", status, category, priority, assignee, search, page, pageSize } = result.data;
+  const {
+    sortBy = "createdAt",
+    sortOrder = "desc",
+    status,
+    category,
+    priority,
+    assignee,
+    search,
+    page,
+    pageSize,
+  } = result.data;
 
   const nullableFields = new Set(["category"]);
   const orderBy = nullableFields.has(sortBy)
@@ -138,9 +161,12 @@ router.patch("/:id", requireAuth, async (req, res) => {
     return;
   }
 
-  const isTerminal = ticket.status === TicketStatus.resolved || ticket.status === TicketStatus.closed;
+  const isTerminal =
+    ticket.status === TicketStatus.resolved || ticket.status === TicketStatus.closed;
   if (result.data.assignedToId !== undefined && isTerminal) {
-    res.status(422).json({ error: "Cannot reassign a resolved or closed ticket — reopen it first" });
+    res
+      .status(422)
+      .json({ error: "Cannot reassign a resolved or closed ticket — reopen it first" });
     return;
   }
 
@@ -164,12 +190,18 @@ router.patch("/:id", requireAuth, async (req, res) => {
       if (newStatus === TicketStatus.closed) {
         res.status(403).json({ error: "Only admins can close tickets" });
       } else {
-        res.status(422).json({ error: `Invalid status transition: ${ticket.status} → ${newStatus}` });
+        res
+          .status(422)
+          .json({ error: `Invalid status transition: ${ticket.status} → ${newStatus}` });
       }
       return;
     }
 
-    if (newStatus === TicketStatus.open && isTerminal && isAiAssigned(ticket.assignedToId)) {
+    if (
+      newStatus === TicketStatus.open &&
+      isTerminal &&
+      isAiAssigned(ticket.assignedToId)
+    ) {
       reopenUnassigns = true;
     }
   }
@@ -190,10 +222,13 @@ router.patch("/:id", requireAuth, async (req, res) => {
   const updated = await prisma.ticket.update({
     where: { id },
     data: {
-      ...(result.data.assignedToId !== undefined && { assignedToId: result.data.assignedToId }),
+      ...(result.data.assignedToId !== undefined && {
+        assignedToId: result.data.assignedToId,
+      }),
       ...(reopenUnassigns && { assignedToId: null }),
       ...(result.data.status !== undefined && { status: result.data.status }),
-      ...(result.data.status === TicketStatus.resolved && !ticket.resolvedAt && { resolvedAt: new Date() }),
+      ...(result.data.status === TicketStatus.resolved &&
+        !ticket.resolvedAt && { resolvedAt: new Date() }),
       ...(result.data.category !== undefined && { category: result.data.category }),
       ...(result.data.priority !== undefined && { priority: result.data.priority }),
     },
@@ -282,7 +317,12 @@ router.post("/:id/replies", requireAuth, async (req, res) => {
   const now = new Date();
   const [reply] = await prisma.$transaction([
     prisma.reply.create({
-      data: { ticketId: id, authorId: req.user!.id, senderType: SenderType.agent, body: result.data.body },
+      data: {
+        ticketId: id,
+        authorId: req.user!.id,
+        senderType: SenderType.agent,
+        body: result.data.body,
+      },
       select: REPLY_SELECT,
     }),
     prisma.ticket.update({
@@ -328,16 +368,16 @@ router.post("/:id/summarize", requireAuth, async (req, res) => {
 
   const conversation = [
     `Customer (${ticket.fromName}): ${ticket.body}`,
-    ...replies.map(r =>
+    ...replies.map((r) =>
       r.senderType === "agent"
         ? `Agent (${r.author?.name ?? "Agent"}): ${r.body}`
-        : `Customer: ${r.body}`
+        : `Customer: ${r.body}`,
     ),
   ].join("\n\n");
 
   const prompt = [
     "You are a customer support assistant. Summarize the following support ticket conversation in 2–4 sentences. " +
-    "Cover: what the customer's issue is, what has been done or offered so far, and the current status. Be concise and factual.",
+      "Cover: what the customer's issue is, what has been done or offered so far, and the current status. Be concise and factual.",
     `Subject: ${ticket.subject}`,
     `Conversation:\n${conversation}`,
   ].join("\n\n");
@@ -374,12 +414,12 @@ router.post("/:id/polish-reply", requireAuth, async (req, res) => {
 
   const prompt = [
     "You are a professional customer support agent. " +
-    "Expand the agent's draft reply into a complete, well-structured customer support email. " +
-    "The customer's message is provided for context only — the agent's draft is the sole authority on what to say. " +
-    "Do not contradict, override, or add substance from the customer's message that the agent did not include. " +
-    "Match the tone to the draft (if it declines, be empathetic but firm). " +
-    "Include a greeting using the customer's name, the polished message, and a professional sign-off signed with the agent's name. " +
-    "Return only the final email with no explanation.",
+      "Expand the agent's draft reply into a complete, well-structured customer support email. " +
+      "The customer's message is provided for context only — the agent's draft is the sole authority on what to say. " +
+      "Do not contradict, override, or add substance from the customer's message that the agent did not include. " +
+      "Match the tone to the draft (if it declines, be empathetic but firm). " +
+      "Include a greeting using the customer's name, the polished message, and a professional sign-off signed with the agent's name. " +
+      "Return only the final email with no explanation.",
     `Customer name: ${ticket.fromName.split(" ")[0]}`,
     `Subject: ${ticket.subject}`,
     `Customer's message (context only):\n${ticket.body}`,
@@ -388,8 +428,8 @@ router.post("/:id/polish-reply", requireAuth, async (req, res) => {
     ...(result.data.refinementNote
       ? [
           "The agent reviewed the polished reply and provided this feedback: " +
-          `"${result.data.refinementNote}"\n` +
-          "Revise the reply taking this feedback into account while preserving the original intent.",
+            `"${result.data.refinementNote}"\n` +
+            "Revise the reply taking this feedback into account while preserving the original intent.",
         ]
       : []),
   ].join("\n\n");

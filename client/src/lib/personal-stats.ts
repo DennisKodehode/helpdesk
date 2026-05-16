@@ -1,6 +1,6 @@
-import axios from "axios";
+import type { PersonalStatsResponse } from "@helpdesk/core";
 import { useQuery } from "@tanstack/react-query";
-import { type PersonalStatsResponse } from "@helpdesk/core";
+import axios from "axios";
 
 export const PERSONAL_STATS_QUERY_KEY = ["personal-stats"] as const;
 

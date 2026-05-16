@@ -13,9 +13,7 @@ export default function StatCard({ label, value, hint }: Props) {
       <p className="display-serif tabular text-[44px] leading-none text-foreground xl:text-[56px] 2xl:text-[64px]">
         {value}
       </p>
-      {hint && (
-        <p className="font-mono text-[11px] text-muted-foreground/80">{hint}</p>
-      )}
+      {hint && <p className="font-mono text-[11px] text-muted-foreground/80">{hint}</p>}
     </div>
   );
 }

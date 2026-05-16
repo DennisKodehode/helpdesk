@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { TicketCategory, TicketPriority, TicketStatus } from "@helpdesk/core";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "./prisma";
-import { TicketStatus, TicketCategory, TicketPriority } from "@helpdesk/core";
 
 const generateObjectMock = vi.fn();
 vi.mock("ai", () => ({
@@ -43,7 +43,10 @@ describe("classify-ticket worker", () => {
   it("writes both category and priority returned by Gemini", async () => {
     const ticket = await seedTicket();
     generateObjectMock.mockResolvedValue({
-      object: { category: TicketCategory.billing_inquiry, priority: TicketPriority.urgent },
+      object: {
+        category: TicketCategory.billing_inquiry,
+        priority: TicketPriority.urgent,
+      },
     });
 
     await classifyTicketWorker([

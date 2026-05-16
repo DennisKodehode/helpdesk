@@ -1,9 +1,9 @@
-import * as Sentry from "@sentry/node";
-import type { Job } from "pg-boss";
 import { google } from "@ai-sdk/google";
-import { generateObject } from "ai";
-import { z } from "zod";
 import { TicketCategory, TicketPriority } from "@helpdesk/core";
+import * as Sentry from "@sentry/node";
+import { generateObject } from "ai";
+import type { Job } from "pg-boss";
+import { z } from "zod";
 import { prisma } from "./prisma";
 
 export const CLASSIFY_TICKET_QUEUE = "classify-ticket";

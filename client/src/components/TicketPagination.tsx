@@ -26,6 +26,7 @@ export default function TicketPagination({
       </p>
       <div className="flex items-center gap-1">
         <button
+          type="button"
           onClick={onPrevious}
           disabled={page === 1}
           aria-label="Previous page"
@@ -38,6 +39,7 @@ export default function TicketPagination({
           {`${page} / ${totalPages}`}
         </span>
         <button
+          type="button"
           onClick={onNext}
           disabled={page >= totalPages}
           aria-label="Next page"

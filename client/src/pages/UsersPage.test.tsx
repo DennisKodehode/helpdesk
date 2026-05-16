@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { Role } from "@helpdesk/core";
 import userEvent from "@testing-library/user-event";
 import axios from "axios";
-import { renderWithProviders, screen, waitFor, within, cleanup } from "../test/utils";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, renderWithProviders, screen, waitFor, within } from "../test/utils";
 import UsersPage from "./UsersPage";
-import { Role } from "@helpdesk/core";
 
 vi.mock("axios", () => ({
   default: {
@@ -125,7 +125,9 @@ describe("add agent", () => {
       expect(screen.getByText("Name must be at least 3 characters")).toBeInTheDocument();
     });
     expect(screen.getByText("Invalid email address")).toBeInTheDocument();
-    expect(screen.getByText("Password must be at least 8 characters")).toBeInTheDocument();
+    expect(
+      screen.getByText("Password must be at least 8 characters"),
+    ).toBeInTheDocument();
   });
 
   it("closes the dialog and refetches on successful creation", async () => {
@@ -141,7 +143,9 @@ describe("add agent", () => {
     await user.click(screen.getByRole("button", { name: "Create agent" }));
 
     await waitFor(() => {
-      expect(screen.queryByRole("heading", { name: "New agent" })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("heading", { name: "New agent" }),
+      ).not.toBeInTheDocument();
     });
     expect(axios.post).toHaveBeenCalledWith("/api/users", {
       name: "Carol White",
@@ -179,7 +183,9 @@ describe("add agent", () => {
     await user.keyboard("{Escape}");
 
     await waitFor(() => {
-      expect(screen.queryByRole("heading", { name: "New agent" })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("heading", { name: "New agent" }),
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -194,7 +200,9 @@ describe("add agent", () => {
     await user.click(document.body);
 
     await waitFor(() => {
-      expect(screen.queryByRole("heading", { name: "New agent" })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("heading", { name: "New agent" }),
+      ).not.toBeInTheDocument();
     });
   });
 });
@@ -213,7 +221,9 @@ describe("delete user", () => {
     await user.click(table.getByRole("button", { name: "Delete" }));
 
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByRole("heading", { name: "Delete agent?" })).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("heading", { name: "Delete agent?" }),
+    ).toBeInTheDocument();
     expect(within(dialog).getByText(/bob@example\.com/)).toBeInTheDocument();
   });
 

@@ -70,6 +70,11 @@ bun run test:e2e:ui                  # Playwright UI mode
 bun run typecheck                    # from repo root: typechecks client + server + root (e2e/playwright)
 bun run typecheck                    # from client/ or server/: typechecks just that workspace
 # Do NOT use `bunx tsc` — it resolves a separate (often newer) global TS that doesn't match the project pin.
+
+# Lint + format (Biome, configured at repo root via biome.json)
+bun run lint                         # check formatting + lint rules, exits non-zero on errors
+bun run lint:fix                     # apply safe auto-fixes (formatting, imports, etc.)
+bun run format                       # write formatter-only changes
 ```
 
 ## Windows / bun notes

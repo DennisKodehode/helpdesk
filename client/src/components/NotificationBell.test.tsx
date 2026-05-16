@@ -1,13 +1,19 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import axios from "axios";
+import { type NotificationsResponse, NotificationType } from "@helpdesk/core";
 import userEvent from "@testing-library/user-event";
-import { renderWithProviders, screen, waitFor, cleanup } from "../test/utils";
-import NotificationBell from "./NotificationBell";
+import axios from "axios";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useSession } from "@/lib/auth-client";
-import { NotificationType, type NotificationsResponse } from "@helpdesk/core";
+import { cleanup, renderWithProviders, screen, waitFor } from "../test/utils";
+import NotificationBell from "./NotificationBell";
 
 vi.mock("axios", () => ({
-  default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn(), isAxiosError: vi.fn() },
+  default: {
+    get: vi.fn(),
+    post: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+    isAxiosError: vi.fn(),
+  },
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -18,7 +24,9 @@ afterEach(cleanup);
 
 function mockSession(active = true) {
   vi.mocked(useSession).mockReturnValue(
-    (active ? { data: { user: { id: "user-1", name: "Tester" } } } : { data: null }) as unknown as ReturnType<typeof useSession>,
+    (active
+      ? { data: { user: { id: "user-1", name: "Tester" } } }
+      : { data: null }) as unknown as ReturnType<typeof useSession>,
   );
 }
 
@@ -48,7 +56,9 @@ describe("NotificationBell", () => {
   it("shows the unread count in the bell button aria-label and badge", async () => {
     mockNotificationsResponse({ data: [], unreadCount: 3 });
     renderWithProviders(<NotificationBell />);
-    const btn = await screen.findByRole("button", { name: /notifications \(3 unread\)/i });
+    const btn = await screen.findByRole("button", {
+      name: /notifications \(3 unread\)/i,
+    });
     expect(btn).toHaveTextContent("3");
   });
 
@@ -185,6 +195,8 @@ describe("NotificationBell", () => {
     const user = userEvent.setup();
     renderWithProviders(<NotificationBell />);
     await user.click(await screen.findByRole("button", { name: /notifications/i }));
-    expect(await screen.findByRole("button", { name: /mark all as read/i })).toBeDisabled();
+    expect(
+      await screen.findByRole("button", { name: /mark all as read/i }),
+    ).toBeDisabled();
   });
 });

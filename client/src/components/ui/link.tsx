@@ -1,4 +1,4 @@
-import { Link as RouterLink, type LinkProps } from "react-router";
+import { type LinkProps, Link as RouterLink } from "react-router";
 import { cn } from "@/lib/utils";
 
 export function Link({ className, ...props }: LinkProps) {

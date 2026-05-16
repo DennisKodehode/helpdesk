@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import {
   ADMIN_EMAIL,
   ADMIN_PASSWORD,
@@ -19,7 +19,9 @@ test.describe("Happy-path login", () => {
     await expect(page.getByRole("heading", { name: /Welcome/ })).toBeVisible();
   });
 
-  test("already-authenticated user visiting /login is redirected to dashboard", async ({ page }) => {
+  test("already-authenticated user visiting /login is redirected to dashboard", async ({
+    page,
+  }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
 
     await page.goto("/login");

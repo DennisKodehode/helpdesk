@@ -1,11 +1,17 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import axios from "axios";
-import { renderWithProviders, screen, waitFor, cleanup } from "../test/utils";
-import MyStatsPage from "./MyStatsPage";
 import type { PersonalStatsResponse } from "@helpdesk/core";
+import axios from "axios";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, renderWithProviders, screen, waitFor } from "../test/utils";
+import MyStatsPage from "./MyStatsPage";
 
 vi.mock("axios", () => ({
-  default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn(), isAxiosError: vi.fn() },
+  default: {
+    get: vi.fn(),
+    post: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+    isAxiosError: vi.fn(),
+  },
 }));
 
 const statsResponse: PersonalStatsResponse = {
@@ -35,7 +41,9 @@ describe("MyStatsPage", () => {
 
   it("renders the page header", () => {
     renderWithProviders(<MyStatsPage />);
-    expect(screen.getByRole("heading", { level: 1, name: /my stats/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 1, name: /my stats/i }),
+    ).toBeInTheDocument();
   });
 
   it("renders the hero open-on-my-plate value and links to my-tickets", async () => {
@@ -72,7 +80,9 @@ describe("MyStatsPage", () => {
   it("renders the attribution note", async () => {
     renderWithProviders(<MyStatsPage />);
     expect(
-      await screen.findByText(/throughput and resolution time credit the agent currently assigned/i),
+      await screen.findByText(
+        /throughput and resolution time credit the agent currently assigned/i,
+      ),
     ).toBeInTheDocument();
   });
 

@@ -1,18 +1,18 @@
+import type { TicketsPerDayResponse } from "@helpdesk/core";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
+  type ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-  type ChartConfig,
 } from "@/components/ui/chart";
-import type { TicketsPerDayResponse } from "@helpdesk/core";
 
 const chartConfig = {
   count: { label: "Tickets", color: "var(--chart-1)" },
 } satisfies ChartConfig;
 
 function formatDate(dateStr: string) {
-  const d = new Date(dateStr + "T00:00:00");
+  const d = new Date(`${dateStr}T00:00:00`);
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 

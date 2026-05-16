@@ -1,16 +1,16 @@
+import type { Ticket, TicketPriority, TicketStatus } from "@helpdesk/core";
 import {
-  useReactTable,
-  getCoreRowModel,
-  flexRender,
   type ColumnDef,
-  type SortingState,
+  flexRender,
+  getCoreRowModel,
   type OnChangeFn,
+  type SortingState,
+  useReactTable,
 } from "@tanstack/react-table";
-import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
-import { Link } from "@/components/ui/link";
+import { ChevronDown, ChevronsUpDown, ChevronUp } from "lucide-react";
+import StatusPill from "@/components/StatusPill";
 import ErrorAlert from "@/components/ui/ErrorAlert";
-import { type Ticket, TicketStatus, type TicketPriority } from "@helpdesk/core";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Link } from "@/components/ui/link";
 import {
   Select,
   SelectContent,
@@ -18,16 +18,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   BADGE_BASE,
-  CATEGORY_LABELS,
   CATEGORY_BADGE,
+  CATEGORY_LABELS,
+  formatRelative,
+  PRIORITY_DOT,
   PRIORITY_LABELS,
   PRIORITY_STYLES,
-  PRIORITY_DOT,
-  formatRelative,
 } from "@/lib/ticket-ui";
-import StatusPill from "@/components/StatusPill";
 
 interface TicketsTableProps {
   tickets: Ticket[];
@@ -124,23 +124,36 @@ const columns: ColumnDef<Ticket>[] = [
 function SortIcon({ isSorted }: { isSorted: false | "asc" | "desc" }) {
   if (isSorted === "asc") return <ChevronUp className="inline-block ml-1 size-3" />;
   if (isSorted === "desc") return <ChevronDown className="inline-block ml-1 size-3" />;
-  return (
-    <ChevronsUpDown className="inline-block ml-1 size-3 text-muted-foreground/30" />
-  );
+  return <ChevronsUpDown className="inline-block ml-1 size-3 text-muted-foreground/30" />;
 }
 
 function SkeletonRows() {
   return (
     <>
       {Array.from({ length: 6 }).map((_, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholder; never reorders
         <tr key={`skeleton-${i}`} className="hairline-b">
-          <td className="px-5 py-3.5"><Skeleton className="h-3.5 w-12" /></td>
-          <td className="px-5 py-3.5"><Skeleton className="h-3.5 w-56" /></td>
-          <td className="px-5 py-3.5"><Skeleton className="h-3.5 w-36" /></td>
-          <td className="px-5 py-3.5"><Skeleton className="h-5 w-20 rounded-full" /></td>
-          <td className="px-5 py-3.5"><Skeleton className="h-5 w-20 rounded-full" /></td>
-          <td className="px-5 py-3.5"><Skeleton className="h-5 w-20 rounded-full" /></td>
-          <td className="px-5 py-3.5"><Skeleton className="h-3.5 w-20" /></td>
+          <td className="px-5 py-3.5">
+            <Skeleton className="h-3.5 w-12" />
+          </td>
+          <td className="px-5 py-3.5">
+            <Skeleton className="h-3.5 w-56" />
+          </td>
+          <td className="px-5 py-3.5">
+            <Skeleton className="h-3.5 w-36" />
+          </td>
+          <td className="px-5 py-3.5">
+            <Skeleton className="h-5 w-20 rounded-full" />
+          </td>
+          <td className="px-5 py-3.5">
+            <Skeleton className="h-5 w-20 rounded-full" />
+          </td>
+          <td className="px-5 py-3.5">
+            <Skeleton className="h-5 w-20 rounded-full" />
+          </td>
+          <td className="px-5 py-3.5">
+            <Skeleton className="h-3.5 w-20" />
+          </td>
         </tr>
       ))}
     </>
@@ -152,6 +165,7 @@ function MobileSkeleton() {
     <ul className="space-y-2" aria-label="Loading tickets">
       {Array.from({ length: 5 }).map((_, i) => (
         <li
+          // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholder; never reorders
           key={`mobile-skeleton-${i}`}
           className="h-32 rounded-lg border border-border bg-card"
         >
@@ -202,9 +216,7 @@ export default function TicketsTable({
 
   const currentSort = sorting[0];
   const mobileSortValue =
-    currentSort?.id === "createdAt" && currentSort.desc === false
-      ? "oldest"
-      : "newest";
+    currentSort?.id === "createdAt" && currentSort.desc === false ? "oldest" : "newest";
 
   function handleMobileSortChange(value: string | null) {
     if (value === null) return;
@@ -238,8 +250,12 @@ export default function TicketsTable({
             ) : tickets.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="px-5 py-16 text-center">
-                  <p className="display-serif text-2xl text-muted-foreground">{emptyTitle}</p>
-                  <p className="mt-1 text-[13px] text-muted-foreground/70">{emptyDescription}</p>
+                  <p className="display-serif text-2xl text-muted-foreground">
+                    {emptyTitle}
+                  </p>
+                  <p className="mt-1 text-[13px] text-muted-foreground/70">
+                    {emptyDescription}
+                  </p>
                 </td>
               </tr>
             ) : (
@@ -269,11 +285,7 @@ export default function TicketsTable({
             Sort
           </p>
           <Select value={mobileSortValue} onValueChange={handleMobileSortChange}>
-            <SelectTrigger
-              aria-label="Sort tickets"
-              size="sm"
-              className="h-9 w-36"
-            >
+            <SelectTrigger aria-label="Sort tickets" size="sm" className="h-9 w-36">
               <SelectValue>
                 {(v: string | null) => (v === "oldest" ? "Oldest first" : "Newest first")}
               </SelectValue>
@@ -328,9 +340,7 @@ export default function TicketsTable({
                       {PRIORITY_LABELS[t.priority as TicketPriority]}
                     </span>
                     {t.category && (
-                      <span
-                        className={`${BADGE_BASE} ${CATEGORY_BADGE} relative z-10`}
-                      >
+                      <span className={`${BADGE_BASE} ${CATEGORY_BADGE} relative z-10`}>
                         {CATEGORY_LABELS[t.category]}
                       </span>
                     )}

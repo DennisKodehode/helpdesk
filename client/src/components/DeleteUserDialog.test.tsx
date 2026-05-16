@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import userEvent from "@testing-library/user-event";
-import { renderWithProviders, screen, waitFor, cleanup } from "../test/utils";
-import DeleteUserDialog from "./DeleteUserDialog";
 import { Role, type User } from "@helpdesk/core";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, renderWithProviders, screen, waitFor } from "../test/utils";
+import DeleteUserDialog from "./DeleteUserDialog";
 
 afterEach(cleanup);
 
@@ -33,7 +33,9 @@ describe("DeleteUserDialog", () => {
 
   it("does not render when deleteTarget is null", () => {
     renderDialog({ deleteTarget: null });
-    expect(screen.queryByRole("heading", { name: /delete user/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: /delete user/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("calls onCancel when Cancel is clicked", async () => {

@@ -1,21 +1,22 @@
-import axios from "axios";
+import type { StatsResponse, TicketsPerDayResponse } from "@helpdesk/core";
 import { useQuery } from "@tanstack/react-query";
-import { Skeleton } from "@/components/ui/skeleton";
-import ErrorAlert from "@/components/ui/ErrorAlert";
-import PageHeader from "@/components/ui/PageHeader";
+import axios from "axios";
 import DashboardStats from "@/components/DashboardStats";
 import TicketsBarChart from "@/components/TicketsBarChart";
-import type { StatsResponse, TicketsPerDayResponse } from "@helpdesk/core";
+import ErrorAlert from "@/components/ui/ErrorAlert";
+import PageHeader from "@/components/ui/PageHeader";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function DashboardSkeleton() {
   return (
-    <div className="space-y-6" aria-label="Loading dashboard">
+    <div className="space-y-6" role="status" aria-label="Loading dashboard">
       <div className="rounded-lg border border-border bg-card p-8">
         <Skeleton className="h-4 w-32 mb-4" />
         <Skeleton className="h-24 w-48" />
       </div>
       <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
         {Array.from({ length: 3 }).map((_, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholder; never reorders
           <div key={i} className="bg-card p-5">
             <Skeleton className="h-3 w-24 mb-3" />
             <Skeleton className="h-10 w-20" />

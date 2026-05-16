@@ -1,18 +1,21 @@
+import { type Notification, NotificationType } from "@helpdesk/core";
+import { Bell, MailOpen, UserPlus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { Bell, MailOpen, UserPlus } from "lucide-react";
-import { NotificationType, type Notification } from "@helpdesk/core";
 import { useSession } from "@/lib/auth-client";
 import {
-  useNotifications,
-  useMarkNotificationRead,
-  useMarkAllNotificationsRead,
   NOTIFICATION_TYPE_LABEL,
+  useMarkAllNotificationsRead,
+  useMarkNotificationRead,
+  useNotifications,
 } from "@/lib/notifications";
 import { formatRelative } from "@/lib/ticket-ui";
 import { cn } from "@/lib/utils";
 
-const ICON_FOR_TYPE: Record<NotificationType, React.ComponentType<{ className?: string }>> = {
+const ICON_FOR_TYPE: Record<
+  NotificationType,
+  React.ComponentType<{ className?: string }>
+> = {
   [NotificationType.customer_reply]: MailOpen,
   [NotificationType.ticket_assigned]: UserPlus,
 };
@@ -78,7 +81,9 @@ export default function NotificationBell({ className, align = "end" }: Props) {
     <div ref={containerRef} className={cn("relative", className)}>
       <button
         type="button"
-        aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : "Notifications"}
+        aria-label={
+          unreadCount > 0 ? `Notifications (${unreadCount} unread)` : "Notifications"
+        }
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((v) => !v)}
@@ -122,7 +127,7 @@ export default function NotificationBell({ className, align = "end" }: Props) {
                 You're all caught up.
               </p>
             ) : (
-              <ul role="list">
+              <ul>
                 {items.map((n) => {
                   const Icon = ICON_FOR_TYPE[n.type];
                   const label = NOTIFICATION_TYPE_LABEL[n.type](n.actorName);
@@ -142,7 +147,9 @@ export default function NotificationBell({ className, align = "end" }: Props) {
                           aria-hidden
                           className={cn(
                             "mt-0.5 grid size-7 shrink-0 place-items-center rounded-full",
-                            unread ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
+                            unread
+                              ? "bg-primary/10 text-primary"
+                              : "bg-muted text-muted-foreground",
                           )}
                         >
                           <Icon className="size-3.5" />
@@ -160,6 +167,7 @@ export default function NotificationBell({ className, align = "end" }: Props) {
                         </span>
                         {unread && (
                           <span
+                            role="img"
                             aria-label="Unread"
                             className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary"
                           />

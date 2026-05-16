@@ -1,32 +1,27 @@
-import axios from "axios";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  type TicketDetail,
+  ADMIN_VALID_TRANSITIONS,
   type Agent,
   Role,
-  TicketStatus,
-  TicketCategory,
+  type TicketCategory,
+  type TicketDetail,
   TicketPriority,
+  TicketStatus,
   VALID_TRANSITIONS,
-  ADMIN_VALID_TRANSITIONS,
 } from "@helpdesk/core";
-import {
-  CATEGORY_LABELS,
-  STATUS_LABELS,
-  PRIORITY_LABELS,
-  isTriagingStatus,
-} from "@/lib/ticket-ui";
-import StatusPill from "@/components/StatusPill";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "@/components/ui/select";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
 import { Sparkles } from "lucide-react";
+import StatusPill from "@/components/StatusPill";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { useSession } from "@/lib/auth-client";
 import { MY_OPEN_COUNT_QUERY_KEY } from "@/lib/my-tickets";
 import { PERSONAL_STATS_QUERY_KEY } from "@/lib/personal-stats";
+import {
+  CATEGORY_LABELS,
+  isTriagingStatus,
+  PRIORITY_LABELS,
+  STATUS_LABELS,
+} from "@/lib/ticket-ui";
 
 interface Props {
   ticket: TicketDetail;
@@ -37,13 +32,7 @@ async function fetchAgents(): Promise<Agent[]> {
   return data;
 }
 
-function MetaField({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function MetaField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="hairline-b px-5 py-4 last:border-b-0 xl:px-6 xl:py-5">
       <p className="label-meta mb-2">{label}</p>
@@ -56,8 +45,7 @@ export default function TicketMeta({ ticket }: Props) {
   const ticketId = String(ticket.id);
   const queryClient = useQueryClient();
   const { data: session } = useSession();
-  const isAdmin =
-    (session?.user as Record<string, unknown>)?.role === Role.admin;
+  const isAdmin = (session?.user as Record<string, unknown>)?.role === Role.admin;
 
   const { data: agents = [] } = useQuery({
     queryKey: ["agents"],
@@ -100,39 +88,38 @@ export default function TicketMeta({ ticket }: Props) {
   const currentAssigneeId =
     assignMutation.isPending && assignMutation.variables !== undefined
       ? assignMutation.variables
-      : ticket.assignedToId ?? null;
+      : (ticket.assignedToId ?? null);
 
   const displayAgentName = currentAssigneeId
-    ? agents.find((a) => a.id === currentAssigneeId)?.name ??
+    ? (agents.find((a) => a.id === currentAssigneeId)?.name ??
       ticket.assignedTo?.name ??
-      null
+      null)
     : null;
 
   const currentStatus = (
     statusMutation.isPending && statusMutation.variables !== undefined
       ? statusMutation.variables
-      : ticket.status ?? TicketStatus.open
+      : (ticket.status ?? TicketStatus.open)
   ) as TicketStatus;
 
   const currentCategory = (
     categoryMutation.isPending
-      ? categoryMutation.variables ?? null
-      : ticket.category ?? null
+      ? (categoryMutation.variables ?? null)
+      : (ticket.category ?? null)
   ) as TicketCategory | null;
 
   const currentPriority = (
     priorityMutation.isPending && priorityMutation.variables !== undefined
       ? priorityMutation.variables
-      : ticket.priority ?? TicketPriority.normal
+      : (ticket.priority ?? TicketPriority.normal)
   ) as TicketPriority;
 
-  const validNextStatuses = (
-    isAdmin ? ADMIN_VALID_TRANSITIONS : VALID_TRANSITIONS
-  )[ticket.status as TicketStatus];
+  const validNextStatuses = (isAdmin ? ADMIN_VALID_TRANSITIONS : VALID_TRANSITIONS)[
+    ticket.status as TicketStatus
+  ];
 
   const isTerminal =
-    ticket.status === TicketStatus.resolved ||
-    ticket.status === TicketStatus.closed;
+    ticket.status === TicketStatus.resolved || ticket.status === TicketStatus.closed;
 
   const isTriaging = isTriagingStatus(ticket.status as TicketStatus);
 
@@ -146,9 +133,7 @@ export default function TicketMeta({ ticket }: Props) {
         {validNextStatuses.length > 0 && !isTriaging ? (
           <Select
             value={currentStatus}
-            onValueChange={(value) =>
-              statusMutation.mutate(value as TicketStatus)
-            }
+            onValueChange={(value) => statusMutation.mutate(value as TicketStatus)}
           >
             <SelectTrigger
               className="h-9 w-full text-[13px]"
@@ -208,9 +193,7 @@ export default function TicketMeta({ ticket }: Props) {
       <MetaField label="Priority">
         <Select
           value={currentPriority}
-          onValueChange={(value) =>
-            priorityMutation.mutate(value as TicketPriority)
-          }
+          onValueChange={(value) => priorityMutation.mutate(value as TicketPriority)}
         >
           <SelectTrigger
             className="h-9 w-full text-[13px]"

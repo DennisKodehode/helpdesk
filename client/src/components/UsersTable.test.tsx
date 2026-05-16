@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import userEvent from "@testing-library/user-event";
-import { renderWithProviders, screen, within, cleanup } from "../test/utils";
-import UsersTable from "./UsersTable";
 import { Role, type User } from "@helpdesk/core";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, renderWithProviders, screen, within } from "../test/utils";
+import UsersTable from "./UsersTable";
 
 afterEach(cleanup);
 
@@ -30,7 +30,13 @@ const mockUsers: User[] = [
 describe("loading state", () => {
   it("shows skeleton rows while pending", () => {
     renderWithProviders(
-      <UsersTable users={[]} isPending isError={false} onDelete={vi.fn()} onEdit={vi.fn()} />
+      <UsersTable
+        users={[]}
+        isPending
+        isError={false}
+        onDelete={vi.fn()}
+        onEdit={vi.fn()}
+      />,
     );
 
     const skeletons = document.querySelectorAll('[data-slot="skeleton"]');
@@ -46,7 +52,13 @@ describe("loading state", () => {
 describe("error state", () => {
   it("shows an error message", () => {
     renderWithProviders(
-      <UsersTable users={[]} isPending={false} isError onDelete={vi.fn()} onEdit={vi.fn()} />
+      <UsersTable
+        users={[]}
+        isPending={false}
+        isError
+        onDelete={vi.fn()}
+        onEdit={vi.fn()}
+      />,
     );
 
     expect(screen.getByText("Failed to load users")).toBeInTheDocument();
@@ -60,7 +72,13 @@ describe("error state", () => {
 describe("empty state", () => {
   it("shows an empty state when the list is empty", () => {
     renderWithProviders(
-      <UsersTable users={[]} isPending={false} isError={false} onDelete={vi.fn()} onEdit={vi.fn()} />
+      <UsersTable
+        users={[]}
+        isPending={false}
+        isError={false}
+        onDelete={vi.fn()}
+        onEdit={vi.fn()}
+      />,
     );
 
     // Empty state is rendered in both the desktop table and the mobile card list.
@@ -75,7 +93,13 @@ describe("empty state", () => {
 describe("loaded state", () => {
   it("renders a row for each user", () => {
     renderWithProviders(
-      <UsersTable users={mockUsers} isPending={false} isError={false} onDelete={vi.fn()} onEdit={vi.fn()} />
+      <UsersTable
+        users={mockUsers}
+        isPending={false}
+        isError={false}
+        onDelete={vi.fn()}
+        onEdit={vi.fn()}
+      />,
     );
 
     const table = within(screen.getByRole("table"));
@@ -87,7 +111,13 @@ describe("loaded state", () => {
 
   it("shows role badges for each user", () => {
     renderWithProviders(
-      <UsersTable users={mockUsers} isPending={false} isError={false} onDelete={vi.fn()} onEdit={vi.fn()} />
+      <UsersTable
+        users={mockUsers}
+        isPending={false}
+        isError={false}
+        onDelete={vi.fn()}
+        onEdit={vi.fn()}
+      />,
     );
 
     const table = within(screen.getByRole("table"));
@@ -99,7 +129,13 @@ describe("loaded state", () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
     renderWithProviders(
-      <UsersTable users={mockUsers} isPending={false} isError={false} onDelete={onDelete} onEdit={vi.fn()} />
+      <UsersTable
+        users={mockUsers}
+        isPending={false}
+        isError={false}
+        onDelete={onDelete}
+        onEdit={vi.fn()}
+      />,
     );
 
     const table = within(screen.getByRole("table"));
@@ -110,7 +146,13 @@ describe("loaded state", () => {
 
   it("does not show a Delete button for admin users", () => {
     renderWithProviders(
-      <UsersTable users={mockUsers} isPending={false} isError={false} onDelete={vi.fn()} onEdit={vi.fn()} />
+      <UsersTable
+        users={mockUsers}
+        isPending={false}
+        isError={false}
+        onDelete={vi.fn()}
+        onEdit={vi.fn()}
+      />,
     );
 
     // Scoped to the desktop table; the mobile card list mirrors this rule.
@@ -122,7 +164,13 @@ describe("loaded state", () => {
     const user = userEvent.setup();
     const onEdit = vi.fn();
     renderWithProviders(
-      <UsersTable users={mockUsers} isPending={false} isError={false} onDelete={vi.fn()} onEdit={onEdit} />
+      <UsersTable
+        users={mockUsers}
+        isPending={false}
+        isError={false}
+        onDelete={vi.fn()}
+        onEdit={onEdit}
+      />,
     );
 
     const table = within(screen.getByRole("table"));

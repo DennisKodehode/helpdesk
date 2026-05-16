@@ -1,12 +1,23 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import {
+  TicketCategory,
+  type TicketDetail,
+  TicketPriority,
+  TicketStatus,
+} from "@helpdesk/core";
 import axios from "axios";
-import { renderWithProviders, screen, waitFor, cleanup } from "../test/utils";
-import TicketDetailPage from "./TicketDetailPage";
-import { TicketStatus, TicketCategory, TicketPriority, type TicketDetail } from "@helpdesk/core";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useSession } from "@/lib/auth-client";
+import { cleanup, renderWithProviders, screen, waitFor } from "../test/utils";
+import TicketDetailPage from "./TicketDetailPage";
 
 vi.mock("axios", () => ({
-  default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn(), isAxiosError: vi.fn() },
+  default: {
+    get: vi.fn(),
+    post: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+    isAxiosError: vi.fn(),
+  },
 }));
 
 vi.mock("react-router", async (importOriginal) => {
@@ -46,7 +57,9 @@ function mockGetResponses(ticket = mockTicket) {
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetResponses();
-  vi.mocked(useSession).mockReturnValue({ data: { user: { role: "agent" } } } as unknown as ReturnType<typeof useSession>);
+  vi.mocked(useSession).mockReturnValue({
+    data: { user: { role: "agent" } },
+  } as unknown as ReturnType<typeof useSession>);
 });
 
 afterEach(cleanup);

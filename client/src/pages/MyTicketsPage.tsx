@@ -1,5 +1,5 @@
-import PageHeader from "@/components/ui/PageHeader";
 import MyTicketsSection from "@/components/MyTicketsSection";
+import PageHeader from "@/components/ui/PageHeader";
 
 export default function MyTicketsPage() {
   return (

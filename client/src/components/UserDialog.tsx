@@ -1,14 +1,17 @@
+import {
+  type CreateUserData,
+  createUserSchema,
+  type UpdateUserData,
+  type User,
+  updateUserSchema,
+} from "@helpdesk/core";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
+import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
-import { createUserSchema, updateUserSchema, type CreateUserData, type UpdateUserData, type User } from "@helpdesk/core";
-import axios from "axios";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import FieldError from "@/components/ui/FieldError";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +19,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import FieldError from "@/components/ui/FieldError";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface UserDialogProps {
   user?: User | null;
@@ -53,7 +59,9 @@ export default function UserDialog({ user, open, onOpenChange }: UserDialogProps
     },
     onError: (err) => {
       if (axios.isAxiosError(err)) {
-        setFieldError("email", { message: err.response?.data?.error ?? "Something went wrong" });
+        setFieldError("email", {
+          message: err.response?.data?.error ?? "Something went wrong",
+        });
       }
     },
   });
@@ -105,7 +113,9 @@ export default function UserDialog({ user, open, onOpenChange }: UserDialogProps
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
-                placeholder={isEdit ? "Leave blank to keep current password" : "Min 8 characters"}
+                placeholder={
+                  isEdit ? "Leave blank to keep current password" : "Min 8 characters"
+                }
                 aria-invalid={!!errors.password}
                 data-invalid={errors.password ? "" : undefined}
                 className="pr-10"
@@ -118,7 +128,11 @@ export default function UserDialog({ user, open, onOpenChange }: UserDialogProps
                 aria-pressed={showPassword}
                 className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground/60 transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-md"
               >
-                {showPassword ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
+                {showPassword ? (
+                  <EyeOff className="size-4" aria-hidden />
+                ) : (
+                  <Eye className="size-4" aria-hidden />
+                )}
               </button>
             </div>
             <FieldError message={errors.password?.message} />
@@ -130,8 +144,8 @@ export default function UserDialog({ user, open, onOpenChange }: UserDialogProps
                   ? "Saving…"
                   : "Creating…"
                 : isEdit
-                ? "Save changes"
-                : "Create agent"}
+                  ? "Save changes"
+                  : "Create agent"}
             </Button>
           </DialogFooter>
         </form>

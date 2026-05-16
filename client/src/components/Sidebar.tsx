@@ -1,24 +1,24 @@
-import { useState, useRef, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { Link } from "@/components/ui/link";
-import { cn } from "@/lib/utils";
-import { signOut, useSession } from "../lib/auth-client";
 import { Role } from "@helpdesk/core";
-import { useTheme } from "@/lib/theme";
 import {
-  LayoutDashboard,
+  ChevronsUpDown,
   Inbox,
-  Users,
-  UserCheck,
+  LayoutDashboard,
   LineChart,
   LogOut,
-  Sun,
   Moon,
-  ChevronsUpDown,
+  Sun,
+  UserCheck,
+  Users,
 } from "lucide-react";
-import NotificationBell from "./NotificationBell";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router";
+import { Link } from "@/components/ui/link";
 import { useMyOpenCount } from "@/lib/my-tickets";
+import { useTheme } from "@/lib/theme";
+import { cn } from "@/lib/utils";
+import { signOut, useSession } from "../lib/auth-client";
+import NotificationBell from "./NotificationBell";
 
 interface NavItem {
   to: string;
@@ -52,20 +52,26 @@ function SidebarLink({
         "group relative flex items-center gap-3 rounded-md px-3 py-3 text-[15px] transition-colors",
         active
           ? "bg-accent text-foreground"
-          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
       )}
     >
       <span
         aria-hidden
         className={cn(
           "absolute -left-3 top-1/2 h-4 w-px -translate-y-1/2 transition-all",
-          active ? "bg-primary" : "bg-transparent"
+          active ? "bg-primary" : "bg-transparent",
         )}
       />
-      <Icon className={cn("size-5 shrink-0", active ? "text-foreground" : "text-muted-foreground/70")} />
+      <Icon
+        className={cn(
+          "size-5 shrink-0",
+          active ? "text-foreground" : "text-muted-foreground/70",
+        )}
+      />
       <span className="leading-none">{item.label}</span>
       {showBadge && (
         <span
+          role="status"
           aria-label={`${badge} open`}
           className="ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-primary/10 px-1.5 font-mono text-[10px] font-medium text-primary tabular leading-5"
         >
@@ -120,7 +126,11 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
   ];
 
   const isAgent = !isPending && role === Role.agent;
-  const myTicketsItem: NavItem = { to: "/my-tickets", label: "My tickets", icon: UserCheck };
+  const myTicketsItem: NavItem = {
+    to: "/my-tickets",
+    label: "My tickets",
+    icon: UserCheck,
+  };
   const myStatsItem: NavItem = { to: "/my-stats", label: "My stats", icon: LineChart };
   const { data: myOpenCount } = useMyOpenCount(isAgent);
 
@@ -129,7 +139,11 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
   return (
     <>
       <div className="flex h-16 items-center justify-between px-5">
-        <Link to="/" onClick={onNavigate} className="group inline-flex items-baseline gap-1.5">
+        <Link
+          to="/"
+          onClick={onNavigate}
+          className="group inline-flex items-baseline gap-1.5"
+        >
           <span className="display-serif text-[26px] leading-none text-foreground">
             Helpdesk
           </span>
@@ -147,7 +161,11 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
         <ul className="space-y-1">
           {primaryNav.map((item) => (
             <li key={item.to}>
-              <SidebarLink item={item} active={isActive(item.to, pathname)} onNavigate={onNavigate} />
+              <SidebarLink
+                item={item}
+                active={isActive(item.to, pathname)}
+                onNavigate={onNavigate}
+              />
             </li>
           ))}
           {isAgent && (
@@ -179,7 +197,11 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
             <ul className="space-y-1">
               {adminNav.map((item) => (
                 <li key={item.to}>
-                  <SidebarLink item={item} active={isActive(item.to, pathname)} onNavigate={onNavigate} />
+                  <SidebarLink
+                    item={item}
+                    active={isActive(item.to, pathname)}
+                    onNavigate={onNavigate}
+                  />
                 </li>
               ))}
             </ul>
@@ -194,6 +216,7 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
             className="absolute bottom-full left-2 right-2 mb-2 overflow-hidden rounded-md border border-border bg-popover shadow-[0_8px_30px_-12px_rgb(0_0_0_/_0.18)]"
           >
             <button
+              type="button"
               role="menuitem"
               onClick={toggleTheme}
               className="flex w-full items-center gap-2.5 px-3 py-3 text-[14px] text-foreground hover:bg-accent transition-colors"
@@ -207,6 +230,7 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
             </button>
             <div className="hairline-t" />
             <button
+              type="button"
               role="menuitem"
               onClick={handleSignOut}
               className="flex w-full items-center gap-2.5 px-3 py-3 text-[14px] text-foreground hover:bg-accent transition-colors"
@@ -218,6 +242,7 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
         )}
 
         <button
+          type="button"
           aria-label="Account menu"
           aria-expanded={menuOpen}
           aria-haspopup="menu"
@@ -261,9 +286,7 @@ export default function Sidebar({ mobileOpen, onMobileOpenChange }: Props) {
             aria-label="Navigation"
             className="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col border-r border-border bg-sidebar shadow-2xl outline-none duration-200 data-open:animate-in data-open:slide-in-from-left motion-reduce:animate-none md:hidden"
           >
-            <DialogPrimitive.Title className="sr-only">
-              Navigation
-            </DialogPrimitive.Title>
+            <DialogPrimitive.Title className="sr-only">Navigation</DialogPrimitive.Title>
             <SidebarContents onNavigate={() => onMobileOpenChange(false)} />
           </DialogPrimitive.Popup>
         </DialogPrimitive.Portal>
