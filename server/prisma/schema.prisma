@@ -125,6 +125,10 @@ model Ticket {
   replies            Reply[]
   notifications      Notification[]
 
+  @@index([status, createdAt])
+  @@index([assignedToId, status])
+  @@index([fromEmail, subject, status])
+  @@index([status, resolvedAt])
   @@map("ticket")
 }
 
@@ -140,6 +144,8 @@ model Reply {
   resendEmailId String?   @unique
   createdAt     DateTime  @default(now())
 
+  @@index([ticketId, createdAt])
+  @@index([authorId, senderType])
   @@map("reply")
 }
 
