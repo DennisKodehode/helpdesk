@@ -6,10 +6,15 @@ import {
   Role,
   TicketStatus,
   TicketCategory,
+  TicketPriority,
   VALID_TRANSITIONS,
   ADMIN_VALID_TRANSITIONS,
 } from "@helpdesk/core";
-import { CATEGORY_LABELS, STATUS_LABELS } from "@/lib/ticket-ui";
+import {
+  CATEGORY_LABELS,
+  STATUS_LABELS,
+  PRIORITY_LABELS,
+} from "@/lib/ticket-ui";
 import StatusPill from "@/components/StatusPill";
 import {
   Select,
@@ -84,6 +89,12 @@ export default function TicketMeta({ ticket }: Props) {
     onSuccess: updateCache,
   });
 
+  const priorityMutation = useMutation({
+    mutationFn: (priority: TicketPriority) =>
+      axios.patch<TicketDetail>(`/api/tickets/${ticketId}`, { priority }),
+    onSuccess: updateCache,
+  });
+
   const currentAssigneeId =
     assignMutation.isPending && assignMutation.variables !== undefined
       ? assignMutation.variables
@@ -106,6 +117,12 @@ export default function TicketMeta({ ticket }: Props) {
       ? categoryMutation.variables ?? null
       : ticket.category ?? null
   ) as TicketCategory | null;
+
+  const currentPriority = (
+    priorityMutation.isPending && priorityMutation.variables !== undefined
+      ? priorityMutation.variables
+      : ticket.priority ?? TicketPriority.normal
+  ) as TicketPriority;
 
   const validNextStatuses = (
     isAdmin ? ADMIN_VALID_TRANSITIONS : VALID_TRANSITIONS
@@ -179,6 +196,30 @@ export default function TicketMeta({ ticket }: Props) {
                 {label}
               </SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+      </MetaField>
+
+      <MetaField label="Priority">
+        <Select
+          value={currentPriority}
+          onValueChange={(value) =>
+            priorityMutation.mutate(value as TicketPriority)
+          }
+        >
+          <SelectTrigger
+            className="h-9 w-full text-[13px]"
+            aria-label="Change ticket priority"
+          >
+            <span data-slot="select-value" className="flex flex-1 text-left">
+              {PRIORITY_LABELS[currentPriority]}
+            </span>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={TicketPriority.urgent}>Urgent</SelectItem>
+            <SelectItem value={TicketPriority.high}>High</SelectItem>
+            <SelectItem value={TicketPriority.normal}>Normal</SelectItem>
+            <SelectItem value={TicketPriority.low}>Low</SelectItem>
           </SelectContent>
         </Select>
       </MetaField>

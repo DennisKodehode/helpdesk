@@ -4,7 +4,7 @@ import { generateId } from "better-auth";
 import app from "../app";
 import { auth } from "../lib/auth";
 import { prisma } from "../lib/prisma";
-import { TicketStatus, TicketCategory, NotificationType } from "@helpdesk/core";
+import { TicketStatus, TicketCategory, TicketPriority, NotificationType } from "@helpdesk/core";
 import boss from "../lib/boss";
 import { SEND_REPLY_EMAIL_QUEUE } from "../lib/send-reply-email-job";
 import { initAiUserId } from "../lib/ai-user";
@@ -176,6 +176,58 @@ describe("GET /api/tickets — sorting", () => {
     const ids = (res.body.data as { id: number }[]).map((t) => t.id);
     expect(ids).toContain(technicalTicket.id);
     expect(ids).not.toContain(refundTicket.id);
+  });
+
+  it("filters by priority", async () => {
+    const urgentTicket = await prisma.ticket.create({
+      data: { fromName: "Filter Test", fromEmail: "filter@example.com", subject: "Urgent ticket", body: "", status: TicketStatus.open, priority: TicketPriority.urgent },
+    });
+    const normalTicket = await prisma.ticket.create({
+      data: { fromName: "Filter Test", fromEmail: "filter@example.com", subject: "Normal ticket", body: "", status: TicketStatus.open, priority: TicketPriority.normal },
+    });
+    createdTicketIds.push(urgentTicket.id, normalTicket.id);
+
+    const res = await request(app)
+      .get(`/api/tickets?priority=${TicketPriority.urgent}`)
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
+    expect(ids).toContain(urgentTicket.id);
+    expect(ids).not.toContain(normalTicket.id);
+  });
+
+  it("sorts by priority asc and desc", async () => {
+    const urgentTicket = await prisma.ticket.create({
+      data: { fromName: "Sort Test", fromEmail: "sortprio@example.com", subject: "Sort prio urgent", body: "", status: TicketStatus.open, priority: TicketPriority.urgent },
+    });
+    const lowTicket = await prisma.ticket.create({
+      data: { fromName: "Sort Test", fromEmail: "sortprio@example.com", subject: "Sort prio low", body: "", status: TicketStatus.open, priority: TicketPriority.low },
+    });
+    createdTicketIds.push(urgentTicket.id, lowTicket.id);
+
+    const asc = await request(app)
+      .get("/api/tickets?sortBy=priority&sortOrder=asc&pageSize=100")
+      .set("Cookie", authCookie);
+    expect(asc.status).toBe(200);
+    const ascIds = (asc.body.data as { id: number }[]).map((t) => t.id);
+    // Postgres enums sort by declaration order: low < normal < high < urgent.
+    expect(ascIds.indexOf(lowTicket.id)).toBeLessThan(ascIds.indexOf(urgentTicket.id));
+
+    const desc = await request(app)
+      .get("/api/tickets?sortBy=priority&sortOrder=desc&pageSize=100")
+      .set("Cookie", authCookie);
+    expect(desc.status).toBe(200);
+    const descIds = (desc.body.data as { id: number }[]).map((t) => t.id);
+    expect(descIds.indexOf(urgentTicket.id)).toBeLessThan(descIds.indexOf(lowTicket.id));
+  });
+
+  it("returns priority defaulting to normal in the list payload", async () => {
+    const res = await request(app)
+      .get("/api/tickets?pageSize=100")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    const seed = (res.body.data as { id: number; priority: string }[]).find((t) => t.id === createdTicketIds[0]);
+    expect(seed?.priority).toBe(TicketPriority.normal);
   });
 
   it("filters by search term across subject, fromName, and fromEmail", async () => {
@@ -581,6 +633,24 @@ describe("PATCH /api/tickets/:id", () => {
       .send({ category: TicketCategory.billing_inquiry });
     expect(res.status).toBe(200);
     expect(res.body.category).toBe(TicketCategory.billing_inquiry);
+  });
+
+  it("returns 200 and sets the priority", async () => {
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", authCookie)
+      .send({ priority: TicketPriority.urgent });
+    expect(res.status).toBe(200);
+    expect(res.body.priority).toBe(TicketPriority.urgent);
+  });
+
+  it("returns 400 when priority is invalid", async () => {
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", authCookie)
+      .send({ priority: "ASAP" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeTypeOf("string");
   });
 
   it("returns 200 and clears the category", async () => {

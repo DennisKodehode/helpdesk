@@ -3,7 +3,7 @@ import axios from "axios";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders, screen, waitFor, cleanup } from "../test/utils";
 import TicketMeta from "./TicketMeta";
-import { TicketStatus, TicketCategory, type TicketDetail, type Agent } from "@helpdesk/core";
+import { TicketStatus, TicketCategory, TicketPriority, type TicketDetail, type Agent } from "@helpdesk/core";
 import { useSession } from "@/lib/auth-client";
 
 vi.mock("axios", () => ({
@@ -25,6 +25,7 @@ const mockTicket: TicketDetail = {
   bodyHtml: null,
   status: TicketStatus.open,
   category: TicketCategory.technical_question,
+  priority: TicketPriority.normal,
   assignedToId: "agent-1",
   assignedTo: { id: "agent-1", name: "Bob Agent", email: "bob@example.com" },
   createdAt: "2024-01-15T10:30:00Z",
@@ -166,6 +167,28 @@ describe("category interaction", () => {
 
     await waitFor(() => {
       expect(axios.patch).toHaveBeenCalledWith("/api/tickets/42", { category: null });
+    });
+  });
+});
+
+describe("priority interaction", () => {
+  it("shows the current priority in the priority select", async () => {
+    renderWithProviders(<TicketMeta ticket={mockTicket} />);
+    expect(await screen.findByRole("combobox", { name: /change ticket priority/i })).toHaveTextContent("Normal");
+  });
+
+  it("calls PATCH with the selected priority", async () => {
+    vi.mocked(axios.patch).mockResolvedValue({
+      data: { ...mockTicket, priority: TicketPriority.urgent },
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<TicketMeta ticket={mockTicket} />);
+
+    await user.click(await screen.findByRole("combobox", { name: /change ticket priority/i }));
+    await user.click(await screen.findByRole("option", { name: "Urgent" }));
+
+    await waitFor(() => {
+      expect(axios.patch).toHaveBeenCalledWith("/api/tickets/42", { priority: TicketPriority.urgent });
     });
   });
 });

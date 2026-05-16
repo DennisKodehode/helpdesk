@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import axios from "axios";
 import { renderWithProviders, screen, waitFor, cleanup, within } from "../test/utils";
 import MyTicketsPage from "./MyTicketsPage";
-import { TicketStatus, type PaginatedTickets } from "@helpdesk/core";
+import { TicketStatus, TicketPriority, type PaginatedTickets } from "@helpdesk/core";
 
 vi.mock("axios", () => ({
   default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn(), isAxiosError: vi.fn() },
@@ -20,6 +20,7 @@ const activePage: PaginatedTickets = {
       subject: "My active ticket",
       status: TicketStatus.open,
       category: null,
+      priority: TicketPriority.normal,
       assignedToId: "me-id",
       createdAt: "2024-01-15T00:00:00Z",
     },
@@ -38,6 +39,7 @@ const closedPage: PaginatedTickets = {
       subject: "My closed ticket",
       status: TicketStatus.closed,
       category: null,
+      priority: TicketPriority.normal,
       assignedToId: "me-id",
       createdAt: "2024-01-10T00:00:00Z",
     },

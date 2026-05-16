@@ -7,7 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TicketStatus, TicketCategory } from "@helpdesk/core";
+import { TicketStatus, TicketCategory, TicketPriority } from "@helpdesk/core";
 
 const STATUS_LABELS: Record<string, string> = {
   "": "All statuses",
@@ -25,22 +25,34 @@ const CATEGORY_LABELS: Record<string, string> = {
   [TicketCategory.general_question]: "General",
 };
 
+const PRIORITY_FILTER_LABELS: Record<string, string> = {
+  "": "All priorities",
+  [TicketPriority.urgent]: "Urgent",
+  [TicketPriority.high]: "High",
+  [TicketPriority.normal]: "Normal",
+  [TicketPriority.low]: "Low",
+};
+
 interface Props {
   search: string;
   status: TicketStatus | "";
   category: TicketCategory | "";
+  priority: TicketPriority | "";
   onSearchChange: (v: string) => void;
   onStatusChange: (v: TicketStatus | "") => void;
   onCategoryChange: (v: TicketCategory | "") => void;
+  onPriorityChange: (v: TicketPriority | "") => void;
 }
 
 export default function TicketFilters({
   search,
   status,
   category,
+  priority,
   onSearchChange,
   onStatusChange,
   onCategoryChange,
+  onPriorityChange,
 }: Props) {
   return (
     <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
@@ -81,6 +93,19 @@ export default function TicketFilters({
           <SelectItem value={TicketCategory.refund_request}>Refund</SelectItem>
           <SelectItem value={TicketCategory.feature_request}>Feature</SelectItem>
           <SelectItem value={TicketCategory.general_question}>General</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <Select<TicketPriority | ""> value={priority} onValueChange={(v) => onPriorityChange(v as TicketPriority | "")}>
+        <SelectTrigger aria-label="Priority" size="sm" className="h-10 w-full sm:h-9 sm:w-36">
+          <SelectValue>{(v: string | null) => PRIORITY_FILTER_LABELS[v ?? ""]}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="">All priorities</SelectItem>
+          <SelectItem value={TicketPriority.urgent}>Urgent</SelectItem>
+          <SelectItem value={TicketPriority.high}>High</SelectItem>
+          <SelectItem value={TicketPriority.normal}>Normal</SelectItem>
+          <SelectItem value={TicketPriority.low}>Low</SelectItem>
         </SelectContent>
       </Select>
     </div>

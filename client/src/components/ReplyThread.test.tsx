@@ -3,7 +3,7 @@ import axios from "axios";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders, screen, within, waitFor, cleanup } from "../test/utils";
 import ReplyThread from "./ReplyThread";
-import { SenderType, TicketStatus, TicketCategory, type TicketDetail, type Reply } from "@helpdesk/core";
+import { SenderType, TicketStatus, TicketCategory, TicketPriority, type TicketDetail, type Reply } from "@helpdesk/core";
 
 vi.mock("axios", () => ({
   default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn(), isAxiosError: vi.fn() },
@@ -20,6 +20,7 @@ const mockTicket: TicketDetail = {
   bodyHtml: null,
   status: TicketStatus.open,
   category: TicketCategory.technical_question,
+  priority: TicketPriority.normal,
   assignedToId: null,
   assignedTo: null,
   createdAt: "2024-01-15T10:30:00Z",

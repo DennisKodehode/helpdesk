@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders, screen, within, cleanup } from "../test/utils";
 import TicketsTable from "./TicketsTable";
-import { TicketStatus, TicketCategory, type Ticket } from "@helpdesk/core";
+import { TicketStatus, TicketCategory, TicketPriority, type Ticket } from "@helpdesk/core";
 
 afterEach(cleanup);
 
@@ -14,6 +14,7 @@ const mockTickets: Ticket[] = [
     subject: "My printer is on fire",
     status: TicketStatus.open,
     category: TicketCategory.technical_question,
+    priority: TicketPriority.urgent,
     assignedToId: null,
     createdAt: "2024-01-15T00:00:00Z",
   },
@@ -24,6 +25,7 @@ const mockTickets: Ticket[] = [
     subject: "Refund please",
     status: TicketStatus.resolved,
     category: TicketCategory.refund_request,
+    priority: TicketPriority.normal,
     assignedToId: null,
     createdAt: "2024-03-20T00:00:00Z",
   },
@@ -77,6 +79,13 @@ describe("loaded state", () => {
     expect(table.getByText("Refund")).toBeInTheDocument();
   });
 
+  it("renders the priority badge with the matching label", () => {
+    renderWithProviders(<TicketsTable {...defaultProps} />);
+    const table = within(screen.getByRole("table"));
+    expect(table.getByText("Urgent")).toBeInTheDocument();
+    expect(table.getByText("Normal")).toBeInTheDocument();
+  });
+
   it("renders a dash for a ticket with no category", () => {
     const ticket: Ticket = { ...mockTickets[0], category: null };
     renderWithProviders(<TicketsTable {...defaultProps} tickets={[ticket]} />);
@@ -86,12 +95,13 @@ describe("loaded state", () => {
 });
 
 describe("sorting", () => {
-  it("renders all 5 column headers", () => {
+  it("renders all 6 column headers", () => {
     renderWithProviders(<TicketsTable {...defaultProps} />);
     expect(screen.getByRole("columnheader", { name: /subject/i })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /from/i })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /status/i })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /category/i })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /priority/i })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /received/i })).toBeInTheDocument();
   });
 

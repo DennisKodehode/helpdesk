@@ -19,7 +19,7 @@ router.get("/", requireAuth, async (req, res) => {
     return;
   }
 
-  const { sortBy = "createdAt", sortOrder = "desc", status, category, assignee, search, page, pageSize } = result.data;
+  const { sortBy = "createdAt", sortOrder = "desc", status, category, priority, assignee, search, page, pageSize } = result.data;
 
   const nullableFields = new Set(["category"]);
   const orderBy = nullableFields.has(sortBy)
@@ -32,6 +32,7 @@ router.get("/", requireAuth, async (req, res) => {
     status: { notIn: [TicketStatus.new, TicketStatus.processing] },
     ...(status && { status }),
     ...(category && { category }),
+    ...(priority && { priority }),
     ...(assignee === "unassigned" && { assignedToId: null }),
     ...(assignee === "me" && { assignedToId: req.user!.id }),
     ...(trimmed && {
@@ -50,6 +51,7 @@ router.get("/", requireAuth, async (req, res) => {
     subject: true,
     status: true,
     category: true,
+    priority: true,
     assignedToId: true,
     createdAt: true,
   };
@@ -93,6 +95,7 @@ router.get("/:id", requireAuth, async (req, res) => {
       bodyHtml: true,
       status: true,
       category: true,
+      priority: true,
       assignedToId: true,
       assignedTo: { select: { id: true, name: true, email: true } },
       createdAt: true,
@@ -185,6 +188,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
       ...(result.data.status !== undefined && { status: result.data.status }),
       ...(result.data.status === TicketStatus.resolved && !ticket.resolvedAt && { resolvedAt: new Date() }),
       ...(result.data.category !== undefined && { category: result.data.category }),
+      ...(result.data.priority !== undefined && { priority: result.data.priority }),
     },
     select: {
       id: true,
@@ -195,6 +199,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
       bodyHtml: true,
       status: true,
       category: true,
+      priority: true,
       assignedToId: true,
       assignedTo: { select: { id: true, name: true, email: true } },
       createdAt: true,

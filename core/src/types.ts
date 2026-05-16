@@ -19,6 +19,13 @@ export enum TicketCategory {
   feature_request = "feature_request",
 }
 
+export enum TicketPriority {
+  low = "low",
+  normal = "normal",
+  high = "high",
+  urgent = "urgent",
+}
+
 export enum SenderType {
   agent = "agent",
   customer = "customer",

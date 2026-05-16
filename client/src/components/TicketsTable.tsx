@@ -9,7 +9,7 @@ import {
 import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { Link } from "@/components/ui/link";
 import ErrorAlert from "@/components/ui/ErrorAlert";
-import { type Ticket, TicketStatus } from "@helpdesk/core";
+import { type Ticket, TicketStatus, type TicketPriority } from "@helpdesk/core";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -22,6 +22,9 @@ import {
   BADGE_BASE,
   CATEGORY_LABELS,
   CATEGORY_BADGE,
+  PRIORITY_LABELS,
+  PRIORITY_STYLES,
+  PRIORITY_DOT,
   formatRelative,
 } from "@/lib/ticket-ui";
 import StatusPill from "@/components/StatusPill";
@@ -93,6 +96,20 @@ const columns: ColumnDef<Ticket>[] = [
       ),
   },
   {
+    id: "priority",
+    accessorKey: "priority",
+    header: "Priority",
+    cell: ({ row }) => {
+      const p = row.original.priority as TicketPriority;
+      return (
+        <span className={`${BADGE_BASE} ${PRIORITY_STYLES[p]}`}>
+          <span className={`size-1.5 rounded-full ${PRIORITY_DOT[p]}`} aria-hidden />
+          {PRIORITY_LABELS[p]}
+        </span>
+      );
+    },
+  },
+  {
     id: "createdAt",
     accessorKey: "createdAt",
     header: "Received",
@@ -120,6 +137,7 @@ function SkeletonRows() {
           <td className="px-5 py-3.5"><Skeleton className="h-3.5 w-12" /></td>
           <td className="px-5 py-3.5"><Skeleton className="h-3.5 w-56" /></td>
           <td className="px-5 py-3.5"><Skeleton className="h-3.5 w-36" /></td>
+          <td className="px-5 py-3.5"><Skeleton className="h-5 w-20 rounded-full" /></td>
           <td className="px-5 py-3.5"><Skeleton className="h-5 w-20 rounded-full" /></td>
           <td className="px-5 py-3.5"><Skeleton className="h-5 w-20 rounded-full" /></td>
           <td className="px-5 py-3.5"><Skeleton className="h-3.5 w-20" /></td>
@@ -300,6 +318,15 @@ export default function TicketsTable({
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <span
+                      className={`${BADGE_BASE} ${PRIORITY_STYLES[t.priority as TicketPriority]} relative z-10`}
+                    >
+                      <span
+                        className={`size-1.5 rounded-full ${PRIORITY_DOT[t.priority as TicketPriority]}`}
+                        aria-hidden
+                      />
+                      {PRIORITY_LABELS[t.priority as TicketPriority]}
+                    </span>
                     {t.category && (
                       <span
                         className={`${BADGE_BASE} ${CATEGORY_BADGE} relative z-10`}

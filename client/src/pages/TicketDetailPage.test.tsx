@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import axios from "axios";
 import { renderWithProviders, screen, waitFor, cleanup } from "../test/utils";
 import TicketDetailPage from "./TicketDetailPage";
-import { TicketStatus, TicketCategory, type TicketDetail } from "@helpdesk/core";
+import { TicketStatus, TicketCategory, TicketPriority, type TicketDetail } from "@helpdesk/core";
 import { useSession } from "@/lib/auth-client";
 
 vi.mock("axios", () => ({
@@ -27,6 +27,7 @@ const mockTicket: TicketDetail = {
   bodyHtml: null,
   status: TicketStatus.open,
   category: TicketCategory.technical_question,
+  priority: TicketPriority.normal,
   assignedToId: null,
   assignedTo: null,
   createdAt: "2024-01-15T10:30:00Z",

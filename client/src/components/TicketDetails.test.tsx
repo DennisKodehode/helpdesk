@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { renderWithProviders, screen, cleanup } from "../test/utils";
 import TicketDetails from "./TicketDetails";
-import { TicketStatus, TicketCategory, type TicketDetail } from "@helpdesk/core";
+import { TicketStatus, TicketCategory, TicketPriority, type TicketDetail } from "@helpdesk/core";
 
 afterEach(cleanup);
 
@@ -14,6 +14,7 @@ const mockTicket: TicketDetail = {
   bodyHtml: null,
   status: TicketStatus.open,
   category: TicketCategory.technical_question,
+  priority: TicketPriority.normal,
   assignedToId: null,
   assignedTo: null,
   createdAt: "2024-01-15T10:30:00Z",

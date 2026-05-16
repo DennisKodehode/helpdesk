@@ -7,7 +7,7 @@ import TicketsTable from "@/components/TicketsTable";
 import TicketFilters from "@/components/TicketFilters";
 import TicketPagination from "@/components/TicketPagination";
 import PageHeader from "@/components/ui/PageHeader";
-import { type PaginatedTickets, type TicketSortField, TicketStatus, TicketCategory } from "@helpdesk/core";
+import { type PaginatedTickets, type TicketSortField, TicketStatus, TicketCategory, TicketPriority } from "@helpdesk/core";
 
 const PAGE_SIZE = 10;
 
@@ -31,6 +31,7 @@ async function fetchTickets(
   sortOrder: "asc" | "desc",
   status: TicketStatus | "",
   category: TicketCategory | "",
+  priority: TicketPriority | "",
   assignee: string,
   search: string,
   page: number
@@ -41,6 +42,7 @@ async function fetchTickets(
       sortOrder,
       ...(status && { status }),
       ...(category && { category }),
+      ...(priority && { priority }),
       ...(assignee && { assignee }),
       ...(search.trim() && { search: search.trim() }),
       page,
@@ -55,6 +57,7 @@ export default function TicketsPage() {
 
   const status = (searchParams.get("status") ?? "") as TicketStatus | "";
   const category = (searchParams.get("category") ?? "") as TicketCategory | "";
+  const priority = (searchParams.get("priority") ?? "") as TicketPriority | "";
   const assignee = searchParams.get("assignee") ?? "";
   const page = Math.max(1, Number(searchParams.get("page") ?? "1") || 1);
   const searchFromUrl = searchParams.get("q") ?? "";
@@ -82,8 +85,8 @@ export default function TicketsPage() {
   const sortOrder = sorting[0]?.desc === false ? "asc" : "desc";
 
   const { data, isPending, isError } = useQuery({
-    queryKey: ["tickets", sortBy, sortOrder, status, category, assignee, searchFromUrl, page],
-    queryFn: () => fetchTickets(sortBy, sortOrder, status, category, assignee, searchFromUrl, page),
+    queryKey: ["tickets", sortBy, sortOrder, status, category, priority, assignee, searchFromUrl, page],
+    queryFn: () => fetchTickets(sortBy, sortOrder, status, category, priority, assignee, searchFromUrl, page),
     placeholderData: keepPreviousData,
   });
 
@@ -91,7 +94,7 @@ export default function TicketsPage() {
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  function updateFilter(key: "status" | "category", value: string) {
+  function updateFilter(key: "status" | "category" | "priority", value: string) {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       setParam(next, key, value);
@@ -129,9 +132,11 @@ export default function TicketsPage() {
         search={searchInput}
         status={status}
         category={category}
+        priority={priority}
         onSearchChange={setSearchInput}
         onStatusChange={(v) => updateFilter("status", v)}
         onCategoryChange={(v) => updateFilter("category", v)}
+        onPriorityChange={(v) => updateFilter("priority", v)}
       />
 
       <TicketsTable

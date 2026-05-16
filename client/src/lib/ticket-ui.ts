@@ -1,4 +1,4 @@
-import { TicketStatus, TicketCategory } from "@helpdesk/core";
+import { TicketStatus, TicketCategory, TicketPriority } from "@helpdesk/core";
 
 // Restrained pill: hairline border, soft tint, small caps mono label.
 export const BADGE_BASE =
@@ -45,6 +45,33 @@ export const CATEGORY_LABELS: Record<TicketCategory, string> = {
   [TicketCategory.refund_request]: "Refund",
   [TicketCategory.billing_inquiry]: "Billing",
   [TicketCategory.feature_request]: "Feature",
+};
+
+// Priority: only the attention-grabbing levels get a colored pill;
+// normal/low stay neutral so the queue doesn't look like a Christmas tree.
+export const PRIORITY_STYLES: Record<TicketPriority, string> = {
+  [TicketPriority.low]:
+    "bg-transparent text-muted-foreground/70 border-border",
+  [TicketPriority.normal]:
+    "bg-transparent text-muted-foreground border-border",
+  [TicketPriority.high]:
+    "bg-orange-500/8 text-orange-700 border-orange-500/20 dark:text-orange-300 dark:bg-orange-400/10 dark:border-orange-400/20",
+  [TicketPriority.urgent]:
+    "bg-rose-500/10 text-rose-700 border-rose-500/25 dark:text-rose-300 dark:bg-rose-400/12 dark:border-rose-400/25",
+};
+
+export const PRIORITY_DOT: Record<TicketPriority, string> = {
+  [TicketPriority.low]: "bg-zinc-300 dark:bg-zinc-600",
+  [TicketPriority.normal]: "bg-zinc-400 dark:bg-zinc-500",
+  [TicketPriority.high]: "bg-orange-500",
+  [TicketPriority.urgent]: "bg-rose-500",
+};
+
+export const PRIORITY_LABELS: Record<TicketPriority, string> = {
+  [TicketPriority.low]: "Low",
+  [TicketPriority.normal]: "Normal",
+  [TicketPriority.high]: "High",
+  [TicketPriority.urgent]: "Urgent",
 };
 
 export function formatRelative(iso: string): string {

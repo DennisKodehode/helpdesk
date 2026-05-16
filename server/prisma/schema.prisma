@@ -28,6 +28,13 @@ enum TicketCategory {
   feature_request
 }
 
+enum TicketPriority {
+  low
+  normal
+  high
+  urgent
+}
+
 model User {
   id            String    @id
   name          String
@@ -106,6 +113,7 @@ model Ticket {
   bodyHtml           String?
   status             TicketStatus   @default(new)
   category           TicketCategory?
+  priority           TicketPriority @default(normal)
   assignedToId       String?
   assignedTo         User?    @relation(fields: [assignedToId], references: [id])
   createdAt          DateTime @default(now())

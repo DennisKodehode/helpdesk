@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { TicketStatus, TicketCategory, SenderType, NotificationType } from "./types";
+import { TicketStatus, TicketCategory, TicketPriority, SenderType, NotificationType } from "./types";
 
 export const userSchema = z.object({
   id: z.string(),
@@ -54,6 +54,7 @@ export const ticketSchema = z.object({
   subject: z.string(),
   status: z.enum(TicketStatus),
   category: z.enum(TicketCategory).nullable(),
+  priority: z.enum(TicketPriority),
   assignedToId: z.string().nullable(),
   createdAt: z.string(),
 });
@@ -69,6 +70,7 @@ export const ticketDetailSchema = z.object({
   bodyHtml: z.string().nullable(),
   status: z.enum(TicketStatus),
   category: z.enum(TicketCategory).nullable(),
+  priority: z.enum(TicketPriority),
   assignedToId: z.string().nullable(),
   assignedTo: z.object({ id: z.string(), name: z.string(), email: z.string() }).nullable(),
   createdAt: z.string(),
@@ -82,6 +84,7 @@ export const TICKET_SORT_FIELDS = [
   "fromName",
   "status",
   "category",
+  "priority",
   "createdAt",
 ] as const;
 
@@ -92,6 +95,7 @@ export const ticketSortSchema = z.object({
   sortOrder: z.enum(["asc", "desc"]).optional(),
   status: z.enum(TicketStatus).optional(),
   category: z.enum(TicketCategory).optional(),
+  priority: z.enum(TicketPriority).optional(),
   assignee: z.enum(["unassigned", "me"]).optional(),
   search: z.string().optional(),
   page: z.coerce.number().int().min(1).default(1),
@@ -111,6 +115,7 @@ export const updateTicketSchema = z.object({
   assignedToId: z.string().nullable().optional(),
   status: z.enum(TicketStatus).optional(),
   category: z.enum(TicketCategory).nullable().optional(),
+  priority: z.enum(TicketPriority).optional(),
 });
 
 export type UpdateTicketData = z.infer<typeof updateTicketSchema>;
