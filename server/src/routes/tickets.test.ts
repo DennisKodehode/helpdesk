@@ -4,9 +4,10 @@ import { generateId } from "better-auth";
 import app from "../app";
 import { auth } from "../lib/auth";
 import { prisma } from "../lib/prisma";
-import { TicketStatus, TicketCategory } from "@helpdesk/core";
+import { TicketStatus, TicketCategory, NotificationType } from "@helpdesk/core";
 import boss from "../lib/boss";
 import { SEND_REPLY_EMAIL_QUEUE } from "../lib/send-reply-email-job";
+import { initAiUserId } from "../lib/ai-user";
 
 vi.mock("../lib/boss", () => ({
   default: { send: vi.fn().mockResolvedValue("mock-job-id") },
@@ -330,6 +331,7 @@ describe("PATCH /api/tickets/:id", () => {
   let testUserId: string;
   let assigneeId: string;
   let adminId: string;
+  let aiUserId: string;
   let ticketId: number;
 
   beforeAll(async () => {
@@ -372,6 +374,16 @@ describe("PATCH /api/tickets/:id", () => {
       .send({ email: "test-patch-admin@example.com", password: "Testpassword1!" });
     const adminCookies = adminSignInRes.headers["set-cookie"] as string[] | string;
     adminCookie = Array.isArray(adminCookies) ? adminCookies.join("; ") : adminCookies;
+
+    const aiId = generateId();
+    await prisma.user.upsert({
+      where: { email: "ai@helpdesk.internal" },
+      update: {},
+      create: { id: aiId, name: "AI", email: "ai@helpdesk.internal", emailVerified: true, role: "agent", createdAt: now, updatedAt: now },
+    });
+    const aiUser = await prisma.user.findUnique({ where: { email: "ai@helpdesk.internal" } });
+    aiUserId = aiUser!.id;
+    await initAiUserId();
   });
 
   afterAll(async () => {
@@ -382,6 +394,7 @@ describe("PATCH /api/tickets/:id", () => {
     await prisma.session.deleteMany({ where: { userId: adminId } });
     await prisma.account.deleteMany({ where: { userId: adminId } });
     await prisma.user.delete({ where: { id: adminId } });
+    await prisma.user.deleteMany({ where: { email: "ai@helpdesk.internal" } });
   });
 
   beforeEach(async () => {
@@ -580,6 +593,104 @@ describe("PATCH /api/tickets/:id", () => {
     expect(res.status).toBe(200);
     expect(res.body.category).toBeNull();
   });
+
+  it("returns 422 when trying to reassign a resolved ticket", async () => {
+    await prisma.ticket.update({ where: { id: ticketId }, data: { status: TicketStatus.resolved, assignedToId: assigneeId } });
+
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", adminCookie)
+      .send({ assignedToId: null });
+    expect(res.status).toBe(422);
+    expect(res.body.error).toBeTypeOf("string");
+  });
+
+  it("returns 422 when trying to reassign a closed ticket", async () => {
+    await prisma.ticket.update({ where: { id: ticketId }, data: { status: TicketStatus.closed, assignedToId: assigneeId } });
+
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", adminCookie)
+      .send({ assignedToId: assigneeId });
+    expect(res.status).toBe(422);
+    expect(res.body.error).toBeTypeOf("string");
+  });
+
+  it("auto-unassigns AI when admin reopens a resolved ticket assigned to AI", async () => {
+    await prisma.ticket.update({ where: { id: ticketId }, data: { status: TicketStatus.resolved, assignedToId: aiUserId } });
+
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", adminCookie)
+      .send({ status: TicketStatus.open });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe(TicketStatus.open);
+    expect(res.body.assignedToId).toBeNull();
+  });
+
+  it("preserves human assignment when admin reopens a resolved ticket assigned to a human", async () => {
+    await prisma.ticket.update({ where: { id: ticketId }, data: { status: TicketStatus.resolved, assignedToId: assigneeId } });
+
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", adminCookie)
+      .send({ status: TicketStatus.open });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe(TicketStatus.open);
+    expect(res.body.assignedToId).toBe(assigneeId);
+  });
+
+  it("auto-unassigns AI when admin reopens a closed ticket assigned to AI", async () => {
+    await prisma.ticket.update({ where: { id: ticketId }, data: { status: TicketStatus.closed, assignedToId: aiUserId } });
+
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", adminCookie)
+      .send({ status: TicketStatus.open });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe(TicketStatus.open);
+    expect(res.body.assignedToId).toBeNull();
+  });
+
+  it("creates a ticket_assigned notification for the new assignee", async () => {
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", adminCookie)
+      .send({ assignedToId: assigneeId });
+    expect(res.status).toBe(200);
+
+    const notif = await prisma.notification.findFirst({
+      where: { userId: assigneeId, ticketId, type: NotificationType.ticket_assigned },
+      include: { actor: { select: { id: true } } },
+    });
+    expect(notif).not.toBeNull();
+    expect(notif!.actor?.id).toBe(adminId);
+    await prisma.notification.deleteMany({ where: { userId: assigneeId } });
+  });
+
+  it("does not notify when an agent assigns the ticket to themselves", async () => {
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", authCookie)
+      .send({ assignedToId: testUserId });
+    expect(res.status).toBe(200);
+
+    const notif = await prisma.notification.findFirst({ where: { userId: testUserId, ticketId } });
+    expect(notif).toBeNull();
+  });
+
+  it("does not notify when the same assignee is re-set", async () => {
+    await prisma.ticket.update({ where: { id: ticketId }, data: { assignedToId: assigneeId } });
+
+    const res = await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", adminCookie)
+      .send({ assignedToId: assigneeId });
+    expect(res.status).toBe(200);
+
+    const notifs = await prisma.notification.findMany({ where: { userId: assigneeId, ticketId } });
+    expect(notifs).toHaveLength(0);
+  });
 });
 
 describe("GET /api/tickets/:id/replies", () => {
@@ -764,6 +875,39 @@ describe("POST /api/tickets/:id/replies", () => {
         replyBody: "Here is your answer.",
       }),
     );
+  });
+
+  it("bumps the parent ticket's updatedAt when an agent posts a reply", async () => {
+    const before = await prisma.ticket.findUnique({ where: { id: ticketId }, select: { updatedAt: true } });
+    await new Promise((r) => setTimeout(r, 5));
+
+    await request(app)
+      .post(`/api/tickets/${ticketId}/replies`)
+      .set("Cookie", authCookie)
+      .send({ body: "Bumping update timestamp." });
+
+    const after = await prisma.ticket.findUnique({ where: { id: ticketId }, select: { updatedAt: true } });
+    expect(after!.updatedAt.getTime()).toBeGreaterThan(before!.updatedAt.getTime());
+  });
+
+  it("sets firstAgentReplyAt on the first agent reply and does not overwrite on subsequent replies", async () => {
+    await request(app)
+      .post(`/api/tickets/${ticketId}/replies`)
+      .set("Cookie", authCookie)
+      .send({ body: "First reply." });
+
+    const afterFirst = await prisma.ticket.findUnique({ where: { id: ticketId }, select: { firstAgentReplyAt: true } });
+    expect(afterFirst!.firstAgentReplyAt).not.toBeNull();
+    const firstTimestamp = afterFirst!.firstAgentReplyAt!.getTime();
+
+    await new Promise((r) => setTimeout(r, 5));
+    await request(app)
+      .post(`/api/tickets/${ticketId}/replies`)
+      .set("Cookie", authCookie)
+      .send({ body: "Second reply." });
+
+    const afterSecond = await prisma.ticket.findUnique({ where: { id: ticketId }, select: { firstAgentReplyAt: true } });
+    expect(afterSecond!.firstAgentReplyAt!.getTime()).toBe(firstTimestamp);
   });
 });
 

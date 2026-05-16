@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { TicketStatus, TicketCategory, SenderType } from "./types";
+import { TicketStatus, TicketCategory, SenderType, NotificationType } from "./types";
 
 export const userSchema = z.object({
   id: z.string(),
@@ -92,6 +92,7 @@ export const ticketSortSchema = z.object({
   sortOrder: z.enum(["asc", "desc"]).optional(),
   status: z.enum(TicketStatus).optional(),
   category: z.enum(TicketCategory).optional(),
+  assignee: z.enum(["unassigned"]).optional(),
   search: z.string().optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(10),
@@ -148,9 +149,29 @@ export const ticketsPerDayResponseSchema = z.array(dailyTicketCountSchema);
 
 export type TicketsPerDayResponse = z.infer<typeof ticketsPerDayResponseSchema>;
 
+export const notificationSchema = z.object({
+  id: z.string(),
+  type: z.enum(NotificationType),
+  ticketId: z.number(),
+  ticketSubject: z.string(),
+  actorName: z.string().nullable(),
+  readAt: z.string().nullable(),
+  createdAt: z.string(),
+});
+
+export type Notification = z.infer<typeof notificationSchema>;
+
+export const notificationsResponseSchema = z.object({
+  data: z.array(notificationSchema),
+  unreadCount: z.number(),
+});
+
+export type NotificationsResponse = z.infer<typeof notificationsResponseSchema>;
+
 export const statsResponseSchema = z.object({
   totalTickets: z.number(),
   openTickets: z.number(),
+  unassignedTickets: z.number(),
   resolvedTickets: z.number(),
   closedTickets: z.number(),
   resolvedByAI: z.number(),

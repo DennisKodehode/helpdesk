@@ -74,9 +74,10 @@ async function runAutoResolve(data: AutoResolveJobData) {
   if (parsed.action === "resolve" && parsed.reply) {
     const ticket = await prisma.ticket.findUnique({
       where: { id: data.id },
-      select: { fromName: true, fromEmail: true, subject: true },
+      select: { fromName: true, fromEmail: true, subject: true, firstAgentReplyAt: true },
     });
 
+    const now = new Date();
     await prisma.$transaction([
       prisma.reply.create({
         data: {
@@ -88,7 +89,11 @@ async function runAutoResolve(data: AutoResolveJobData) {
       }),
       prisma.ticket.update({
         where: { id: data.id },
-        data: { status: TicketStatus.resolved, resolvedAt: new Date() },
+        data: {
+          status: TicketStatus.resolved,
+          resolvedAt: now,
+          ...(!ticket?.firstAgentReplyAt && { firstAgentReplyAt: now }),
+        },
       }),
     ]);
 

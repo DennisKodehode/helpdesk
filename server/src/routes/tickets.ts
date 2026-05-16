@@ -2,12 +2,13 @@ import { Router } from "express";
 import { Prisma } from "../generated/prisma/client";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth-middleware";
-import { ticketSortSchema, updateTicketSchema, createReplySchema, polishReplySchema, Role, TicketStatus, SenderType, VALID_TRANSITIONS, ADMIN_VALID_TRANSITIONS } from "@helpdesk/core";
+import { ticketSortSchema, updateTicketSchema, createReplySchema, polishReplySchema, Role, TicketStatus, SenderType, NotificationType, VALID_TRANSITIONS, ADMIN_VALID_TRANSITIONS } from "@helpdesk/core";
 import { firstIssue } from "../lib/validation";
 import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
 import boss from "../lib/boss";
 import { SEND_REPLY_EMAIL_QUEUE } from "../lib/send-reply-email-job";
+import { getAiUserId } from "../lib/ai-user";
 
 const router = Router();
 
@@ -18,7 +19,7 @@ router.get("/", requireAuth, async (req, res) => {
     return;
   }
 
-  const { sortBy = "createdAt", sortOrder = "desc", status, category, search, page, pageSize } = result.data;
+  const { sortBy = "createdAt", sortOrder = "desc", status, category, assignee, search, page, pageSize } = result.data;
 
   const nullableFields = new Set(["category"]);
   const orderBy = nullableFields.has(sortBy)
@@ -31,6 +32,7 @@ router.get("/", requireAuth, async (req, res) => {
     status: { notIn: [TicketStatus.new, TicketStatus.processing] },
     ...(status && { status }),
     ...(category && { category }),
+    ...(assignee === "unassigned" && { assignedToId: null }),
     ...(trimmed && {
       OR: [
         { subject: { contains: trimmed, mode: "insensitive" } },
@@ -117,6 +119,12 @@ router.patch("/:id", requireAuth, async (req, res) => {
     return;
   }
 
+  const isTerminal = ticket.status === TicketStatus.resolved || ticket.status === TicketStatus.closed;
+  if (result.data.assignedToId !== undefined && isTerminal) {
+    res.status(422).json({ error: "Cannot reassign a resolved or closed ticket — reopen it first" });
+    return;
+  }
+
   if (result.data.assignedToId !== undefined && result.data.assignedToId !== null) {
     const user = await prisma.user.findFirst({
       where: { id: result.data.assignedToId, role: Role.agent, deletedAt: null },
@@ -127,6 +135,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
     }
   }
 
+  let reopenUnassigns = false;
   if (result.data.status !== undefined) {
     const newStatus = result.data.status;
     const isUserAdmin = req.user!.role === Role.admin;
@@ -140,12 +149,31 @@ router.patch("/:id", requireAuth, async (req, res) => {
       }
       return;
     }
+
+    if (newStatus === TicketStatus.open && isTerminal && ticket.assignedToId && ticket.assignedToId === getAiUserId()) {
+      reopenUnassigns = true;
+    }
   }
+
+  const aiUserId = getAiUserId();
+  const previousAssigneeId = ticket.assignedToId;
+  const nextAssigneeId =
+    result.data.assignedToId !== undefined
+      ? result.data.assignedToId
+      : reopenUnassigns
+        ? null
+        : previousAssigneeId;
+  const shouldNotifyAssignment =
+    nextAssigneeId !== null &&
+    nextAssigneeId !== previousAssigneeId &&
+    nextAssigneeId !== req.user!.id &&
+    nextAssigneeId !== aiUserId;
 
   const updated = await prisma.ticket.update({
     where: { id },
     data: {
       ...(result.data.assignedToId !== undefined && { assignedToId: result.data.assignedToId }),
+      ...(reopenUnassigns && { assignedToId: null }),
       ...(result.data.status !== undefined && { status: result.data.status }),
       ...(result.data.status === TicketStatus.resolved && !ticket.resolvedAt && { resolvedAt: new Date() }),
       ...(result.data.category !== undefined && { category: result.data.category }),
@@ -165,6 +193,17 @@ router.patch("/:id", requireAuth, async (req, res) => {
       updatedAt: true,
     },
   });
+
+  if (shouldNotifyAssignment && nextAssigneeId) {
+    await prisma.notification.create({
+      data: {
+        userId: nextAssigneeId,
+        actorId: req.user!.id,
+        type: NotificationType.ticket_assigned,
+        ticketId: id,
+      },
+    });
+  }
 
   res.json(updated);
 });
@@ -220,10 +259,20 @@ router.post("/:id/replies", requireAuth, async (req, res) => {
     return;
   }
 
-  const reply = await prisma.reply.create({
-    data: { ticketId: id, authorId: req.user!.id, senderType: SenderType.agent, body: result.data.body },
-    select: REPLY_SELECT,
-  });
+  const now = new Date();
+  const [reply] = await prisma.$transaction([
+    prisma.reply.create({
+      data: { ticketId: id, authorId: req.user!.id, senderType: SenderType.agent, body: result.data.body },
+      select: REPLY_SELECT,
+    }),
+    prisma.ticket.update({
+      where: { id },
+      data: {
+        updatedAt: now,
+        ...(!ticket.firstAgentReplyAt && { firstAgentReplyAt: now }),
+      },
+    }),
+  ]);
 
   await boss.send(SEND_REPLY_EMAIL_QUEUE, {
     to: ticket.fromEmail,

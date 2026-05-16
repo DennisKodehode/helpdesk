@@ -24,6 +24,11 @@ export enum SenderType {
   customer = "customer",
 }
 
+export enum NotificationType {
+  customer_reply = "customer_reply",
+  ticket_assigned = "ticket_assigned",
+}
+
 export const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   [TicketStatus.new]: [],
   [TicketStatus.processing]: [],

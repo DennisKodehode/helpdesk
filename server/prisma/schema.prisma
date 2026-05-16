@@ -38,10 +38,12 @@ model User {
   updatedAt     DateTime
   role          Role      @default(agent)
   deletedAt     DateTime?
-  sessions        Session[]
-  accounts        Account[]
-  assignedTickets Ticket[]
-  replies         Reply[]
+  sessions             Session[]
+  accounts             Account[]
+  assignedTickets      Ticket[]
+  replies              Reply[]
+  notifications        Notification[] @relation("NotificationRecipient")
+  triggeredNotifications Notification[] @relation("NotificationActor")
 
   @@map("user")
 }
@@ -96,34 +98,60 @@ enum SenderType {
 }
 
 model Ticket {
-  id           Int      @id @default(autoincrement())
-  fromName     String
-  fromEmail    String
-  subject      String
-  body         String
-  bodyHtml     String?
-  status       TicketStatus   @default(new)
-  category     TicketCategory?
-  assignedToId String?
-  assignedTo   User?    @relation(fields: [assignedToId], references: [id])
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  resolvedAt   DateTime?
-  replies      Reply[]
+  id                 Int      @id @default(autoincrement())
+  fromName           String
+  fromEmail          String
+  subject            String
+  body               String
+  bodyHtml           String?
+  status             TicketStatus   @default(new)
+  category           TicketCategory?
+  assignedToId       String?
+  assignedTo         User?    @relation(fields: [assignedToId], references: [id])
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  resolvedAt         DateTime?
+  closedAt           DateTime?
+  firstAgentReplyAt  DateTime?
+  resendEmailId      String?  @unique
+  replies            Reply[]
+  notifications      Notification[]
 
   @@map("ticket")
 }
 
 model Reply {
-  id         Int       @id @default(autoincrement())
-  ticketId   Int
-  ticket     Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  authorId   String?
-  author     User?     @relation(fields: [authorId], references: [id])
-  senderType SenderType @default(agent)
-  body       String
-  bodyHtml   String?
-  createdAt  DateTime  @default(now())
+  id            Int       @id @default(autoincrement())
+  ticketId      Int
+  ticket        Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId      String?
+  author        User?     @relation(fields: [authorId], references: [id])
+  senderType    SenderType @default(agent)
+  body          String
+  bodyHtml      String?
+  resendEmailId String?   @unique
+  createdAt     DateTime  @default(now())
 
   @@map("reply")
+}
+
+enum NotificationType {
+  customer_reply
+  ticket_assigned
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actorId   String?
+  actor     User?            @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  type      NotificationType
+  ticketId  Int
+  ticket    Ticket           @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, readAt, createdAt])
+  @@map("notification")
 }
