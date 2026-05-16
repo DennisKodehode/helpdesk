@@ -65,6 +65,7 @@ describe("GET /api/stats", () => {
     expect(res.status).toBe(200);
     expect(typeof res.body.totalTickets).toBe("number");
     expect(typeof res.body.openTickets).toBe("number");
+    expect(typeof res.body.unassignedTickets).toBe("number");
     expect(typeof res.body.resolvedTickets).toBe("number");
     expect(typeof res.body.closedTickets).toBe("number");
     expect(typeof res.body.resolvedByAI).toBe("number");

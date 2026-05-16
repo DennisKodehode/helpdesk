@@ -6,6 +6,7 @@ import { getAiUserId } from "../lib/ai-user";
 type TicketStatsRow = {
   total_tickets: bigint;
   open_tickets: bigint;
+  unassigned_count: bigint;
   resolved_count: bigint;
   closed_tickets: bigint;
   total_completed: bigint;
@@ -26,6 +27,7 @@ router.get("/", requireAuth, async (_req, res) => {
   res.json({
     totalTickets: Number(row.total_tickets),
     openTickets: Number(row.open_tickets),
+    unassignedTickets: Number(row.unassigned_count),
     resolvedTickets: Number(row.resolved_count),
     closedTickets: Number(row.closed_tickets),
     resolvedByAI: Number(row.ai_resolved),

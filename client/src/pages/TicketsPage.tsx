@@ -31,6 +31,7 @@ async function fetchTickets(
   sortOrder: "asc" | "desc",
   status: TicketStatus | "",
   category: TicketCategory | "",
+  assignee: string,
   search: string,
   page: number
 ): Promise<PaginatedTickets> {
@@ -40,6 +41,7 @@ async function fetchTickets(
       sortOrder,
       ...(status && { status }),
       ...(category && { category }),
+      ...(assignee && { assignee }),
       ...(search.trim() && { search: search.trim() }),
       page,
       pageSize: PAGE_SIZE,
@@ -53,6 +55,7 @@ export default function TicketsPage() {
 
   const status = (searchParams.get("status") ?? "") as TicketStatus | "";
   const category = (searchParams.get("category") ?? "") as TicketCategory | "";
+  const assignee = searchParams.get("assignee") ?? "";
   const page = Math.max(1, Number(searchParams.get("page") ?? "1") || 1);
   const searchFromUrl = searchParams.get("q") ?? "";
 
@@ -79,8 +82,8 @@ export default function TicketsPage() {
   const sortOrder = sorting[0]?.desc === false ? "asc" : "desc";
 
   const { data, isPending, isError } = useQuery({
-    queryKey: ["tickets", sortBy, sortOrder, status, category, searchFromUrl, page],
-    queryFn: () => fetchTickets(sortBy, sortOrder, status, category, searchFromUrl, page),
+    queryKey: ["tickets", sortBy, sortOrder, status, category, assignee, searchFromUrl, page],
+    queryFn: () => fetchTickets(sortBy, sortOrder, status, category, assignee, searchFromUrl, page),
     placeholderData: keepPreviousData,
   });
 

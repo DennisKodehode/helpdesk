@@ -108,9 +108,10 @@ export default function DashboardStats({ stats }: { stats: StatsResponse }) {
       </div>
 
       {/* Supporting row — quiet stats, each a drill-down to filtered tickets */}
-      <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
         <StatCardLink to="/tickets" label="Total tickets" value={stats.totalTickets.toLocaleString()} />
         <StatCardLink to={`/tickets?status=${TicketStatus.open}`} label="Open" value={stats.openTickets.toLocaleString()} />
+        <StatCardLink to={`/tickets?status=${TicketStatus.open}&assignee=unassigned`} label="Unassigned" value={stats.unassignedTickets.toLocaleString()} />
         <StatCardLink to={`/tickets?status=${TicketStatus.resolved}`} label="Resolved" value={stats.resolvedTickets.toLocaleString()} />
         <StatCardLink to={`/tickets?status=${TicketStatus.closed}`} label="Closed" value={stats.closedTickets.toLocaleString()} />
       </div>
