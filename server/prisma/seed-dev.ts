@@ -5,24 +5,15 @@ import { prisma } from "../src/lib/prisma";
 async function main() {
   const ctx = await auth.$context;
 
-  // AI agent user (virtual agent for auto-resolution tracking)
-  let aiUser = await prisma.user.findUnique({ where: { email: "ai@helpdesk.internal" } });
-  if (aiUser) {
-    console.log("AI user already exists:", aiUser.email);
-  } else {
-    const now = new Date();
-    aiUser = await prisma.user.create({
-      data: {
-        id: generateId(),
-        email: "ai@helpdesk.internal",
-        name: "AI",
-        role: "agent",
-        emailVerified: true,
-        createdAt: now,
-        updatedAt: now,
-      },
-    });
-    console.log("AI user created: ai@helpdesk.internal");
+  // The AI user is created by the production seed (server/prisma/seed.ts).
+  // Look it up here so the dev sample tickets can be assigned to it.
+  const aiUser = await prisma.user.findUnique({
+    where: { email: "ai@helpdesk.internal" },
+  });
+  if (!aiUser) {
+    throw new Error(
+      "AI user missing — run `bun run db:seed` first to create admin + AI user.",
+    );
   }
 
   // Agent

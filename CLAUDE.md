@@ -58,7 +58,7 @@ bun run dev                          # from helpdesk/
 bun run db:migrate                   # create + apply a new migration (always use this, never db:push)
 bun run db:generate                  # regenerate Prisma client after schema change
 bun run db:studio                    # open Prisma Studio
-bun run db:seed                      # seed admin user
+bun run db:seed                      # seed admin user + AI agent user (production-safe; idempotent)
 bun prisma/seed-dev.ts               # seed dev agent + sample tickets (run after db:seed)
 
 # Tests

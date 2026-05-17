@@ -14,7 +14,9 @@ if (password.length < 8) {
   throw new Error("SEED_ADMIN_PASSWORD must be at least 8 characters");
 }
 
-async function seed() {
+const AI_USER_EMAIL = "ai@helpdesk.internal";
+
+async function seedAdmin() {
   const existing = await prisma.user.findUnique({ where: { email: email! } });
   if (existing) {
     console.log(`Admin already exists: ${email}`);
@@ -52,6 +54,36 @@ async function seed() {
   });
 
   console.log(`Admin created: ${email}`);
+}
+
+// The AI user is a virtual agent — used to mark tickets that auto-resolve
+// handled. It has no Account row (no login). server/src/lib/ai-user.ts looks
+// up this exact email at startup; if it's missing, AI auto-resolve silently
+// no-ops, so the prod seed must create it.
+async function seedAiUser() {
+  const existing = await prisma.user.findUnique({ where: { email: AI_USER_EMAIL } });
+  if (existing) {
+    console.log(`AI user already exists: ${AI_USER_EMAIL}`);
+    return;
+  }
+  const now = new Date();
+  await prisma.user.create({
+    data: {
+      id: generateId(),
+      email: AI_USER_EMAIL,
+      name: "AI",
+      role: Role.agent,
+      emailVerified: true,
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
+  console.log(`AI user created: ${AI_USER_EMAIL}`);
+}
+
+async function seed() {
+  await seedAdmin();
+  await seedAiUser();
 }
 
 seed()
