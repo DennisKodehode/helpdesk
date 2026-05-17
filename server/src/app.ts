@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import * as Sentry from "@sentry/node";
 import { toNodeHandler } from "better-auth/node";
@@ -37,10 +38,13 @@ app.use("/api/stats", statsRouter);
 app.use("/api/inbound-email", inboundEmailRouter);
 app.use("/api/notifications", notificationsRouter);
 
-// In production, serve the built client SPA. In dev, Vite serves it on :5173
-// and proxies /api to this server, so no static handling is needed.
-if (env.NODE_ENV === "production") {
-  const clientDist = path.resolve(import.meta.dirname, "../../client/dist");
+// Serve the built SPA when it exists on disk. In the prod Docker image the
+// Vite build always produces client/dist; in dev Vite serves the client on
+// :5173 and client/dist doesn't exist, so this is a no-op. Gating on the
+// build artefact rather than NODE_ENV makes local Docker smoke tests work
+// regardless of the env value we pass to bypass env.ts's prod refinements.
+const clientDist = path.resolve(import.meta.dirname, "../../client/dist");
+if (fs.existsSync(path.join(clientDist, "index.html"))) {
   app.use(express.static(clientDist));
   // SPA catch-all so deep links like /tickets/123 work on refresh. Express 5
   // requires a named wildcard ("/*splat") rather than the bare "*".
