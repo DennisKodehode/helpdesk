@@ -22,6 +22,7 @@ import { prisma } from "../lib/prisma";
 import { SEND_REPLY_EMAIL_QUEUE } from "../lib/send-reply-email-job";
 import { firstIssue } from "../lib/validation";
 import { requireAuth } from "../middleware/auth-middleware";
+import { aiEndpointLimiter } from "../middleware/rate-limit";
 
 const router = Router();
 
@@ -345,7 +346,7 @@ router.post("/:id/replies", requireAuth, async (req, res) => {
   res.status(201).json(reply);
 });
 
-router.post("/:id/summarize", requireAuth, async (req, res) => {
+router.post("/:id/summarize", requireAuth, aiEndpointLimiter, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
     res.status(400).json({ error: "Invalid ticket ID" });
@@ -391,7 +392,7 @@ router.post("/:id/summarize", requireAuth, async (req, res) => {
   res.json({ summary: text });
 });
 
-router.post("/:id/polish-reply", requireAuth, async (req, res) => {
+router.post("/:id/polish-reply", requireAuth, aiEndpointLimiter, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
     res.status(400).json({ error: "Invalid ticket ID" });

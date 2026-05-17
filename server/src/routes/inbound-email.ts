@@ -16,6 +16,7 @@ import { env } from "../lib/env";
 import { prisma } from "../lib/prisma";
 import resend from "../lib/resend";
 import { firstIssue } from "../lib/validation";
+import { webhookLimiter } from "../middleware/rate-limit";
 
 const router = Router();
 
@@ -65,7 +66,7 @@ function isAutoSubmittedOrBounce(
   return null;
 }
 
-router.post("/", async (req, res) => {
+router.post("/", webhookLimiter, async (req, res) => {
   const rawPayload = (req as any).rawBody ?? JSON.stringify(req.body);
 
   try {
