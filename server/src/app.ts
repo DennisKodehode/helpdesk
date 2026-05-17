@@ -7,7 +7,6 @@ import { env } from "./lib/env";
 import { logger } from "./lib/logger";
 import { requestLogger, sentryRequestTag } from "./middleware/request-logger";
 import agentsRouter from "./routes/agents";
-import healthRouter from "./routes/health";
 import inboundEmailRouter from "./routes/inbound-email";
 import notificationsRouter from "./routes/notifications";
 import statsRouter from "./routes/stats";
@@ -29,7 +28,7 @@ app.use(
 
 app.all("/api/auth/*splat", toNodeHandler(auth));
 
-app.use("/api/health", healthRouter);
+// /api/health is handled by @godaddy/terminus on the http.Server (see index.ts).
 app.use("/api/agents", agentsRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/tickets", ticketsRouter);
