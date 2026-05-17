@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,24 +7,32 @@ import { SenderType, TicketStatus } from "@helpdesk/core";
 import * as Sentry from "@sentry/node";
 import { generateText } from "ai";
 import type { Job } from "pg-boss";
+import type { Logger } from "pino";
 import { getAiUserId } from "./ai-user";
 import boss from "./boss";
+import { logger } from "./logger";
 import { prisma } from "./prisma";
 import { SEND_REPLY_EMAIL_QUEUE } from "./send-reply-email-job";
 
 export const AUTO_RESOLVE_TICKET_QUEUE = "auto-resolve-ticket";
 
-type AutoResolveJobData = { id: number; fromName: string; subject: string; body: string };
+export type AutoResolveJobData = {
+  id: number;
+  fromName: string;
+  subject: string;
+  body: string;
+  _requestId?: string;
+};
 
 const KNOWLEDGE_BASE = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), "../../knowledge-base.md"),
   "utf-8",
 );
 
-async function runAutoResolve(data: AutoResolveJobData) {
+async function runAutoResolve(data: AutoResolveJobData, log: Logger) {
   const aiUserId = getAiUserId();
   if (!aiUserId) {
-    console.warn(`auto-resolve: skipping ticket ${data.id} — AI agent user not found`);
+    log.warn({ ticketId: data.id }, "auto-resolve: skipping — AI agent user not found");
     return;
   }
 
@@ -58,7 +67,7 @@ async function runAutoResolve(data: AutoResolveJobData) {
       prompt,
     }));
   } catch (err) {
-    console.error("auto-resolve generateText failed:", err);
+    log.error({ err, ticketId: data.id }, "auto-resolve generateText failed");
     Sentry.captureException(err);
     await prisma.ticket.update({
       where: { id: data.id },
@@ -71,7 +80,7 @@ async function runAutoResolve(data: AutoResolveJobData) {
   try {
     parsed = JSON.parse(text.trim());
   } catch {
-    console.error("auto-resolve: failed to parse AI response:", text);
+    log.error({ ticketId: data.id, text }, "auto-resolve: failed to parse AI response");
     Sentry.captureMessage("auto-resolve: AI response was not valid JSON", "error");
     await prisma.ticket.update({
       where: { id: data.id },
@@ -112,6 +121,7 @@ async function runAutoResolve(data: AutoResolveJobData) {
         toName: ticket.fromName,
         subject: ticket.subject,
         replyBody: parsed.reply,
+        _requestId: data._requestId,
       });
     }
   } else {
@@ -123,5 +133,10 @@ async function runAutoResolve(data: AutoResolveJobData) {
 }
 
 export async function autoResolveTicketWorker([job]: Job<AutoResolveJobData>[]) {
-  await runAutoResolve(job.data);
+  const log = logger.child({
+    reqId: job.data._requestId ?? randomUUID(),
+    job: AUTO_RESOLVE_TICKET_QUEUE,
+    ticketId: job.data.id,
+  });
+  await runAutoResolve(job.data, log);
 }

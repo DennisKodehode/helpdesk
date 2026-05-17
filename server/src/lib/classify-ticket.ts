@@ -1,21 +1,29 @@
+import { randomUUID } from "node:crypto";
 import { google } from "@ai-sdk/google";
 import { TicketCategory, TicketPriority } from "@helpdesk/core";
 import * as Sentry from "@sentry/node";
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 import type { Job } from "pg-boss";
+import type { Logger } from "pino";
 import { z } from "zod";
+import { logger } from "./logger";
 import { prisma } from "./prisma";
 
 export const CLASSIFY_TICKET_QUEUE = "classify-ticket";
 
-type ClassifyTicketJobData = { id: number; subject: string; body: string };
+export type ClassifyTicketJobData = {
+  id: number;
+  subject: string;
+  body: string;
+  _requestId?: string;
+};
 
 const classificationSchema = z.object({
   category: z.enum(TicketCategory),
   priority: z.enum(TicketPriority),
 });
 
-async function runClassification(data: ClassifyTicketJobData) {
+async function runClassification(data: ClassifyTicketJobData, log: Logger) {
   const prompt =
     `Classify this customer support ticket along two axes.\n\n` +
     `Category (pick exactly one):\n` +
@@ -32,25 +40,30 @@ async function runClassification(data: ClassifyTicketJobData) {
     `Subject: ${data.subject}\n` +
     `Message: ${data.body}`;
 
-  let object: { category: TicketCategory; priority: TicketPriority };
+  let output: { category: TicketCategory; priority: TicketPriority };
   try {
-    ({ object } = await generateObject({
+    ({ output } = await generateText({
       model: google("gemini-2.5-flash-lite"),
-      schema: classificationSchema,
+      output: Output.object({ schema: classificationSchema }),
       prompt,
     }));
   } catch (err) {
-    console.error("classify-ticket generateObject failed:", err);
+    log.error({ err, ticketId: data.id }, "classify-ticket generateText failed");
     Sentry.captureException(err);
     return;
   }
 
   await prisma.ticket.update({
     where: { id: data.id },
-    data: { category: object.category, priority: object.priority },
+    data: { category: output.category, priority: output.priority },
   });
 }
 
 export async function classifyTicketWorker([job]: Job<ClassifyTicketJobData>[]) {
-  await runClassification(job.data);
+  const log = logger.child({
+    reqId: job.data._requestId ?? randomUUID(),
+    job: CLASSIFY_TICKET_QUEUE,
+    ticketId: job.data.id,
+  });
+  await runClassification(job.data, log);
 }

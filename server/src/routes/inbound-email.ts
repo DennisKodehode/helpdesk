@@ -106,13 +106,16 @@ router.post("/", async (req, res) => {
 
   const emailResult = await resend.emails.receiving.get(emailId);
   if (emailResult.error) {
-    console.error("[inbound-email] Could not retrieve email body:", emailResult.error);
+    req.log.error(
+      { err: emailResult.error, emailId },
+      "inbound-email: could not retrieve email body",
+    );
     Sentry.captureException(emailResult.error);
   }
 
   const loopReason = isAutoSubmittedOrBounce(emailResult.data?.headers);
   if (loopReason) {
-    console.log(`[inbound-email] dropping email ${emailId}: ${loopReason}`);
+    req.log.info({ emailId, reason: loopReason }, "inbound-email: dropping");
     res.status(200).json({ dropped: true, reason: loopReason });
     return;
   }
@@ -214,16 +217,19 @@ router.post("/", async (req, res) => {
     },
   });
 
+  const reqId = String(req.id);
   await boss.send(CLASSIFY_TICKET_QUEUE, {
     id: ticket.id,
     subject: ticket.subject,
     body: ticket.body,
+    _requestId: reqId,
   });
   await boss.send(AUTO_RESOLVE_TICKET_QUEUE, {
     id: ticket.id,
     fromName: ticket.fromName,
     subject: ticket.subject,
     body: ticket.body,
+    _requestId: reqId,
   });
 
   res.status(201).json({ type: "ticket", ticket });

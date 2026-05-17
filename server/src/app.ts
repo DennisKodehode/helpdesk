@@ -4,6 +4,8 @@ import cors from "cors";
 import express, { type ErrorRequestHandler, type RequestHandler } from "express";
 import { auth } from "./lib/auth";
 import { env } from "./lib/env";
+import { logger } from "./lib/logger";
+import { requestLogger, sentryRequestTag } from "./middleware/request-logger";
 import agentsRouter from "./routes/agents";
 import healthRouter from "./routes/health";
 import inboundEmailRouter from "./routes/inbound-email";
@@ -14,6 +16,8 @@ import usersRouter from "./routes/users";
 
 const app = express();
 
+app.use(requestLogger);
+app.use(sentryRequestTag);
 app.use(cors({ origin: env.CLIENT_URL, credentials: true }) as RequestHandler);
 app.use(
   express.json({
@@ -35,8 +39,8 @@ app.use("/api/notifications", notificationsRouter);
 
 Sentry.setupExpressErrorHandler(app);
 
-const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
-  console.error(err);
+const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
+  (req.log ?? logger).error({ err }, "request error");
   const status = err.status ?? err.statusCode ?? 500;
   res.status(status).json({
     error: env.NODE_ENV === "production" ? "Internal server error" : err.message,

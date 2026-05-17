@@ -2,10 +2,14 @@ import { TicketCategory, TicketPriority, TicketStatus } from "@helpdesk/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "./prisma";
 
-const generateObjectMock = vi.fn();
-vi.mock("ai", () => ({
-  generateObject: (...args: unknown[]) => generateObjectMock(...args),
-}));
+const generateTextMock = vi.fn();
+vi.mock("ai", async () => {
+  const actual = await vi.importActual<typeof import("ai")>("ai");
+  return {
+    generateText: (...args: unknown[]) => generateTextMock(...args),
+    Output: actual.Output,
+  };
+});
 vi.mock("@ai-sdk/google", () => ({
   google: () => "mock-model",
 }));
@@ -16,7 +20,7 @@ describe("classify-ticket worker", () => {
   const createdIds: number[] = [];
 
   beforeEach(() => {
-    generateObjectMock.mockReset();
+    generateTextMock.mockReset();
   });
 
   afterEach(async () => {
@@ -42,8 +46,8 @@ describe("classify-ticket worker", () => {
 
   it("writes both category and priority returned by Gemini", async () => {
     const ticket = await seedTicket();
-    generateObjectMock.mockResolvedValue({
-      object: {
+    generateTextMock.mockResolvedValue({
+      output: {
         category: TicketCategory.billing_inquiry,
         priority: TicketPriority.urgent,
       },
@@ -63,7 +67,7 @@ describe("classify-ticket worker", () => {
 
   it("leaves the ticket untouched when Gemini throws", async () => {
     const ticket = await seedTicket();
-    generateObjectMock.mockRejectedValue(new Error("Gemini down"));
+    generateTextMock.mockRejectedValue(new Error("Gemini down"));
 
     await classifyTicketWorker([
       { data: { id: ticket.id, subject: ticket.subject, body: ticket.body } } as never,

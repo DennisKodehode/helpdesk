@@ -339,6 +339,7 @@ router.post("/:id/replies", requireAuth, async (req, res) => {
     toName: ticket.fromName,
     subject: ticket.subject,
     replyBody: result.data.body,
+    _requestId: String(req.id),
   });
 
   res.status(201).json(reply);

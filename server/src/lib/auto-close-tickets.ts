@@ -1,6 +1,8 @@
+import { randomUUID } from "node:crypto";
 import { TicketStatus } from "@helpdesk/core";
 import * as Sentry from "@sentry/node";
 import type { Job } from "pg-boss";
+import { logger } from "./logger";
 import { prisma } from "./prisma";
 
 export const AUTO_CLOSE_TICKETS_QUEUE = "auto-close-tickets";
@@ -20,18 +22,20 @@ export async function runAutoCloseTickets(): Promise<{ closedCount: number }> {
   });
 
   if (result.count > 0) {
-    console.log(
-      `auto-close-tickets: closed ${result.count} resolved ticket(s) older than ${AUTO_CLOSE_AGE_HOURS}h`,
+    logger.info(
+      { closedCount: result.count, ageHours: AUTO_CLOSE_AGE_HOURS },
+      "auto-close-tickets: closed resolved tickets older than threshold",
     );
   }
   return { closedCount: result.count };
 }
 
 export async function autoCloseTicketsWorker(_jobs: Job<unknown>[]) {
+  const log = logger.child({ reqId: randomUUID(), job: AUTO_CLOSE_TICKETS_QUEUE });
   try {
     await runAutoCloseTickets();
   } catch (err) {
-    console.error("auto-close-tickets failed:", err);
+    log.error({ err }, "auto-close-tickets failed");
     Sentry.captureException(err);
     throw err;
   }
