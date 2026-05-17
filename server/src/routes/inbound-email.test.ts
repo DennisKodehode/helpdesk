@@ -392,17 +392,17 @@ describe("POST /api/inbound-email", () => {
   });
 
   it("returns 200 deduplicated when a concurrent new-ticket insert loses the P2002 race", async () => {
-    // Simulate the race: SELECT dedup misses (no row yet), then ticket.create
-    // throws unique-constraint because a sibling request inserted in the gap.
-    // vi.spyOn doesn't restore cleanly against Prisma's dynamic getters, so
-    // save/restore the method manually.
-    const original = prisma.ticket.create;
-    prisma.ticket.create = vi.fn().mockRejectedValueOnce(
+    // The new-ticket path now runs inside prisma.$transaction (so the
+    // boss.send can use fromPrisma for atomic enqueue). To simulate the race,
+    // make the whole transaction reject with the P2002 error — the outer
+    // try/catch in the route handler should still translate to 200 dedup.
+    const original = prisma.$transaction;
+    prisma.$transaction = vi.fn().mockRejectedValueOnce(
       Object.assign(new Error("Unique constraint failed"), {
         code: "P2002",
         meta: { target: ["resendEmailId"] },
       }),
-    ) as typeof prisma.ticket.create;
+    ) as typeof prisma.$transaction;
 
     try {
       const res = await request(app)
@@ -413,7 +413,7 @@ describe("POST /api/inbound-email", () => {
       expect(res.status).toBe(200);
       expect(res.body.deduplicated).toBe(true);
     } finally {
-      prisma.ticket.create = original;
+      prisma.$transaction = original;
     }
   });
 

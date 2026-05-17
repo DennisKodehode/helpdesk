@@ -7,6 +7,7 @@ import { SenderType, TicketStatus } from "@helpdesk/core";
 import * as Sentry from "@sentry/node";
 import { generateText } from "ai";
 import type { Job } from "pg-boss";
+import { fromPrisma } from "pg-boss";
 import type { Logger } from "pino";
 import { getAiUserId } from "./ai-user";
 import boss from "./boss";
@@ -97,34 +98,41 @@ async function runAutoResolve(data: AutoResolveJobData, log: Logger) {
     });
 
     const now = new Date();
-    await prisma.$transaction([
-      prisma.reply.create({
+    // Atomic: reply create + ticket flip + email enqueue commit together.
+    // Prevents the duplicate-reply scenario where boss.send fails after the
+    // reply is committed, pg-boss retries this job, and we run the AI call
+    // + insert again — producing two replies for one ticket.
+    await prisma.$transaction(async (tx) => {
+      await tx.reply.create({
         data: {
           ticketId: data.id,
           authorId: aiUserId,
           senderType: SenderType.agent,
-          body: parsed.reply,
+          body: parsed.reply!,
         },
-      }),
-      prisma.ticket.update({
+      });
+      await tx.ticket.update({
         where: { id: data.id },
         data: {
           status: TicketStatus.resolved,
           resolvedAt: now,
           ...(!ticket?.firstAgentReplyAt && { firstAgentReplyAt: now }),
         },
-      }),
-    ]);
-
-    if (ticket) {
-      await boss.send(SEND_REPLY_EMAIL_QUEUE, {
-        to: ticket.fromEmail,
-        toName: ticket.fromName,
-        subject: ticket.subject,
-        replyBody: parsed.reply,
-        _requestId: data._requestId,
       });
-    }
+      if (ticket) {
+        await boss.send(
+          SEND_REPLY_EMAIL_QUEUE,
+          {
+            to: ticket.fromEmail,
+            toName: ticket.fromName,
+            subject: ticket.subject,
+            replyBody: parsed.reply!,
+            _requestId: data._requestId,
+          },
+          { db: fromPrisma(tx) },
+        );
+      }
+    });
   } else {
     await prisma.ticket.update({
       where: { id: data.id },

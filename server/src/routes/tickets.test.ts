@@ -1365,7 +1365,26 @@ describe("POST /api/tickets/:id/replies", () => {
         to: "postreply@example.com",
         replyBody: "Here is your answer.",
       }),
+      // Third arg is the pg-boss adapter for atomic enqueue in the same tx.
+      expect.objectContaining({ db: expect.anything() }),
     );
+  });
+
+  it("rolls back the reply when the queue enqueue fails (atomicity)", async () => {
+    vi.mocked(boss.send).mockClear();
+    vi.mocked(boss.send).mockRejectedValueOnce(new Error("queue unreachable"));
+
+    const repliesBefore = await prisma.reply.count({ where: { ticketId } });
+
+    const res = await request(app)
+      .post(`/api/tickets/${ticketId}/replies`)
+      .set("Cookie", authCookie)
+      .send({ body: "This reply must NOT persist." });
+
+    expect(res.status).toBe(500);
+
+    const repliesAfter = await prisma.reply.count({ where: { ticketId } });
+    expect(repliesAfter).toBe(repliesBefore);
   });
 
   it("bumps the parent ticket's updatedAt when an agent posts a reply", async () => {

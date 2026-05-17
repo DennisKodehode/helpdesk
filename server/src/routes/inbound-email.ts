@@ -8,6 +8,7 @@ import * as Sentry from "@sentry/node";
 import EmailReplyParser from "email-reply-parser";
 import { Router } from "express";
 import he from "he";
+import { fromPrisma } from "pg-boss";
 import { isAiAssigned } from "../lib/ai-user";
 import { AUTO_RESOLVE_TICKET_QUEUE } from "../lib/auto-resolve-ticket";
 import boss from "../lib/boss";
@@ -229,18 +230,47 @@ router.post("/", webhookLimiter, async (req, res) => {
     return;
   }
 
+  const reqId = String(req.id);
+  // Atomic: ticket create + classify + auto-resolve enqueue all commit
+  // together. If either queue insert fails, the ticket isn't created either,
+  // the webhook returns 500, and Resend retries cleanly (item #9's race-fix
+  // catches the dedup window).
   let ticket: Awaited<ReturnType<typeof prisma.ticket.create>>;
   try {
-    ticket = await prisma.ticket.create({
-      data: {
-        fromName: parsedName,
-        fromEmail: parsedEmail,
-        subject,
-        body: body ?? "",
-        bodyHtml: bodyHtml ?? null,
-        status: TicketStatus.new,
-        resendEmailId: emailId,
-      },
+    ticket = await prisma.$transaction(async (tx) => {
+      const created = await tx.ticket.create({
+        data: {
+          fromName: parsedName,
+          fromEmail: parsedEmail,
+          subject,
+          body: body ?? "",
+          bodyHtml: bodyHtml ?? null,
+          status: TicketStatus.new,
+          resendEmailId: emailId,
+        },
+      });
+      await boss.send(
+        CLASSIFY_TICKET_QUEUE,
+        {
+          id: created.id,
+          subject: created.subject,
+          body: created.body,
+          _requestId: reqId,
+        },
+        { db: fromPrisma(tx) },
+      );
+      await boss.send(
+        AUTO_RESOLVE_TICKET_QUEUE,
+        {
+          id: created.id,
+          fromName: created.fromName,
+          subject: created.subject,
+          body: created.body,
+          _requestId: reqId,
+        },
+        { db: fromPrisma(tx) },
+      );
+      return created;
     });
   } catch (err) {
     // Concurrent delivery of the same email_id lost the race to insert the
@@ -251,21 +281,6 @@ router.post("/", webhookLimiter, async (req, res) => {
     }
     throw err;
   }
-
-  const reqId = String(req.id);
-  await boss.send(CLASSIFY_TICKET_QUEUE, {
-    id: ticket.id,
-    subject: ticket.subject,
-    body: ticket.body,
-    _requestId: reqId,
-  });
-  await boss.send(AUTO_RESOLVE_TICKET_QUEUE, {
-    id: ticket.id,
-    fromName: ticket.fromName,
-    subject: ticket.subject,
-    body: ticket.body,
-    _requestId: reqId,
-  });
 
   res.status(201).json({ type: "ticket", ticket });
 });

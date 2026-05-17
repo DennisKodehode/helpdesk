@@ -15,6 +15,7 @@ import {
 } from "@helpdesk/core";
 import { generateText } from "ai";
 import { Router } from "express";
+import { fromPrisma } from "pg-boss";
 import type { Prisma } from "../generated/prisma/client";
 import { assigneeType, isAiAssigned } from "../lib/ai-user";
 import boss from "../lib/boss";
@@ -316,8 +317,12 @@ router.post("/:id/replies", requireAuth, async (req, res) => {
   }
 
   const now = new Date();
-  const [reply] = await prisma.$transaction([
-    prisma.reply.create({
+  // Atomic: reply create + ticket update + email-send enqueue all commit
+  // together via pg-boss's fromPrisma adapter. If the queue insert fails,
+  // the whole transaction rolls back — no orphan reply, agent gets a clean
+  // 500 to retry, no duplicate rows.
+  const reply = await prisma.$transaction(async (tx) => {
+    const created = await tx.reply.create({
       data: {
         ticketId: id,
         authorId: req.user!.id,
@@ -325,22 +330,26 @@ router.post("/:id/replies", requireAuth, async (req, res) => {
         body: result.data.body,
       },
       select: REPLY_SELECT,
-    }),
-    prisma.ticket.update({
+    });
+    await tx.ticket.update({
       where: { id },
       data: {
         updatedAt: now,
         ...(!ticket.firstAgentReplyAt && { firstAgentReplyAt: now }),
       },
-    }),
-  ]);
-
-  await boss.send(SEND_REPLY_EMAIL_QUEUE, {
-    to: ticket.fromEmail,
-    toName: ticket.fromName,
-    subject: ticket.subject,
-    replyBody: result.data.body,
-    _requestId: String(req.id),
+    });
+    await boss.send(
+      SEND_REPLY_EMAIL_QUEUE,
+      {
+        to: ticket.fromEmail,
+        toName: ticket.fromName,
+        subject: ticket.subject,
+        replyBody: result.data.body,
+        _requestId: String(req.id),
+      },
+      { db: fromPrisma(tx) },
+    );
+    return created;
   });
 
   res.status(201).json(reply);
