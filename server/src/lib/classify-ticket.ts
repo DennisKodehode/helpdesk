@@ -46,6 +46,7 @@ async function runClassification(data: ClassifyTicketJobData, log: Logger) {
       model: google("gemini-2.5-flash-lite"),
       output: Output.object({ schema: classificationSchema }),
       prompt,
+      timeout: 30_000,
     }));
   } catch (err) {
     log.error({ err, ticketId: data.id }, "classify-ticket generateText failed");

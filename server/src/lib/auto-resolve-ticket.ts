@@ -65,6 +65,7 @@ async function runAutoResolve(data: AutoResolveJobData, log: Logger) {
     ({ text } = await generateText({
       model: google("gemini-2.5-flash-lite"),
       prompt,
+      timeout: 30_000,
     }));
   } catch (err) {
     log.error({ err, ticketId: data.id }, "auto-resolve generateText failed");

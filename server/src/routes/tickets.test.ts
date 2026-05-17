@@ -27,6 +27,17 @@ vi.mock("../lib/boss", () => ({
   default: { send: vi.fn().mockResolvedValue("mock-job-id") },
 }));
 
+// Mock Vercel AI SDK so polish-reply and summarize don't hit Gemini in tests.
+// Default to a successful resolve; per-test overrides use mockRejectedValueOnce.
+const generateTextMock = vi.fn().mockResolvedValue({ text: "" });
+vi.mock("ai", async () => {
+  const actual = await vi.importActual<typeof import("ai")>("ai");
+  return {
+    ...actual,
+    generateText: (...args: unknown[]) => generateTextMock(...args),
+  };
+});
+
 describe("GET /api/tickets", () => {
   it("returns 401 when not authenticated", async () => {
     const res = await request(app).get("/api/tickets");
@@ -1500,6 +1511,29 @@ describe("POST /api/tickets/:id/polish-reply", () => {
     expect(res.status).toBe(404);
     expect(res.body.error).toBeTypeOf("string");
   });
+
+  it("returns 200 and the polished body on success", async () => {
+    generateTextMock.mockResolvedValueOnce({ text: "Polished reply text." });
+
+    const res = await request(app)
+      .post(`/api/tickets/${ticketId}/polish-reply`)
+      .set("Cookie", authCookie)
+      .send({ body: "rough draft" });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ body: "Polished reply text." });
+  });
+
+  it("returns 500 when the AI call fails", async () => {
+    generateTextMock.mockRejectedValueOnce(new Error("Gemini down"));
+
+    const res = await request(app)
+      .post(`/api/tickets/${ticketId}/polish-reply`)
+      .set("Cookie", authCookie)
+      .send({ body: "rough draft" });
+
+    expect(res.status).toBe(500);
+  });
 });
 
 describe("POST /api/tickets/:id/summarize", () => {
@@ -1585,6 +1619,27 @@ describe("POST /api/tickets/:id/summarize", () => {
       .set("Cookie", authCookie);
     expect(res.status).toBe(404);
     expect(res.body.error).toBeTypeOf("string");
+  });
+
+  it("returns 200 and the summary on success", async () => {
+    generateTextMock.mockResolvedValueOnce({ text: "Ticket summary." });
+
+    const res = await request(app)
+      .post(`/api/tickets/${ticketId}/summarize`)
+      .set("Cookie", authCookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ summary: "Ticket summary." });
+  });
+
+  it("returns 500 when the AI call fails", async () => {
+    generateTextMock.mockRejectedValueOnce(new Error("Gemini down"));
+
+    const res = await request(app)
+      .post(`/api/tickets/${ticketId}/summarize`)
+      .set("Cookie", authCookie);
+
+    expect(res.status).toBe(500);
   });
 });
 

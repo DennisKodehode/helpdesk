@@ -387,6 +387,7 @@ router.post("/:id/summarize", requireAuth, aiEndpointLimiter, async (req, res) =
   const { text } = await generateText({
     model: google("gemini-2.5-flash-lite"),
     prompt,
+    timeout: 30_000,
   });
 
   res.json({ summary: text });
@@ -439,6 +440,7 @@ router.post("/:id/polish-reply", requireAuth, aiEndpointLimiter, async (req, res
   const { text } = await generateText({
     model: google("gemini-2.5-flash-lite"),
     prompt,
+    timeout: 30_000,
   });
 
   res.json({ body: text });
