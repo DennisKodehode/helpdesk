@@ -1,3 +1,4 @@
+import path from "node:path";
 import * as Sentry from "@sentry/node";
 import { toNodeHandler } from "better-auth/node";
 import cors from "cors";
@@ -35,6 +36,19 @@ app.use("/api/tickets", ticketsRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/inbound-email", inboundEmailRouter);
 app.use("/api/notifications", notificationsRouter);
+
+// In production, serve the built client SPA. In dev, Vite serves it on :5173
+// and proxies /api to this server, so no static handling is needed.
+if (env.NODE_ENV === "production") {
+  const clientDist = path.resolve(import.meta.dirname, "../../client/dist");
+  app.use(express.static(clientDist));
+  // SPA catch-all so deep links like /tickets/123 work on refresh. Express 5
+  // requires a named wildcard ("/*splat") rather than the bare "*".
+  app.get("/*splat", (req, res, next) => {
+    if (req.path.startsWith("/api/")) return next();
+    res.sendFile(path.join(clientDist, "index.html"));
+  });
+}
 
 Sentry.setupExpressErrorHandler(app);
 

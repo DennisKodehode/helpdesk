@@ -107,6 +107,14 @@ For E2E tests, copy `server/.env.test.example` → `server/.env.test` and `clien
 
 Better Auth handles all `/api/auth/*` routes via `toNodeHandler(auth)`. Sessions are database-stored (not JWTs). Self-registration is disabled — agents are created by admins only. The `role` field defaults to `"agent"` and is never writable from client input. See `client/CLAUDE.md` and `server/CLAUDE.md` for implementation details.
 
+## Deploy + CI
+
+- **`Dockerfile`** (multi-stage, `oven/bun:1.3.11-slim`) builds the server + bundles the Vite SPA. Express serves `client/dist` in production. Bun's install must use `--linker=hoisted` in the release stage so `core/src/schemas.ts` can resolve workspace deps like `zod`.
+- **`.bun-version`** is the single source of truth — Dockerfile and CI both pin from it.
+- **`railway.toml`** points Railway at the Dockerfile, sets the healthcheck to `/api/health`, and runs `bunx prisma migrate deploy` via `preDeployCommand` before each release.
+- **`.github/workflows/ci.yml`** runs lint + typecheck + `bun audit --audit-level=high` + client tests + server tests (against a postgres service container with migrations applied) + a Docker build verification on every PR and push to `master`.
+- **Local Docker smoke test**: `docker build -t helpdesk . && docker run --rm -p 3001:3000 --env-file server/.env -e NODE_ENV=production -e BETTER_AUTH_URL=http://helpdesk.local:3000 -e CLIENT_URL=http://helpdesk.local:3000 -e DATABASE_URL=postgresql://postgres:<password>@host.docker.internal:5432/helpdesk helpdesk`. The URL overrides bypass env.ts's production refinements (no localhost in `BETTER_AUTH_URL`); `host.docker.internal` reaches the host Postgres from inside the container.
+
 ## General approach
 
 This project is developed properly, following best practices. When in doubt, do things the right way — not the quick way. Flag shortcuts or tradeoffs rather than silently taking them.

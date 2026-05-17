@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+# Cancel an in-progress run if a newer commit lands on the same PR/branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      # Only fail on high/critical CVEs so moderate upstream advisories don't
+      # block PRs. Lower-severity issues still show in the workflow output.
+      - run: bun audit --audit-level=high
+
+  test-client:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - run: bun run test
+        working-directory: client
+
+  test-server:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: helpdesk_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/helpdesk_test
+      BETTER_AUTH_SECRET: ci-test-secret-padded-to-meet-the-32-char-minimum
+      BETTER_AUTH_URL: http://localhost:3000
+      CLIENT_URL: http://localhost:5173
+      RESEND_API_KEY: re_test_fake
+      RESEND_WEBHOOK_SECRET: whsec_MfKQ9r8GHY+FrmMzAiYWaHUvF7jHvpkVEqb9bEcKLTo=
+      GOOGLE_GENERATIVE_AI_API_KEY: ci-placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - run: bunx prisma migrate deploy
+        working-directory: server
+      - run: bun run test
+        working-directory: server
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      # Verify the Dockerfile builds end-to-end. No push, no registry.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: false
+          tags: helpdesk:ci

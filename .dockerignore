@@ -1,0 +1,48 @@
+**/node_modules
+**/dist
+**/build
+**/coverage
+**/.turbo
+**/.cache
+
+# Env / secrets — keep .env.example so Docker users can see what's expected
+**/.env
+**/.env.local
+**/.env.test
+**/.env.*.local
+
+# Git, IDE, OS metadata
+.git
+.github
+.gitignore
+.gitattributes
+.idea
+.vscode
+**/.DS_Store
+**/Thumbs.db
+
+# Generated Prisma client (regenerated inside the build stage)
+server/src/generated
+
+# Tests + test artefacts (image runs production code only)
+**/*.test.ts
+**/*.test.tsx
+e2e
+playwright.config.ts
+playwright-report
+test-results
+
+# Docs / planning
+**/CLAUDE.md
+**/.claude
+**/*.md
+!server/knowledge-base.md
+
+# Lockfile-adjacent caches
+.bun
+bun-cache
+
+# This file shouldn't end up in the image
+Dockerfile
+.dockerignore
+railway.toml
