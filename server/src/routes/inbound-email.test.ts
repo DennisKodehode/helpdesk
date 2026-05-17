@@ -390,6 +390,71 @@ describe("POST /api/inbound-email", () => {
     const ticketCountAfterSecond = await prisma.ticket.count();
     expect(ticketCountAfterSecond).toBe(ticketCountAfterFirst);
   });
+
+  it("returns 200 deduplicated when a concurrent new-ticket insert loses the P2002 race", async () => {
+    // Simulate the race: SELECT dedup misses (no row yet), then ticket.create
+    // throws unique-constraint because a sibling request inserted in the gap.
+    // vi.spyOn doesn't restore cleanly against Prisma's dynamic getters, so
+    // save/restore the method manually.
+    const original = prisma.ticket.create;
+    prisma.ticket.create = vi.fn().mockRejectedValueOnce(
+      Object.assign(new Error("Unique constraint failed"), {
+        code: "P2002",
+        meta: { target: ["resendEmailId"] },
+      }),
+    ) as typeof prisma.ticket.create;
+
+    try {
+      const res = await request(app)
+        .post("/api/inbound-email")
+        .set(SVIX_HEADERS)
+        .send(makeEvent());
+
+      expect(res.status).toBe(200);
+      expect(res.body.deduplicated).toBe(true);
+    } finally {
+      prisma.ticket.create = original;
+    }
+  });
+
+  it("returns 200 deduplicated when a concurrent reply insert loses the P2002 race", async () => {
+    // Existing ticket so the handler hits the reply path (transaction).
+    const existing = await prisma.ticket.create({
+      data: {
+        fromName: "Race Tester",
+        fromEmail: "race@example.com",
+        subject: "Race subject",
+        body: "First message",
+        status: TicketStatus.open,
+      },
+    });
+    createdTicketId = existing.id;
+
+    const original = prisma.$transaction;
+    prisma.$transaction = vi.fn().mockRejectedValueOnce(
+      Object.assign(new Error("Unique constraint failed"), {
+        code: "P2002",
+        meta: { target: ["resendEmailId"] },
+      }),
+    ) as typeof prisma.$transaction;
+
+    try {
+      const res = await request(app)
+        .post("/api/inbound-email")
+        .set(SVIX_HEADERS)
+        .send(
+          makeEvent({
+            from: "Race Tester <race@example.com>",
+            subject: "Race subject",
+          }),
+        );
+
+      expect(res.status).toBe(200);
+      expect(res.body.deduplicated).toBe(true);
+    } finally {
+      prisma.$transaction = original;
+    }
+  });
 });
 
 describe("POST /api/inbound-email — AI auto-unassign + agent notification", () => {

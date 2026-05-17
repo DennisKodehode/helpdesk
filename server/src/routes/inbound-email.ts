@@ -20,6 +20,17 @@ import { webhookLimiter } from "../middleware/rate-limit";
 
 const router = Router();
 
+// Duck-typed so we don't import Prisma's error class (path varies across
+// generated-client versions). P2002 is the unique-constraint-violation code.
+function isUniqueConstraintError(err: unknown): boolean {
+  return (
+    err != null &&
+    typeof err === "object" &&
+    "code" in err &&
+    (err as { code: unknown }).code === "P2002"
+  );
+}
+
 function parseFrom(from: string): { fromName: string; fromEmail: string } {
   const match = from.match(/^"?([^"<>]+?)"?\s*<([^>]+)>$/);
   if (match) {
@@ -164,27 +175,39 @@ router.post("/", webhookLimiter, async (req, res) => {
     const shouldUnassignAi = wasResolved && isAiAssigned(existingTicket.assignedToId);
     const now = new Date();
 
-    const [reply, refreshedTicket] = await prisma.$transaction([
-      prisma.reply.create({
-        data: {
-          ticketId: existingTicket.id,
-          authorId: null,
-          senderType: SenderType.customer,
-          body: body ?? "",
-          bodyHtml: bodyHtml ?? null,
-          resendEmailId: emailId,
-        },
-      }),
-      prisma.ticket.update({
-        where: { id: existingTicket.id },
-        data: {
-          updatedAt: now,
-          ...(wasResolved && { status: TicketStatus.open, resolvedAt: null }),
-          ...(shouldUnassignAi && { assignedToId: null }),
-        },
-        select: { id: true, assignedToId: true, subject: true },
-      }),
-    ]);
+    let reply: Awaited<ReturnType<typeof prisma.reply.create>>;
+    let refreshedTicket: { id: number; assignedToId: string | null; subject: string };
+    try {
+      [reply, refreshedTicket] = await prisma.$transaction([
+        prisma.reply.create({
+          data: {
+            ticketId: existingTicket.id,
+            authorId: null,
+            senderType: SenderType.customer,
+            body: body ?? "",
+            bodyHtml: bodyHtml ?? null,
+            resendEmailId: emailId,
+          },
+        }),
+        prisma.ticket.update({
+          where: { id: existingTicket.id },
+          data: {
+            updatedAt: now,
+            ...(wasResolved && { status: TicketStatus.open, resolvedAt: null }),
+            ...(shouldUnassignAi && { assignedToId: null }),
+          },
+          select: { id: true, assignedToId: true, subject: true },
+        }),
+      ]);
+    } catch (err) {
+      // Concurrent delivery of the same email_id lost the race to insert the
+      // Reply. The transaction rolled back; the other request created the row.
+      if (isUniqueConstraintError(err)) {
+        res.status(200).json({ deduplicated: true });
+        return;
+      }
+      throw err;
+    }
 
     if (refreshedTicket.assignedToId && !isAiAssigned(refreshedTicket.assignedToId)) {
       const agent = await prisma.user.findUnique({
@@ -206,17 +229,28 @@ router.post("/", webhookLimiter, async (req, res) => {
     return;
   }
 
-  const ticket = await prisma.ticket.create({
-    data: {
-      fromName: parsedName,
-      fromEmail: parsedEmail,
-      subject,
-      body: body ?? "",
-      bodyHtml: bodyHtml ?? null,
-      status: TicketStatus.new,
-      resendEmailId: emailId,
-    },
-  });
+  let ticket: Awaited<ReturnType<typeof prisma.ticket.create>>;
+  try {
+    ticket = await prisma.ticket.create({
+      data: {
+        fromName: parsedName,
+        fromEmail: parsedEmail,
+        subject,
+        body: body ?? "",
+        bodyHtml: bodyHtml ?? null,
+        status: TicketStatus.new,
+        resendEmailId: emailId,
+      },
+    });
+  } catch (err) {
+    // Concurrent delivery of the same email_id lost the race to insert the
+    // Ticket. The other request created the row.
+    if (isUniqueConstraintError(err)) {
+      res.status(200).json({ deduplicated: true });
+      return;
+    }
+    throw err;
+  }
 
   const reqId = String(req.id);
   await boss.send(CLASSIFY_TICKET_QUEUE, {
