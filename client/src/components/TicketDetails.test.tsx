@@ -23,6 +23,7 @@ const mockTicket: TicketDetail = {
   assignedToId: null,
   assignedTo: null,
   assigneeType: "none",
+  isSuppressed: false,
   createdAt: "2024-01-15T10:30:00Z",
   updatedAt: "2024-01-15T11:00:00Z",
 };
@@ -49,5 +50,15 @@ describe("TicketDetails", () => {
   it("renders the received timestamp", () => {
     renderWithProviders(<TicketDetails ticket={mockTicket} />);
     expect(screen.getByText(/Received/i)).toBeInTheDocument();
+  });
+
+  it("does not render the suppression pill when isSuppressed is false", () => {
+    renderWithProviders(<TicketDetails ticket={mockTicket} />);
+    expect(screen.queryByText(/undeliverable/i)).not.toBeInTheDocument();
+  });
+
+  it("renders the suppression pill when isSuppressed is true", () => {
+    renderWithProviders(<TicketDetails ticket={{ ...mockTicket, isSuppressed: true }} />);
+    expect(screen.getByText(/undeliverable/i)).toBeInTheDocument();
   });
 });

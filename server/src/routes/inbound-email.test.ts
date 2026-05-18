@@ -86,14 +86,109 @@ describe("POST /api/inbound-email", () => {
     expect(res.body.error).toBeTypeOf("string");
   });
 
-  it("returns 200 without creating anything for non email.received events", async () => {
+  it("returns 200 without creating anything for unknown event types", async () => {
     const res = await request(app)
       .post("/api/inbound-email")
       .set(SVIX_HEADERS)
-      .send({ type: "email.bounced", data: {} });
+      .send({ type: "email.unknown_event", data: {} });
 
     expect(res.status).toBe(200);
     expect(res.body.received).toBe(true);
+  });
+
+  it("creates an EmailSuppression row for a Permanent email.bounced event", async () => {
+    const recipient = `bounce-${Date.now()}@example.com`;
+    const res = await request(app)
+      .post("/api/inbound-email")
+      .set(SVIX_HEADERS)
+      .send({
+        type: "email.bounced",
+        data: {
+          email_id: `bounce-id-${Date.now()}`,
+          to: [recipient],
+          from: "support@helpdesk.test",
+          subject: "Re: anything",
+          bounce: { type: "Permanent", subType: "General" },
+        },
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.acknowledged).toBe(true);
+    const row = await prisma.emailSuppression.findUnique({
+      where: { email: recipient.toLowerCase() },
+    });
+    expect(row).not.toBeNull();
+    expect(row?.reason).toBe("hard_bounce");
+    expect(row?.detail).toBe("Permanent/General");
+    await prisma.emailSuppression.delete({ where: { email: recipient.toLowerCase() } });
+  });
+
+  it("does NOT suppress on a Transient email.bounced event", async () => {
+    const recipient = `transient-${Date.now()}@example.com`;
+    const res = await request(app)
+      .post("/api/inbound-email")
+      .set(SVIX_HEADERS)
+      .send({
+        type: "email.bounced",
+        data: {
+          email_id: `transient-id-${Date.now()}`,
+          to: [recipient],
+          from: "support@helpdesk.test",
+          subject: "Re: anything",
+          bounce: { type: "Transient", subType: "MailboxFull" },
+        },
+      });
+
+    expect(res.status).toBe(200);
+    const row = await prisma.emailSuppression.findUnique({
+      where: { email: recipient.toLowerCase() },
+    });
+    expect(row).toBeNull();
+  });
+
+  it("creates an EmailSuppression row with reason=complaint for email.complained", async () => {
+    const recipient = `complained-${Date.now()}@example.com`;
+    const res = await request(app)
+      .post("/api/inbound-email")
+      .set(SVIX_HEADERS)
+      .send({
+        type: "email.complained",
+        data: {
+          email_id: `complaint-id-${Date.now()}`,
+          to: [recipient],
+          from: "support@helpdesk.test",
+          subject: "Re: anything",
+        },
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.acknowledged).toBe(true);
+    const row = await prisma.emailSuppression.findUnique({
+      where: { email: recipient.toLowerCase() },
+    });
+    expect(row?.reason).toBe("complaint");
+    await prisma.emailSuppression.delete({ where: { email: recipient.toLowerCase() } });
+  });
+
+  it("is idempotent for repeated bounce/complaint events on the same email", async () => {
+    const recipient = `idempotent-${Date.now()}@example.com`;
+    const payload = {
+      type: "email.bounced",
+      data: {
+        email_id: "first",
+        to: [recipient],
+        from: "support@helpdesk.test",
+        subject: "Re: anything",
+        bounce: { type: "Permanent", subType: "General" },
+      },
+    };
+    await request(app).post("/api/inbound-email").set(SVIX_HEADERS).send(payload);
+    await request(app).post("/api/inbound-email").set(SVIX_HEADERS).send(payload);
+    const rows = await prisma.emailSuppression.findMany({
+      where: { email: recipient.toLowerCase() },
+    });
+    expect(rows).toHaveLength(1);
+    await prisma.emailSuppression.delete({ where: { email: recipient.toLowerCase() } });
   });
 
   it("returns 201 and creates a new ticket when no existing ticket matches the email", async () => {

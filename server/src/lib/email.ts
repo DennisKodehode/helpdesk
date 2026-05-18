@@ -1,4 +1,6 @@
 import { env } from "./env";
+import { logger } from "./logger";
+import { prisma } from "./prisma";
 import resend from "./resend";
 
 const EMAIL_FROM = env.EMAIL_FROM;
@@ -16,6 +18,21 @@ export async function sendReplyEmail({
   subject,
   replyBody,
 }: SendReplyEmailParams): Promise<void> {
+  // Skip suppressed addresses (hard-bounced or marked-as-spam). Return rather
+  // than throw so pg-boss doesn't retry the job forever — the suppression is
+  // persistent until manually cleared.
+  const suppression = await prisma.emailSuppression.findUnique({
+    where: { email: to.toLowerCase() },
+    select: { reason: true },
+  });
+  if (suppression) {
+    logger.warn(
+      { to, reason: suppression.reason },
+      "skipping outbound to suppressed address",
+    );
+    return;
+  }
+
   const { error } = await resend.emails.send({
     from: EMAIL_FROM,
     to: `${toName} <${to}>`,

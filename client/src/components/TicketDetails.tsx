@@ -1,4 +1,5 @@
 import type { TicketDetail } from "@helpdesk/core";
+import SuppressionPill from "./SuppressionPill";
 
 interface Props {
   ticket: TicketDetail;
@@ -40,6 +41,7 @@ export default function TicketDetails({ ticket }: Props) {
         <span className="font-mono text-[12px] text-muted-foreground">
           {ticket.fromEmail}
         </span>
+        {ticket.isSuppressed && <SuppressionPill />}
       </div>
     </header>
   );

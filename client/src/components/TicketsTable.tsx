@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-table";
 import { ChevronDown, ChevronsUpDown, ChevronUp } from "lucide-react";
 import StatusPill from "@/components/StatusPill";
+import SuppressionPill from "@/components/SuppressionPill";
 import ErrorAlert from "@/components/ui/ErrorAlert";
 import { Link } from "@/components/ui/link";
 import {
@@ -70,9 +71,12 @@ const columns: ColumnDef<Ticket>[] = [
     cell: ({ row }) => (
       <div className="min-w-0 lg:max-w-[18rem] xl:max-w-[22rem]">
         <p className="truncate text-[13px] text-foreground">{row.original.fromName}</p>
-        <p className="truncate font-mono text-[11px] text-muted-foreground">
-          {row.original.fromEmail}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="truncate font-mono text-[11px] text-muted-foreground">
+            {row.original.fromEmail}
+          </p>
+          {row.original.isSuppressed && <SuppressionPill />}
+        </div>
       </div>
     ),
   },
@@ -325,9 +329,12 @@ export default function TicketsTable({
                 <div className="flex items-end justify-between gap-3 px-4 pt-3 pb-4">
                   <div className="min-w-0">
                     <p className="truncate text-[12px] text-foreground">{t.fromName}</p>
-                    <p className="truncate font-mono text-[11px] text-muted-foreground">
-                      {t.fromEmail}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="truncate font-mono text-[11px] text-muted-foreground">
+                        {t.fromEmail}
+                      </p>
+                      {t.isSuppressed && <SuppressionPill />}
+                    </div>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1.5">
                     <span

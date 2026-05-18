@@ -98,7 +98,23 @@ router.get("/", requireAuth, async (req, res) => {
     prisma.ticket.count({ where }),
   ]);
 
-  const data = rows.map((t) => ({ ...t, assigneeType: assigneeType(t.assignedToId) }));
+  const fromEmails = [...new Set(rows.map((r) => r.fromEmail.toLowerCase()))];
+  const suppressed = fromEmails.length
+    ? new Set(
+        (
+          await prisma.emailSuppression.findMany({
+            where: { email: { in: fromEmails } },
+            select: { email: true },
+          })
+        ).map((s) => s.email),
+      )
+    : new Set<string>();
+
+  const data = rows.map((t) => ({
+    ...t,
+    assigneeType: assigneeType(t.assignedToId),
+    isSuppressed: suppressed.has(t.fromEmail.toLowerCase()),
+  }));
 
   res.json({ data, total, page, pageSize });
 });
@@ -141,7 +157,16 @@ router.get("/:id", requireAuth, async (req, res) => {
     return;
   }
 
-  res.json({ ...ticket, assigneeType: assigneeType(ticket.assignedToId) });
+  const suppression = await prisma.emailSuppression.findUnique({
+    where: { email: ticket.fromEmail.toLowerCase() },
+    select: { reason: true },
+  });
+
+  res.json({
+    ...ticket,
+    assigneeType: assigneeType(ticket.assignedToId),
+    isSuppressed: suppression !== null,
+  });
 });
 
 router.patch("/:id", requireAuth, async (req, res) => {

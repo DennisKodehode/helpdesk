@@ -9,6 +9,7 @@ import EmailReplyParser from "email-reply-parser";
 import { Router } from "express";
 import he from "he";
 import { fromPrisma } from "pg-boss";
+import { SuppressionReason } from "../generated/prisma/client";
 import { isAiAssigned } from "../lib/ai-user";
 import { AUTO_RESOLVE_TICKET_QUEUE } from "../lib/auto-resolve-ticket";
 import boss from "../lib/boss";
@@ -98,8 +99,56 @@ router.post("/", webhookLimiter, async (req, res) => {
 
   const event = JSON.parse(rawPayload) as {
     type: string;
-    data: { email_id: string; from: string; subject: string; to: string[] };
+    data: {
+      email_id: string;
+      from: string;
+      subject: string;
+      to: string[];
+      bounce?: { type: string; subType?: string; message?: string };
+    };
   };
+
+  if (event.type === "email.bounced") {
+    // Suppress only on permanent (hard) bounces — transient/soft bounces are
+    // temporary (full mailbox, rate-limited) and would unfairly block the
+    // customer if treated as permanent. Upsert is idempotent across Resend's
+    // webhook retries.
+    if (event.data.bounce?.type === "Permanent") {
+      for (const to of event.data.to ?? []) {
+        await prisma.emailSuppression.upsert({
+          where: { email: to.toLowerCase() },
+          create: {
+            email: to.toLowerCase(),
+            reason: SuppressionReason.hard_bounce,
+            detail: `${event.data.bounce.type}/${event.data.bounce.subType ?? "Unknown"}`,
+            resendEmailId: event.data.email_id,
+          },
+          update: {},
+        });
+      }
+    }
+    res.status(200).json({ acknowledged: true });
+    return;
+  }
+
+  if (event.type === "email.complained") {
+    // Complaints are user-initiated ("mark as spam") — always suppress, and
+    // upgrade from hard_bounce → complaint if previously listed (complaint
+    // takes priority since it's a deliberate user signal).
+    for (const to of event.data.to ?? []) {
+      await prisma.emailSuppression.upsert({
+        where: { email: to.toLowerCase() },
+        create: {
+          email: to.toLowerCase(),
+          reason: SuppressionReason.complaint,
+          resendEmailId: event.data.email_id,
+        },
+        update: { reason: SuppressionReason.complaint },
+      });
+    }
+    res.status(200).json({ acknowledged: true });
+    return;
+  }
 
   if (event.type !== "email.received") {
     res.status(200).json({ received: true });

@@ -42,6 +42,7 @@ const mockTicket: TicketDetail = {
   assignedToId: null,
   assignedTo: null,
   assigneeType: "none",
+  isSuppressed: false,
   createdAt: "2024-01-15T10:30:00Z",
   updatedAt: "2024-01-15T11:00:00Z",
 };

@@ -149,6 +149,23 @@ model Reply {
   @@map("reply")
 }
 
+enum SuppressionReason {
+  hard_bounce
+  complaint
+  manual
+}
+
+model EmailSuppression {
+  id            String            @id @default(cuid())
+  email         String            @unique
+  reason        SuppressionReason
+  detail        String?
+  resendEmailId String?
+  createdAt     DateTime          @default(now())
+
+  @@map("email_suppression")
+}
+
 enum NotificationType {
   customer_reply
   ticket_assigned

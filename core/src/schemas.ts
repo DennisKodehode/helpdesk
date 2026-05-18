@@ -73,6 +73,7 @@ export const ticketSchema = z.object({
   priority: z.enum(TicketPriority),
   assignedToId: z.string().nullable(),
   assigneeType: assigneeTypeSchema,
+  isSuppressed: z.boolean(),
   createdAt: z.string(),
 });
 
@@ -93,6 +94,7 @@ export const ticketDetailSchema = z.object({
     .object({ id: z.string(), name: z.string(), email: z.string() })
     .nullable(),
   assigneeType: assigneeTypeSchema,
+  isSuppressed: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
