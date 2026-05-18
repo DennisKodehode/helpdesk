@@ -111,9 +111,18 @@ Better Auth handles all `/api/auth/*` routes via `toNodeHandler(auth)`. Sessions
 
 - **`Dockerfile`** (multi-stage, `oven/bun:1.3.11-slim`) builds the server + bundles the Vite SPA. Express serves `client/dist` in production. Bun's install must use `--linker=hoisted` in the release stage so `core/src/schemas.ts` can resolve workspace deps like `zod`.
 - **`.bun-version`** is the single source of truth — Dockerfile and CI both pin from it.
-- **`railway.toml`** points Railway at the Dockerfile, sets the healthcheck to `/api/health`, and runs `bunx prisma migrate deploy` via `preDeployCommand` before each release.
+- **`railway.toml`** points Railway at the Dockerfile, sets the healthcheck to `/api/health`, and runs `bunx prisma migrate deploy --config server/prisma.config.ts` via `preDeployCommand` before each release. The `--config` flag is required because Railway runs preDeployCommand from `/app` and Prisma 7 doesn't walk up to find `prisma.config.ts`.
 - **`.github/workflows/ci.yml`** runs lint + typecheck + `bun audit --audit-level=high` + client tests + server tests (against a postgres service container with migrations applied) + a Docker build verification on every PR and push to `master`.
 - **Local Docker smoke test**: `docker build -t helpdesk . && docker run --rm -p 3001:3000 --env-file server/.env -e NODE_ENV=production -e BETTER_AUTH_URL=http://helpdesk.local:3000 -e CLIENT_URL=http://helpdesk.local:3000 -e DATABASE_URL=postgresql://postgres:<password>@host.docker.internal:5432/helpdesk helpdesk`. The URL overrides bypass env.ts's production refinements (no localhost in `BETTER_AUTH_URL`); `host.docker.internal` reaches the host Postgres from inside the container.
+
+## Production
+
+The app is deployed to Railway. **Live URL + demo credentials are intentionally kept out of this committed file** until the portfolio demo is publicly launched — they live in a local-only project memory file outside the repo.
+
+- **Railway CLI** is already linked locally; `railway ssh` works for one-shot prod operations (e.g. `railway ssh bun server/prisma/seed.ts`). An ed25519 SSH key is registered with Railway and `ssh.railway.com` is in `known_hosts` — no SSH bootstrap needed in future sessions.
+- **Resend**: sending domain (DKIM/SPF) + receiving (MX) verified on the project's custom domain. Webhook subscribed to `email.received` + `email.bounced` + `email.complained`, pointing at the Railway URL. `RESEND_WEBHOOK_SECRET` synced into Railway env.
+- **Smoke-tested in prod**: real email → Resend webhook → ticket created → Gemini classify + auto-resolve → reply email delivered. Full pipeline working.
+- **Known UX bugs** (not blocking, filed in plan as #25.7 + #25.8): auth-state / query-cache race causing 401 flicker on login/logout, and `@fontsource/*` files not being bundled (fonts fall back to system).
 
 ## General approach
 
