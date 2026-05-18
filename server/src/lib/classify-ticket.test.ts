@@ -1,5 +1,16 @@
 import { TicketCategory, TicketPriority, TicketStatus } from "@helpdesk/core";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { generateId } from "better-auth";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+import { initAiUserId } from "./ai-user";
 import { prisma } from "./prisma";
 
 const generateTextMock = vi.fn();
@@ -18,6 +29,34 @@ const { classifyTicketWorker } = await import("./classify-ticket");
 
 describe("classify-ticket worker", () => {
   const createdIds: number[] = [];
+  let aiUserId: string;
+
+  beforeAll(async () => {
+    const id = generateId();
+    const now = new Date();
+    await prisma.user.upsert({
+      where: { email: "ai@helpdesk.internal" },
+      update: {},
+      create: {
+        id,
+        name: "AI",
+        email: "ai@helpdesk.internal",
+        emailVerified: true,
+        role: "agent",
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    const aiUser = await prisma.user.findUnique({
+      where: { email: "ai@helpdesk.internal" },
+    });
+    aiUserId = aiUser!.id;
+    await initAiUserId();
+  });
+
+  afterAll(async () => {
+    await prisma.user.deleteMany({ where: { email: "ai@helpdesk.internal" } });
+  });
 
   beforeEach(() => {
     generateTextMock.mockReset();
@@ -25,12 +64,16 @@ describe("classify-ticket worker", () => {
 
   afterEach(async () => {
     if (createdIds.length > 0) {
+      // Ticket cascade-delete handles audit_event rows
       await prisma.ticket.deleteMany({ where: { id: { in: createdIds } } });
       createdIds.length = 0;
     }
   });
 
-  async function seedTicket() {
+  async function seedTicket(overrides?: {
+    category?: TicketCategory | null;
+    priority?: TicketPriority;
+  }) {
     const ticket = await prisma.ticket.create({
       data: {
         fromName: "Classify Test",
@@ -38,6 +81,8 @@ describe("classify-ticket worker", () => {
         subject: "Account locked, please help",
         body: "I cannot log in to my paid account.",
         status: TicketStatus.new,
+        category: overrides?.category ?? null,
+        priority: overrides?.priority ?? TicketPriority.normal,
       },
     });
     createdIds.push(ticket.id);
@@ -65,7 +110,57 @@ describe("classify-ticket worker", () => {
     expect(refreshed!.priority).toBe(TicketPriority.urgent);
   });
 
-  it("leaves the ticket untouched when Gemini throws", async () => {
+  it("records category_changed and priority_changed audit events with AI as actor", async () => {
+    const ticket = await seedTicket();
+    generateTextMock.mockResolvedValue({
+      output: {
+        category: TicketCategory.refund_request,
+        priority: TicketPriority.high,
+      },
+    });
+
+    await classifyTicketWorker([
+      { data: { id: ticket.id, subject: ticket.subject, body: ticket.body } } as never,
+    ]);
+
+    const events = await prisma.auditEvent.findMany({
+      where: { ticketId: ticket.id },
+      orderBy: { type: "asc" },
+    });
+    expect(events).toHaveLength(2);
+    const byType = Object.fromEntries(events.map((e) => [e.type, e]));
+    expect(byType.category_changed).toBeDefined();
+    expect(byType.category_changed.actorId).toBe(aiUserId);
+    expect(byType.category_changed.data).toEqual({
+      from: null,
+      to: "refund_request",
+    });
+    expect(byType.priority_changed).toBeDefined();
+    expect(byType.priority_changed.actorId).toBe(aiUserId);
+    expect(byType.priority_changed.data).toEqual({ from: "normal", to: "high" });
+  });
+
+  it("records no audit events when AI output matches current values", async () => {
+    const ticket = await seedTicket({
+      category: TicketCategory.general_question,
+      priority: TicketPriority.normal,
+    });
+    generateTextMock.mockResolvedValue({
+      output: {
+        category: TicketCategory.general_question,
+        priority: TicketPriority.normal,
+      },
+    });
+
+    await classifyTicketWorker([
+      { data: { id: ticket.id, subject: ticket.subject, body: ticket.body } } as never,
+    ]);
+
+    const events = await prisma.auditEvent.findMany({ where: { ticketId: ticket.id } });
+    expect(events).toHaveLength(0);
+  });
+
+  it("leaves the ticket untouched and records no audit events when Gemini throws", async () => {
     const ticket = await seedTicket();
     generateTextMock.mockRejectedValue(new Error("Gemini down"));
 
@@ -78,7 +173,9 @@ describe("classify-ticket worker", () => {
       select: { category: true, priority: true },
     });
     expect(refreshed!.category).toBeNull();
-    // priority defaults to normal at the DB layer and stays put on failure
     expect(refreshed!.priority).toBe(TicketPriority.normal);
+
+    const events = await prisma.auditEvent.findMany({ where: { ticketId: ticket.id } });
+    expect(events).toHaveLength(0);
   });
 });

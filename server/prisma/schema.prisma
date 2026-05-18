@@ -196,6 +196,11 @@ enum AuditEventType {
   priority_changed
   category_changed
   reply_added
+  ticket_created
+  auto_resolved
+  ai_escalated
+  auto_reopened
+  auto_closed
 }
 
 model AuditEvent {

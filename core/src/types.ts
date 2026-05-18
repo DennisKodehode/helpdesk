@@ -51,6 +51,11 @@ export enum AuditEventType {
   priority_changed = "priority_changed",
   category_changed = "category_changed",
   reply_added = "reply_added",
+  ticket_created = "ticket_created",
+  auto_resolved = "auto_resolved",
+  ai_escalated = "ai_escalated",
+  auto_reopened = "auto_reopened",
+  auto_closed = "auto_closed",
 }
 
 export const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {

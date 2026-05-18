@@ -1,4 +1,5 @@
 import {
+  AuditEventType,
   inboundEmailSchema,
   NotificationType,
   SenderType,
@@ -11,6 +12,7 @@ import he from "he";
 import { fromPrisma } from "pg-boss";
 import { SuppressionReason } from "../generated/prisma/client";
 import { isAiAssigned } from "../lib/ai-user";
+import { recordAuditEvent } from "../lib/audit";
 import { AUTO_RESOLVE_TICKET_QUEUE } from "../lib/auto-resolve-ticket";
 import boss from "../lib/boss";
 import { CLASSIFY_TICKET_QUEUE } from "../lib/classify-ticket";
@@ -223,13 +225,14 @@ router.post("/", webhookLimiter, async (req, res) => {
   if (existingTicket) {
     const wasResolved = existingTicket.status === TicketStatus.resolved;
     const shouldUnassignAi = wasResolved && isAiAssigned(existingTicket.assignedToId);
+    const previousAssigneeId = existingTicket.assignedToId;
     const now = new Date();
 
     let reply: Awaited<ReturnType<typeof prisma.reply.create>>;
     let refreshedTicket: { id: number; assignedToId: string | null; subject: string };
     try {
-      [reply, refreshedTicket] = await prisma.$transaction([
-        prisma.reply.create({
+      ({ reply, refreshedTicket } = await prisma.$transaction(async (tx) => {
+        const createdReply = await tx.reply.create({
           data: {
             ticketId: existingTicket.id,
             authorId: null,
@@ -238,8 +241,8 @@ router.post("/", webhookLimiter, async (req, res) => {
             bodyHtml: bodyHtml ?? null,
             resendEmailId: emailId,
           },
-        }),
-        prisma.ticket.update({
+        });
+        const updatedTicket = await tx.ticket.update({
           where: { id: existingTicket.id },
           data: {
             updatedAt: now,
@@ -247,8 +250,34 @@ router.post("/", webhookLimiter, async (req, res) => {
             ...(shouldUnassignAi && { assignedToId: null }),
           },
           select: { id: true, assignedToId: true, subject: true },
-        }),
-      ]);
+        });
+        await recordAuditEvent(tx, {
+          ticketId: existingTicket.id,
+          actorId: null,
+          type: AuditEventType.reply_added,
+          data: { replyId: createdReply.id, senderType: SenderType.customer },
+        });
+        if (wasResolved) {
+          await recordAuditEvent(tx, {
+            ticketId: existingTicket.id,
+            actorId: null,
+            type: AuditEventType.auto_reopened,
+          });
+        }
+        if (shouldUnassignAi) {
+          await recordAuditEvent(tx, {
+            ticketId: existingTicket.id,
+            actorId: null,
+            type: AuditEventType.assignee_changed,
+            data: {
+              from: previousAssigneeId,
+              to: null,
+              reopenUnassigned: true,
+            },
+          });
+        }
+        return { reply: createdReply, refreshedTicket: updatedTicket };
+      }));
     } catch (err) {
       // Concurrent delivery of the same email_id lost the race to insert the
       // Reply. The transaction rolled back; the other request created the row.
@@ -297,6 +326,12 @@ router.post("/", webhookLimiter, async (req, res) => {
           status: TicketStatus.new,
           resendEmailId: emailId,
         },
+      });
+      await recordAuditEvent(tx, {
+        ticketId: created.id,
+        actorId: null,
+        type: AuditEventType.ticket_created,
+        data: { fromEmail: created.fromEmail },
       });
       await boss.send(
         CLASSIFY_TICKET_QUEUE,

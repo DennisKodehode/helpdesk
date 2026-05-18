@@ -37,6 +37,40 @@ describe("runAutoCloseTickets", () => {
     });
     expect(refreshed!.status).toBe(TicketStatus.closed);
     expect(refreshed!.closedAt).not.toBeNull();
+
+    const events = await prisma.auditEvent.findMany({ where: { ticketId: ticket.id } });
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe("auto_closed");
+    expect(events[0].actorId).toBeNull();
+  });
+
+  it("creates one auto_closed audit event per closed ticket on a multi-ticket run", async () => {
+    const oldResolvedAt = new Date(Date.now() - (AUTO_CLOSE_AGE_HOURS + 1) * HOUR);
+    const tickets = await Promise.all(
+      [1, 2, 3].map((n) =>
+        prisma.ticket.create({
+          data: {
+            fromName: `Multi Close ${n}`,
+            fromEmail: `multi-close-${n}@example.com`,
+            subject: `Multi ${n}`,
+            body: "",
+            status: TicketStatus.resolved,
+            resolvedAt: oldResolvedAt,
+          },
+        }),
+      ),
+    );
+    for (const t of tickets) createdIds.push(t.id);
+
+    const result = await runAutoCloseTickets();
+    expect(result.closedCount).toBe(3);
+
+    const events = await prisma.auditEvent.findMany({
+      where: { ticketId: { in: tickets.map((t) => t.id) } },
+    });
+    expect(events).toHaveLength(3);
+    expect(events.every((e) => e.type === "auto_closed")).toBe(true);
+    expect(events.every((e) => e.actorId === null)).toBe(true);
   });
 
   it("leaves resolved tickets younger than the window untouched", async () => {

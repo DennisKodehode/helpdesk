@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { TicketStatus } from "@helpdesk/core";
+import { AuditEventType, TicketStatus } from "@helpdesk/core";
 import * as Sentry from "@sentry/node";
 import type { Job } from "pg-boss";
+import { recordAuditEvent } from "./audit";
 import { logger } from "./logger";
 import { prisma } from "./prisma";
 
@@ -13,21 +14,38 @@ export async function runAutoCloseTickets(): Promise<{ closedCount: number }> {
   const cutoff = new Date(Date.now() - AUTO_CLOSE_AGE_HOURS * 60 * 60 * 1000);
   const now = new Date();
 
-  const result = await prisma.ticket.updateMany({
+  // Per-ticket transactions so each closed ticket gets its own auto_closed
+  // audit event committed atomically with the status flip. Bulk updateMany
+  // would let us skip the loop, but we'd lose per-ticket audit granularity.
+  const ticketsToClose = await prisma.ticket.findMany({
     where: {
       status: TicketStatus.resolved,
       resolvedAt: { not: null, lt: cutoff },
     },
-    data: { status: TicketStatus.closed, closedAt: now },
+    select: { id: true },
   });
 
-  if (result.count > 0) {
+  for (const { id } of ticketsToClose) {
+    await prisma.$transaction(async (tx) => {
+      await tx.ticket.update({
+        where: { id },
+        data: { status: TicketStatus.closed, closedAt: now },
+      });
+      await recordAuditEvent(tx, {
+        ticketId: id,
+        actorId: null,
+        type: AuditEventType.auto_closed,
+      });
+    });
+  }
+
+  if (ticketsToClose.length > 0) {
     logger.info(
-      { closedCount: result.count, ageHours: AUTO_CLOSE_AGE_HOURS },
+      { closedCount: ticketsToClose.length, ageHours: AUTO_CLOSE_AGE_HOURS },
       "auto-close-tickets: closed resolved tickets older than threshold",
     );
   }
-  return { closedCount: result.count };
+  return { closedCount: ticketsToClose.length };
 }
 
 export async function autoCloseTicketsWorker(_jobs: Job<unknown>[]) {

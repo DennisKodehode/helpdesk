@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { google } from "@ai-sdk/google";
-import { TicketCategory, TicketPriority } from "@helpdesk/core";
+import { AuditEventType, TicketCategory, TicketPriority } from "@helpdesk/core";
 import * as Sentry from "@sentry/node";
 import { generateText, Output } from "ai";
 import type { Job } from "pg-boss";
 import type { Logger } from "pino";
 import { z } from "zod";
+import { getAiUserId } from "./ai-user";
+import { recordAuditEvent } from "./audit";
 import { logger } from "./logger";
 import { prisma } from "./prisma";
 
@@ -54,9 +56,40 @@ async function runClassification(data: ClassifyTicketJobData, log: Logger) {
     return;
   }
 
-  await prisma.ticket.update({
+  const current = await prisma.ticket.findUnique({
     where: { id: data.id },
-    data: { category: output.category, priority: output.priority },
+    select: { category: true, priority: true },
+  });
+  if (!current) {
+    log.warn({ ticketId: data.id }, "classify-ticket: ticket disappeared mid-flight");
+    return;
+  }
+
+  const aiUserId = getAiUserId() ?? null;
+  const categoryChanged = output.category !== current.category;
+  const priorityChanged = output.priority !== current.priority;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.ticket.update({
+      where: { id: data.id },
+      data: { category: output.category, priority: output.priority },
+    });
+    if (categoryChanged) {
+      await recordAuditEvent(tx, {
+        ticketId: data.id,
+        actorId: aiUserId,
+        type: AuditEventType.category_changed,
+        data: { from: current.category, to: output.category },
+      });
+    }
+    if (priorityChanged) {
+      await recordAuditEvent(tx, {
+        ticketId: data.id,
+        actorId: aiUserId,
+        type: AuditEventType.priority_changed,
+        data: { from: current.priority, to: output.priority },
+      });
+    }
   });
 }
 

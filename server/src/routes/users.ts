@@ -1,6 +1,7 @@
-import { createUserSchema, Role, updateUserSchema } from "@helpdesk/core";
+import { AuditEventType, createUserSchema, Role, updateUserSchema } from "@helpdesk/core";
 import { generateId } from "better-auth";
 import { Router } from "express";
+import { recordAuditEvent } from "../lib/audit";
 import { auth } from "../lib/auth";
 import { prisma } from "../lib/prisma";
 import { firstIssue } from "../lib/validation";
@@ -81,10 +82,30 @@ router.delete("/:id", ...requireAdminChain, async (req, res) => {
     return;
   }
   const now = new Date();
-  await prisma.ticket.updateMany({
+  const actorId = req.user!.id;
+
+  // Per-ticket transactions so each unassigned ticket gets its own
+  // assignee_changed audit event with reason=user_deleted. Bulk updateMany
+  // would lose per-ticket audit granularity.
+  const affectedTickets = await prisma.ticket.findMany({
     where: { assignedToId: id },
-    data: { assignedToId: null },
+    select: { id: true },
   });
+  for (const { id: ticketId } of affectedTickets) {
+    await prisma.$transaction(async (tx) => {
+      await tx.ticket.update({
+        where: { id: ticketId },
+        data: { assignedToId: null },
+      });
+      await recordAuditEvent(tx, {
+        ticketId,
+        actorId,
+        type: AuditEventType.assignee_changed,
+        data: { from: id, to: null, reason: "user_deleted" },
+      });
+    });
+  }
+
   await prisma.user.update({
     where: { id },
     data: { email: `deleted-${id}@deleted.invalid`, deletedAt: now },

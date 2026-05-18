@@ -201,6 +201,104 @@ describe("ActivityFeed", () => {
     expect(link).toHaveAttribute("href", "#reply-99");
   });
 
+  it("renders a ticket_created event with the fromEmail", async () => {
+    mockAuditAndAgents([
+      {
+        id: "ev-tc",
+        type: AuditEventType.ticket_created,
+        actor: null,
+        data: { fromEmail: "alice@example.com" },
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    renderWithProviders(<ActivityFeed ticketId="42" />);
+
+    const item = await screen.findByText(/Ticket created from/);
+    expect(item).toHaveTextContent("alice@example.com");
+  });
+
+  it("renders an auto_resolved event as a link to #reply-<id>", async () => {
+    mockAuditAndAgents([
+      {
+        id: "ev-ar",
+        type: AuditEventType.auto_resolved,
+        actor: { id: "ai", name: "AI" },
+        data: { replyId: 555 },
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    renderWithProviders(<ActivityFeed ticketId="42" />);
+
+    const link = await screen.findByRole("link", {
+      name: /AI auto-resolved the ticket/i,
+    });
+    expect(link).toHaveAttribute("href", "#reply-555");
+  });
+
+  it("renders an ai_escalated event with the reason in a title attribute", async () => {
+    mockAuditAndAgents([
+      {
+        id: "ev-esc",
+        type: AuditEventType.ai_escalated,
+        actor: { id: "ai", name: "AI" },
+        data: { reason: "ai_chose_escalate" },
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    renderWithProviders(<ActivityFeed ticketId="42" />);
+
+    const item = await screen.findByTitle("ai_chose_escalate");
+    expect(item).toHaveTextContent("AI escalated to humans");
+  });
+
+  it("renders an auto_reopened event", async () => {
+    mockAuditAndAgents([
+      {
+        id: "ev-rop",
+        type: AuditEventType.auto_reopened,
+        actor: null,
+        data: {},
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    renderWithProviders(<ActivityFeed ticketId="42" />);
+
+    expect(
+      await screen.findByText("Auto-reopened on customer reply"),
+    ).toBeInTheDocument();
+  });
+
+  it("renders an auto_closed event", async () => {
+    mockAuditAndAgents([
+      {
+        id: "ev-cls",
+        type: AuditEventType.auto_closed,
+        actor: null,
+        data: {},
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    renderWithProviders(<ActivityFeed ticketId="42" />);
+
+    expect(await screen.findByText("Auto-closed after 96h")).toBeInTheDocument();
+  });
+
+  it("renders an assignee_changed with reason=user_deleted suffix", async () => {
+    mockAuditAndAgents([
+      {
+        id: "ev-del",
+        type: AuditEventType.assignee_changed,
+        actor: { id: "admin-1", name: "Admin Alice" },
+        data: { from: "deleted-id", to: null, reason: "user_deleted" },
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    renderWithProviders(<ActivityFeed ticketId="42" />);
+
+    const item = await screen.findByText(/unassigned the ticket \(agent deleted\)/i);
+    expect(item).toHaveTextContent("Admin Alice");
+  });
+
   it("preserves ordering of multiple events from the API", async () => {
     mockAuditAndAgents([
       {

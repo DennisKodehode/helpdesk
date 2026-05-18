@@ -3,13 +3,14 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { google } from "@ai-sdk/google";
-import { SenderType, TicketStatus } from "@helpdesk/core";
+import { AuditEventType, SenderType, TicketStatus } from "@helpdesk/core";
 import * as Sentry from "@sentry/node";
 import { generateText } from "ai";
 import type { Job } from "pg-boss";
 import { fromPrisma } from "pg-boss";
 import type { Logger } from "pino";
 import { getAiUserId } from "./ai-user";
+import { recordAuditEvent } from "./audit";
 import boss from "./boss";
 import { logger } from "./logger";
 import { prisma } from "./prisma";
@@ -71,9 +72,17 @@ async function runAutoResolve(data: AutoResolveJobData, log: Logger) {
   } catch (err) {
     log.error({ err, ticketId: data.id }, "auto-resolve generateText failed");
     Sentry.captureException(err);
-    await prisma.ticket.update({
-      where: { id: data.id },
-      data: { status: TicketStatus.open, assignedToId: null },
+    await prisma.$transaction(async (tx) => {
+      await tx.ticket.update({
+        where: { id: data.id },
+        data: { status: TicketStatus.open, assignedToId: null },
+      });
+      await recordAuditEvent(tx, {
+        ticketId: data.id,
+        actorId: aiUserId,
+        type: AuditEventType.ai_escalated,
+        data: { reason: "ai_call_failed" },
+      });
     });
     return;
   }
@@ -84,9 +93,17 @@ async function runAutoResolve(data: AutoResolveJobData, log: Logger) {
   } catch {
     log.error({ ticketId: data.id, text }, "auto-resolve: failed to parse AI response");
     Sentry.captureMessage("auto-resolve: AI response was not valid JSON", "error");
-    await prisma.ticket.update({
-      where: { id: data.id },
-      data: { status: TicketStatus.open, assignedToId: null },
+    await prisma.$transaction(async (tx) => {
+      await tx.ticket.update({
+        where: { id: data.id },
+        data: { status: TicketStatus.open, assignedToId: null },
+      });
+      await recordAuditEvent(tx, {
+        ticketId: data.id,
+        actorId: aiUserId,
+        type: AuditEventType.ai_escalated,
+        data: { reason: "json_parse_failure" },
+      });
     });
     return;
   }
@@ -103,7 +120,7 @@ async function runAutoResolve(data: AutoResolveJobData, log: Logger) {
     // reply is committed, pg-boss retries this job, and we run the AI call
     // + insert again — producing two replies for one ticket.
     await prisma.$transaction(async (tx) => {
-      await tx.reply.create({
+      const reply = await tx.reply.create({
         data: {
           ticketId: data.id,
           authorId: aiUserId,
@@ -118,6 +135,12 @@ async function runAutoResolve(data: AutoResolveJobData, log: Logger) {
           resolvedAt: now,
           ...(!ticket?.firstAgentReplyAt && { firstAgentReplyAt: now }),
         },
+      });
+      await recordAuditEvent(tx, {
+        ticketId: data.id,
+        actorId: aiUserId,
+        type: AuditEventType.auto_resolved,
+        data: { replyId: reply.id },
       });
       if (ticket) {
         await boss.send(
@@ -134,9 +157,17 @@ async function runAutoResolve(data: AutoResolveJobData, log: Logger) {
       }
     });
   } else {
-    await prisma.ticket.update({
-      where: { id: data.id },
-      data: { status: TicketStatus.open, assignedToId: null },
+    await prisma.$transaction(async (tx) => {
+      await tx.ticket.update({
+        where: { id: data.id },
+        data: { status: TicketStatus.open, assignedToId: null },
+      });
+      await recordAuditEvent(tx, {
+        ticketId: data.id,
+        actorId: aiUserId,
+        type: AuditEventType.ai_escalated,
+        data: { reason: "ai_chose_escalate" },
+      });
     });
   }
 }

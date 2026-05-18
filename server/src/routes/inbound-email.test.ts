@@ -550,6 +550,99 @@ describe("POST /api/inbound-email", () => {
       prisma.$transaction = original;
     }
   });
+
+  it("records a ticket_created audit event on new ticket", async () => {
+    const res = await request(app)
+      .post("/api/inbound-email")
+      .set(SVIX_HEADERS)
+      .send(
+        makeEvent({
+          from: "Audit New <audit-new@example.com>",
+          subject: "Audit new ticket subject",
+        }),
+      );
+
+    expect(res.status).toBe(201);
+    createdTicketId = res.body.ticket.id;
+
+    const events = await prisma.auditEvent.findMany({
+      where: { ticketId: createdTicketId },
+    });
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe("ticket_created");
+    expect(events[0].actorId).toBeNull();
+    expect(events[0].data).toEqual({ fromEmail: "audit-new@example.com" });
+  });
+
+  it("records a reply_added audit event on customer reply to an open ticket", async () => {
+    const existing = await prisma.ticket.create({
+      data: {
+        fromName: "Audit Reply",
+        fromEmail: "audit-reply@example.com",
+        subject: "Audit reply subject",
+        body: "First message",
+        status: TicketStatus.open,
+      },
+    });
+    createdTicketId = existing.id;
+
+    const res = await request(app)
+      .post("/api/inbound-email")
+      .set(SVIX_HEADERS)
+      .send(
+        makeEvent({
+          from: "Audit Reply <audit-reply@example.com>",
+          subject: "Re: Audit reply subject",
+        }),
+      );
+
+    expect(res.status).toBe(201);
+    createdReplyId = res.body.reply.id;
+
+    const events = await prisma.auditEvent.findMany({
+      where: { ticketId: existing.id },
+    });
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe("reply_added");
+    expect(events[0].actorId).toBeNull();
+    expect(events[0].data).toEqual({
+      replyId: createdReplyId,
+      senderType: SenderType.customer,
+    });
+  });
+
+  it("records reply_added + auto_reopened on customer reply to a resolved ticket", async () => {
+    const existing = await prisma.ticket.create({
+      data: {
+        fromName: "Audit Reopen",
+        fromEmail: "audit-reopen@example.com",
+        subject: "Audit reopen subject",
+        body: "First message",
+        status: TicketStatus.resolved,
+        resolvedAt: new Date(),
+      },
+    });
+    createdTicketId = existing.id;
+
+    const res = await request(app)
+      .post("/api/inbound-email")
+      .set(SVIX_HEADERS)
+      .send(
+        makeEvent({
+          from: "Audit Reopen <audit-reopen@example.com>",
+          subject: "Re: Audit reopen subject",
+        }),
+      );
+
+    expect(res.status).toBe(201);
+    createdReplyId = res.body.reply.id;
+
+    const events = await prisma.auditEvent.findMany({
+      where: { ticketId: existing.id },
+      orderBy: { type: "asc" },
+    });
+    expect(events.map((e) => e.type).sort()).toEqual(["auto_reopened", "reply_added"]);
+  });
 });
 
 describe("POST /api/inbound-email — AI auto-unassign + agent notification", () => {
@@ -765,5 +858,67 @@ describe("POST /api/inbound-email — AI auto-unassign + agent notification", ()
 
     const aiNotifs = await prisma.notification.findMany({ where: { userId: aiUserId } });
     expect(aiNotifs).toHaveLength(0);
+  });
+
+  it("records assignee_changed (reopenUnassigned) when auto-reopening an AI-assigned resolved ticket", async () => {
+    const now = new Date();
+    const aiId = generateId();
+    await prisma.user.upsert({
+      where: { email: "ai@helpdesk.internal" },
+      update: {},
+      create: {
+        id: aiId,
+        name: "AI",
+        email: "ai@helpdesk.internal",
+        emailVerified: true,
+        role: "agent",
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    const aiUser = await prisma.user.findUnique({
+      where: { email: "ai@helpdesk.internal" },
+    });
+    aiUserId = aiUser!.id;
+    await initAiUserId();
+
+    const existing = await prisma.ticket.create({
+      data: {
+        fromName: "Audit",
+        fromEmail: "audit-ai-reopen@example.com",
+        subject: "Audit AI reopen",
+        body: "First",
+        status: TicketStatus.resolved,
+        resolvedAt: new Date(),
+        assignedToId: aiUserId,
+      },
+    });
+    createdTicketId = existing.id;
+
+    const res = await request(app)
+      .post("/api/inbound-email")
+      .set(SVIX_HEADERS)
+      .send(
+        makeEvent({
+          from: "Audit <audit-ai-reopen@example.com>",
+          subject: "Re: Audit AI reopen",
+        }),
+      );
+
+    expect(res.status).toBe(201);
+    createdReplyId = res.body.reply.id;
+
+    const events = await prisma.auditEvent.findMany({
+      where: { ticketId: existing.id },
+    });
+    const types = events.map((e) => e.type).sort();
+    expect(types).toEqual(["assignee_changed", "auto_reopened", "reply_added"]);
+
+    const assigneeEvent = events.find((e) => e.type === "assignee_changed");
+    expect(assigneeEvent!.data).toEqual({
+      from: aiUserId,
+      to: null,
+      reopenUnassigned: true,
+    });
   });
 });

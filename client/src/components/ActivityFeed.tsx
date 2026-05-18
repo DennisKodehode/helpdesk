@@ -10,11 +10,15 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import {
+  AlertTriangle,
+  Archive,
   ArrowRight,
   Flag,
   Lock,
   Mail,
   MessageSquare,
+  RotateCcw,
+  Sparkles,
   Tag,
   UserCheck,
 } from "lucide-react";
@@ -45,8 +49,14 @@ type AssigneeChangeData = {
   from: string | null;
   to: string | null;
   reopenUnassigned?: boolean;
+  reason?: "user_deleted";
 };
 type ReplyAddedData = { replyId: number; senderType: SenderType };
+type TicketCreatedData = { fromEmail: string };
+type AutoResolvedData = { replyId: number };
+type AiEscalatedData = {
+  reason: "ai_chose_escalate" | "ai_call_failed" | "json_parse_failure";
+};
 
 function renderEvent(
   event: AuditEvent,
@@ -79,13 +89,14 @@ function renderEvent(
       };
     }
     const toName = data.to ? agentsById.get(data.to) : null;
+    const suffix = data.reason === "user_deleted" ? " (agent deleted)" : "";
     return {
       icon: <UserCheck className="size-3.5 text-muted-foreground" aria-hidden />,
       content: (
         <span>
           <span className="font-medium text-foreground">{actorName}</span>
           {data.to === null
-            ? " unassigned the ticket"
+            ? ` unassigned the ticket${suffix}`
             : toName
               ? ` assigned to ${toName}`
               : " reassigned the ticket"}
@@ -166,6 +177,66 @@ function renderEvent(
           {" replied"}
         </a>
       ),
+    };
+  }
+
+  if (event.type === AuditEventType.ticket_created) {
+    const data = event.data as TicketCreatedData;
+    return {
+      icon: <Mail className="size-3.5 text-muted-foreground" aria-hidden />,
+      content: (
+        <span>
+          Ticket created from <span className="text-foreground">{data.fromEmail}</span>
+        </span>
+      ),
+    };
+  }
+
+  if (event.type === AuditEventType.auto_resolved) {
+    const data = event.data as AutoResolvedData;
+    return {
+      icon: <Sparkles className="size-3.5 text-primary" aria-hidden />,
+      content: (
+        <a
+          href={`#reply-${data.replyId}`}
+          className="hover:text-foreground hover:underline"
+        >
+          <span className="font-medium text-foreground">AI</span>
+          {" auto-resolved the ticket"}
+        </a>
+      ),
+    };
+  }
+
+  if (event.type === AuditEventType.ai_escalated) {
+    const data = event.data as AiEscalatedData;
+    return {
+      icon: (
+        <AlertTriangle
+          className="size-3.5 text-amber-600 dark:text-amber-400"
+          aria-hidden
+        />
+      ),
+      content: (
+        <span title={data.reason}>
+          <span className="font-medium text-foreground">AI</span>
+          {" escalated to humans"}
+        </span>
+      ),
+    };
+  }
+
+  if (event.type === AuditEventType.auto_reopened) {
+    return {
+      icon: <RotateCcw className="size-3.5 text-muted-foreground" aria-hidden />,
+      content: <span>Auto-reopened on customer reply</span>,
+    };
+  }
+
+  if (event.type === AuditEventType.auto_closed) {
+    return {
+      icon: <Archive className="size-3.5 text-muted-foreground" aria-hidden />,
+      content: <span>Auto-closed after 96h</span>,
     };
   }
 

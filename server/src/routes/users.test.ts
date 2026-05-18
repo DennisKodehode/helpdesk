@@ -373,6 +373,47 @@ describe("DELETE /api/users/:id", () => {
 
     await prisma.ticket.delete({ where: { id: ticket.id } });
   });
+
+  it("records assignee_changed audit events per affected ticket with reason=user_deleted", async () => {
+    const t1 = await prisma.ticket.create({
+      data: {
+        fromName: "C1",
+        fromEmail: "c1@example.com",
+        subject: "T1",
+        body: "",
+        assignedToId: targetId,
+      },
+    });
+    const t2 = await prisma.ticket.create({
+      data: {
+        fromName: "C2",
+        fromEmail: "c2@example.com",
+        subject: "T2",
+        body: "",
+        assignedToId: targetId,
+      },
+    });
+
+    const res = await request(app)
+      .delete(`/api/users/${targetId}`)
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(204);
+
+    const events = await prisma.auditEvent.findMany({
+      where: { ticketId: { in: [t1.id, t2.id] } },
+    });
+    expect(events).toHaveLength(2);
+    expect(events.every((e) => e.type === "assignee_changed")).toBe(true);
+    for (const ev of events) {
+      expect(ev.data).toEqual({
+        from: targetId,
+        to: null,
+        reason: "user_deleted",
+      });
+    }
+
+    await prisma.ticket.deleteMany({ where: { id: { in: [t1.id, t2.id] } } });
+  });
 });
 
 // ─── PATCH /api/users/:id ─────────────────────────────────────────────────────
