@@ -2,6 +2,7 @@ import type { TicketDetail, TicketStatus } from "@helpdesk/core";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { useParams } from "react-router";
+import ActivityFeed from "@/components/ActivityFeed";
 import ReplyForm from "@/components/ReplyForm";
 import ReplyThread from "@/components/ReplyThread";
 import TicketDetails from "@/components/TicketDetails";
@@ -72,6 +73,7 @@ export default function TicketDetailPage() {
 
             <aside className="lg:sticky lg:top-8">
               <TicketMeta ticket={ticket} />
+              <ActivityFeed ticketId={id!} />
             </aside>
           </div>
         </div>

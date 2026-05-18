@@ -51,6 +51,7 @@ model User {
   replies              Reply[]
   notifications        Notification[] @relation("NotificationRecipient")
   triggeredNotifications Notification[] @relation("NotificationActor")
+  auditEvents          AuditEvent[]   @relation("AuditEventActor")
 
   @@map("user")
 }
@@ -125,6 +126,7 @@ model Ticket {
   resendEmailId      String?  @unique
   replies            Reply[]
   notifications      Notification[]
+  auditEvents        AuditEvent[]
 
   @@index([status, createdAt])
   @@index([assignedToId, status])
@@ -186,4 +188,26 @@ model Notification {
 
   @@index([userId, readAt, createdAt])
   @@map("notification")
+}
+
+enum AuditEventType {
+  status_changed
+  assignee_changed
+  priority_changed
+  category_changed
+  reply_added
+}
+
+model AuditEvent {
+  id        String         @id @default(cuid())
+  ticketId  Int
+  ticket    Ticket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actorId   String?
+  actor     User?          @relation("AuditEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+  type      AuditEventType
+  data      Json?
+  createdAt DateTime       @default(now())
+
+  @@index([ticketId, createdAt])
+  @@map("audit_event")
 }

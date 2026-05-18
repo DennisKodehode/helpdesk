@@ -1126,6 +1126,76 @@ describe("PATCH /api/tickets/:id", () => {
     });
     expect(notifs).toHaveLength(0);
   });
+
+  it("records a status_changed audit event when status changes", async () => {
+    await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", authCookie)
+      .send({ status: TicketStatus.resolved });
+
+    const events = await prisma.auditEvent.findMany({ where: { ticketId } });
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe("status_changed");
+    expect(events[0].actorId).toBe(testUserId);
+    expect(events[0].data).toEqual({ from: "open", to: "resolved" });
+  });
+
+  it("records one audit event per changed field on a multi-field PATCH", async () => {
+    await request(app).patch(`/api/tickets/${ticketId}`).set("Cookie", authCookie).send({
+      assignedToId: assigneeId,
+      priority: "high",
+      category: "billing_inquiry",
+    });
+
+    const events = await prisma.auditEvent.findMany({
+      where: { ticketId },
+      orderBy: { createdAt: "asc" },
+    });
+    expect(events).toHaveLength(3);
+    const types = events.map((e) => e.type).sort();
+    expect(types).toEqual(["assignee_changed", "category_changed", "priority_changed"]);
+  });
+
+  it("records no audit events when submitted values match current values", async () => {
+    await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", authCookie)
+      .send({ status: TicketStatus.open, priority: "normal" });
+
+    const events = await prisma.auditEvent.findMany({ where: { ticketId } });
+    expect(events).toHaveLength(0);
+  });
+
+  it("records assignee_changed with reopenUnassigned when admin reopens an AI-assigned resolved ticket", async () => {
+    await prisma.ticket.update({
+      where: { id: ticketId },
+      data: {
+        status: TicketStatus.resolved,
+        resolvedAt: new Date(),
+        assignedToId: aiUserId,
+      },
+    });
+
+    await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", adminCookie)
+      .send({ status: TicketStatus.open });
+
+    const events = await prisma.auditEvent.findMany({
+      where: { ticketId },
+      orderBy: { createdAt: "asc" },
+    });
+    const statusEvent = events.find((e) => e.type === "status_changed");
+    const assigneeEvent = events.find((e) => e.type === "assignee_changed");
+    expect(statusEvent).toBeDefined();
+    expect(statusEvent!.data).toEqual({ from: "resolved", to: "open" });
+    expect(assigneeEvent).toBeDefined();
+    expect(assigneeEvent!.data).toEqual({
+      from: aiUserId,
+      to: null,
+      reopenUnassigned: true,
+    });
+  });
 });
 
 describe("GET /api/tickets/:id/replies", () => {
@@ -1466,6 +1536,140 @@ describe("POST /api/tickets/:id/replies", () => {
       select: { firstAgentReplyAt: true },
     });
     expect(after!.firstAgentReplyAt).toBeNull();
+  });
+
+  it("records a reply_added audit event for a public reply", async () => {
+    const res = await request(app)
+      .post(`/api/tickets/${ticketId}/replies`)
+      .set("Cookie", authCookie)
+      .send({ body: "Public reply.", isInternal: false });
+    expect(res.status).toBe(201);
+
+    const events = await prisma.auditEvent.findMany({ where: { ticketId } });
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe("reply_added");
+    expect(events[0].actorId).toBe(testUserId);
+    expect(events[0].data).toEqual({ replyId: res.body.id, senderType: "agent" });
+  });
+
+  it("records a reply_added audit event for an internal note", async () => {
+    const res = await request(app)
+      .post(`/api/tickets/${ticketId}/replies`)
+      .set("Cookie", authCookie)
+      .send({ body: "Internal note.", isInternal: true });
+    expect(res.status).toBe(201);
+
+    const events = await prisma.auditEvent.findMany({ where: { ticketId } });
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe("reply_added");
+    expect(events[0].data).toEqual({
+      replyId: res.body.id,
+      senderType: "internal_note",
+    });
+  });
+});
+
+describe("GET /api/tickets/:id/audit-events", () => {
+  let authCookie: string;
+  let testUserId: string;
+  let ticketId: number;
+
+  beforeAll(async () => {
+    const ctx = await auth.$context;
+    const hashedPassword = await ctx.password.hash("Testpassword1!");
+    const id = generateId();
+    const now = new Date();
+
+    await prisma.user.create({
+      data: {
+        id,
+        name: "Audit Events Agent",
+        email: "test-audit-events@example.com",
+        emailVerified: true,
+        role: "agent",
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await prisma.account.create({
+      data: {
+        id: generateId(),
+        accountId: id,
+        providerId: "credential",
+        userId: id,
+        password: hashedPassword,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    testUserId = id;
+
+    const signInRes = await request(app)
+      .post("/api/auth/sign-in/email")
+      .send({ email: "test-audit-events@example.com", password: "Testpassword1!" });
+    const cookies = signInRes.headers["set-cookie"] as string[] | string;
+    authCookie = Array.isArray(cookies) ? cookies.join("; ") : cookies;
+  });
+
+  afterAll(async () => {
+    await prisma.session.deleteMany({ where: { userId: testUserId } });
+    await prisma.account.deleteMany({ where: { userId: testUserId } });
+    await prisma.user.delete({ where: { id: testUserId } });
+  });
+
+  beforeEach(async () => {
+    const ticket = await prisma.ticket.create({
+      data: {
+        fromName: "Audit Events Test",
+        fromEmail: "auditevents@example.com",
+        subject: "Audit events subject",
+        body: "",
+        status: TicketStatus.open,
+      },
+    });
+    ticketId = ticket.id;
+  });
+
+  afterEach(async () => {
+    await prisma.ticket.delete({ where: { id: ticketId } });
+  });
+
+  it("returns 401 when not authenticated", async () => {
+    const res = await request(app).get(`/api/tickets/${ticketId}/audit-events`);
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 404 when ticket does not exist", async () => {
+    const res = await request(app)
+      .get("/api/tickets/999999999/audit-events")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(404);
+  });
+
+  it("returns events ordered by createdAt asc with actor info", async () => {
+    // Generate two events: a priority change then a status change
+    await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", authCookie)
+      .send({ priority: "high" });
+    await new Promise((r) => setTimeout(r, 5));
+    await request(app)
+      .patch(`/api/tickets/${ticketId}`)
+      .set("Cookie", authCookie)
+      .send({ status: TicketStatus.resolved });
+
+    const res = await request(app)
+      .get(`/api/tickets/${ticketId}/audit-events`)
+      .set("Cookie", authCookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(2);
+    expect(res.body[0].type).toBe("priority_changed");
+    expect(res.body[1].type).toBe("status_changed");
+    expect(res.body[0].actor).toMatchObject({
+      id: testUserId,
+      name: "Audit Events Agent",
+    });
   });
 });
 

@@ -45,6 +45,14 @@ export enum NotificationType {
   ticket_assigned = "ticket_assigned",
 }
 
+export enum AuditEventType {
+  status_changed = "status_changed",
+  assignee_changed = "assignee_changed",
+  priority_changed = "priority_changed",
+  category_changed = "category_changed",
+  reply_added = "reply_added",
+}
+
 export const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   [TicketStatus.new]: [],
   [TicketStatus.processing]: [],

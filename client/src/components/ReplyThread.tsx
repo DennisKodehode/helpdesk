@@ -97,7 +97,11 @@ export default function ReplyThread({ ticket }: Props) {
           const time = new Date(msg.createdAt);
 
           return (
-            <li key={msg.id} className="relative">
+            <li
+              key={msg.id}
+              id={msg.id === "original" ? undefined : `reply-${msg.id}`}
+              className="relative scroll-mt-20"
+            >
               {/* Vertical thread line */}
               {idx < messages.length - 1 && (
                 <span

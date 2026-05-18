@@ -40,6 +40,7 @@ export default function ReplyForm({ ticketId }: Props) {
       setIsPolished(false);
       setRefinementNote("");
       queryClient.invalidateQueries({ queryKey: ["ticket-replies", ticketId] });
+      queryClient.invalidateQueries({ queryKey: ["ticket-audit-events", ticketId] });
       queryClient.invalidateQueries({ queryKey: PERSONAL_STATS_QUERY_KEY });
     },
   });

@@ -1,6 +1,7 @@
 import { google } from "@ai-sdk/google";
 import {
   ADMIN_VALID_TRANSITIONS,
+  AuditEventType,
   createReplySchema,
   NotificationType,
   polishReplySchema,
@@ -18,6 +19,7 @@ import { Router } from "express";
 import { fromPrisma } from "pg-boss";
 import type { Prisma } from "../generated/prisma/client";
 import { assigneeType, isAiAssigned } from "../lib/ai-user";
+import { recordAuditEvent } from "../lib/audit";
 import boss from "../lib/boss";
 import { prisma } from "../lib/prisma";
 import { SEND_REPLY_EMAIL_QUEUE } from "../lib/send-reply-email-job";
@@ -246,46 +248,103 @@ router.patch("/:id", requireAuth, async (req, res) => {
     nextAssigneeId !== req.user!.id &&
     !isAiAssigned(nextAssigneeId);
 
-  const updated = await prisma.ticket.update({
-    where: { id },
-    data: {
-      ...(result.data.assignedToId !== undefined && {
-        assignedToId: result.data.assignedToId,
-      }),
-      ...(reopenUnassigns && { assignedToId: null }),
-      ...(result.data.status !== undefined && { status: result.data.status }),
-      ...(result.data.status === TicketStatus.resolved &&
-        !ticket.resolvedAt && { resolvedAt: new Date() }),
-      ...(result.data.category !== undefined && { category: result.data.category }),
-      ...(result.data.priority !== undefined && { priority: result.data.priority }),
-    },
-    select: {
-      id: true,
-      fromName: true,
-      fromEmail: true,
-      subject: true,
-      body: true,
-      bodyHtml: true,
-      status: true,
-      category: true,
-      priority: true,
-      assignedToId: true,
-      assignedTo: { select: { id: true, name: true, email: true } },
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
+  // One transaction: audit inserts + ticket update + assignment notification.
+  // If any audit insert fails, the change rolls back — changes never persist
+  // without their audit row.
+  const updated = await prisma.$transaction(async (tx) => {
+    const actorId = req.user!.id;
 
-  if (shouldNotifyAssignment && nextAssigneeId) {
-    await prisma.notification.create({
-      data: {
-        userId: nextAssigneeId,
-        actorId: req.user!.id,
-        type: NotificationType.ticket_assigned,
+    if (result.data.status !== undefined && result.data.status !== ticket.status) {
+      await recordAuditEvent(tx, {
         ticketId: id,
+        actorId,
+        type: AuditEventType.status_changed,
+        data: { from: ticket.status, to: result.data.status },
+      });
+    }
+
+    if (
+      result.data.assignedToId !== undefined &&
+      result.data.assignedToId !== ticket.assignedToId
+    ) {
+      await recordAuditEvent(tx, {
+        ticketId: id,
+        actorId,
+        type: AuditEventType.assignee_changed,
+        data: { from: ticket.assignedToId, to: result.data.assignedToId },
+      });
+    }
+
+    if (reopenUnassigns) {
+      await recordAuditEvent(tx, {
+        ticketId: id,
+        actorId,
+        type: AuditEventType.assignee_changed,
+        data: { from: ticket.assignedToId, to: null, reopenUnassigned: true },
+      });
+    }
+
+    if (result.data.category !== undefined && result.data.category !== ticket.category) {
+      await recordAuditEvent(tx, {
+        ticketId: id,
+        actorId,
+        type: AuditEventType.category_changed,
+        data: { from: ticket.category, to: result.data.category },
+      });
+    }
+
+    if (result.data.priority !== undefined && result.data.priority !== ticket.priority) {
+      await recordAuditEvent(tx, {
+        ticketId: id,
+        actorId,
+        type: AuditEventType.priority_changed,
+        data: { from: ticket.priority, to: result.data.priority },
+      });
+    }
+
+    const next = await tx.ticket.update({
+      where: { id },
+      data: {
+        ...(result.data.assignedToId !== undefined && {
+          assignedToId: result.data.assignedToId,
+        }),
+        ...(reopenUnassigns && { assignedToId: null }),
+        ...(result.data.status !== undefined && { status: result.data.status }),
+        ...(result.data.status === TicketStatus.resolved &&
+          !ticket.resolvedAt && { resolvedAt: new Date() }),
+        ...(result.data.category !== undefined && { category: result.data.category }),
+        ...(result.data.priority !== undefined && { priority: result.data.priority }),
+      },
+      select: {
+        id: true,
+        fromName: true,
+        fromEmail: true,
+        subject: true,
+        body: true,
+        bodyHtml: true,
+        status: true,
+        category: true,
+        priority: true,
+        assignedToId: true,
+        assignedTo: { select: { id: true, name: true, email: true } },
+        createdAt: true,
+        updatedAt: true,
       },
     });
-  }
+
+    if (shouldNotifyAssignment && nextAssigneeId) {
+      await tx.notification.create({
+        data: {
+          userId: nextAssigneeId,
+          actorId,
+          type: NotificationType.ticket_assigned,
+          ticketId: id,
+        },
+      });
+    }
+
+    return next;
+  });
 
   res.json({ ...updated, assigneeType: assigneeType(updated.assignedToId) });
 });
@@ -358,6 +417,12 @@ router.post("/:id/replies", requireAuth, async (req, res) => {
       },
       select: REPLY_SELECT,
     });
+    await recordAuditEvent(tx, {
+      ticketId: id,
+      actorId: req.user!.id,
+      type: AuditEventType.reply_added,
+      data: { replyId: created.id, senderType: created.senderType },
+    });
     await tx.ticket.update({
       where: { id },
       data: {
@@ -382,6 +447,37 @@ router.post("/:id/replies", requireAuth, async (req, res) => {
   });
 
   res.status(201).json(reply);
+});
+
+router.get("/:id/audit-events", requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid ticket ID" });
+    return;
+  }
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id },
+    select: { id: true },
+  });
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  const events = await prisma.auditEvent.findMany({
+    where: { ticketId: id },
+    select: {
+      id: true,
+      type: true,
+      data: true,
+      createdAt: true,
+      actor: { select: { id: true, name: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  res.json(events);
 });
 
 router.post("/:id/summarize", requireAuth, aiEndpointLimiter, async (req, res) => {

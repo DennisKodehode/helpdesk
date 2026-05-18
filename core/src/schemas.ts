@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  AuditEventType,
   NotificationType,
   SenderType,
   TicketCategory,
@@ -195,6 +196,18 @@ export const notificationsResponseSchema = z.object({
 });
 
 export type NotificationsResponse = z.infer<typeof notificationsResponseSchema>;
+
+export const auditEventSchema = z.object({
+  id: z.string(),
+  type: z.enum(AuditEventType),
+  actor: z.object({ id: z.string(), name: z.string() }).nullable(),
+  data: z.unknown(),
+  createdAt: z.string(),
+});
+
+export type AuditEvent = z.infer<typeof auditEventSchema>;
+
+export const auditEventsResponseSchema = z.array(auditEventSchema);
 
 export const myOpenCountSchema = z.object({
   count: z.number(),

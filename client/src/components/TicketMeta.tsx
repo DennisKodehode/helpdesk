@@ -52,8 +52,10 @@ export default function TicketMeta({ ticket }: Props) {
     queryFn: fetchAgents,
   });
 
-  const updateCache = (response: { data: TicketDetail }) =>
+  const updateCache = (response: { data: TicketDetail }) => {
     queryClient.setQueryData(["ticket", ticketId], response.data);
+    queryClient.invalidateQueries({ queryKey: ["ticket-audit-events", ticketId] });
+  };
 
   const updateCacheAndCount = (response: { data: TicketDetail }) => {
     updateCache(response);
