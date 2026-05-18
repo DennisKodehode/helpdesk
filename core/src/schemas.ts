@@ -143,6 +143,18 @@ export const updateTicketSchema = z.object({
 
 export type UpdateTicketData = z.infer<typeof updateTicketSchema>;
 
+export const attachmentSchema = z.object({
+  id: z.string(),
+  filename: z.string(),
+  contentType: z.string(),
+  size: z.number(),
+  createdAt: z.string(),
+});
+
+export type Attachment = z.infer<typeof attachmentSchema>;
+
+export const attachmentsResponseSchema = z.array(attachmentSchema);
+
 export const replySchema = z.object({
   id: z.number(),
   ticketId: z.number(),
@@ -150,6 +162,7 @@ export const replySchema = z.object({
   body: z.string(),
   bodyHtml: z.string().nullable(),
   author: z.object({ id: z.string(), name: z.string() }).nullable(),
+  attachments: z.array(attachmentSchema).default([]),
   createdAt: z.string(),
 });
 
@@ -196,18 +209,6 @@ export const notificationsResponseSchema = z.object({
 });
 
 export type NotificationsResponse = z.infer<typeof notificationsResponseSchema>;
-
-export const attachmentSchema = z.object({
-  id: z.string(),
-  filename: z.string(),
-  contentType: z.string(),
-  size: z.number(),
-  createdAt: z.string(),
-});
-
-export type Attachment = z.infer<typeof attachmentSchema>;
-
-export const attachmentsResponseSchema = z.array(attachmentSchema);
 
 export const auditEventSchema = z.object({
   id: z.string(),

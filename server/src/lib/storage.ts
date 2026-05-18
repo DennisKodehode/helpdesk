@@ -9,12 +9,36 @@ export interface StorageAdapter {
    * Returns a URL the client can fetch to download the object. For the local
    * driver this is a same-origin route served by the app; for S3 it's a
    * presigned GET URL with the original filename baked into the
-   * Content-Disposition.
+   * Content-Disposition. The contentType drives whether the disposition is
+   * "inline" (image/* + PDF — browser previews in a new tab) or "attachment"
+   * (everything else — browser downloads).
    */
-  presignDownload(key: string, filename: string, expirySeconds?: number): Promise<string>;
+  presignDownload(
+    key: string,
+    filename: string,
+    contentType: string,
+    expirySeconds?: number,
+  ): Promise<string>;
   /** Reads the object back into memory. Used by the local-driver file route. */
   get(key: string): Promise<Buffer>;
   delete(key: string): Promise<void>;
+}
+
+const INLINE_PREVIEWABLE_MIMES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "application/pdf",
+]);
+
+/**
+ * Decide whether the browser should render an attachment inline (preview in a
+ * new tab) or download it. Images and PDFs preview cleanly; everything else
+ * (docx, xlsx, zip, csv, plain text) is more useful as a download.
+ */
+export function dispositionForMime(mime: string): "inline" | "attachment" {
+  return INLINE_PREVIEWABLE_MIMES.has(mime) ? "inline" : "attachment";
 }
 
 const LOCAL_ROOT = path.resolve(process.cwd(), ".attachments");
@@ -33,7 +57,7 @@ function createLocalAdapter(): StorageAdapter {
     async get(key) {
       return readFile(localPath(key));
     },
-    async presignDownload(_key, _filename) {
+    async presignDownload(_key, _filename, _contentType) {
       // The route layer maps storageKey → attachment ID → /api/attachments/:id/file.
       // This is never the actual URL surfaced to the client; the attachments
       // route builds the public URL using the attachment ID, not the storage key.
@@ -66,11 +90,12 @@ function createS3Adapter(): StorageAdapter {
       const buf = await res.arrayBuffer();
       return Buffer.from(buf);
     },
-    async presignDownload(key, filename, expirySeconds = 300) {
+    async presignDownload(key, filename, contentType, expirySeconds = 300) {
+      const disposition = dispositionForMime(contentType);
       return client.presignedGetObject(key, {
         expirySeconds,
         responseParams: {
-          "response-content-disposition": `attachment; filename="${filename.replace(/"/g, "")}"`,
+          "response-content-disposition": `${disposition}; filename="${filename.replace(/"/g, "")}"`,
         },
       });
     },

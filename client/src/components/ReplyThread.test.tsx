@@ -70,6 +70,7 @@ describe("ReplyThread", () => {
         body: "We are looking into it.",
         bodyHtml: null,
         author: { id: "agent-1", name: "Bob Agent" },
+        attachments: [],
         createdAt: "2024-01-15T12:00:00Z",
       },
     ];
@@ -92,6 +93,7 @@ describe("ReplyThread", () => {
         body: '<img src="x" onerror="window.__xss=1"> Safe reply',
         bodyHtml: null,
         author: null,
+        attachments: [],
         createdAt: "2024-01-15T12:00:00Z",
       },
     ];
@@ -146,6 +148,7 @@ describe("ReplyThread", () => {
         senderType: SenderType.internal_note,
         body: "FYI — called this customer earlier, they're frustrated.",
         bodyHtml: null,
+        attachments: [],
         author: { id: "agent-1", name: "Bob Agent" },
         createdAt: "2024-01-15T12:00:00Z",
       },
@@ -174,5 +177,101 @@ describe("ReplyThread", () => {
     await user.click(screen.getByRole("button", { name: /summarize/i }));
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
+  });
+
+  it("renders an attachment chip for each attachment on a reply", async () => {
+    const replies: Reply[] = [
+      {
+        id: 10,
+        ticketId: 42,
+        senderType: SenderType.agent,
+        body: "Here's the fix.",
+        bodyHtml: null,
+        author: { id: "agent-1", name: "Bob" },
+        attachments: [
+          {
+            id: "att-1",
+            filename: "screenshot.png",
+            contentType: "image/png",
+            size: 2048,
+            createdAt: "2024-01-15T12:00:00Z",
+          },
+          {
+            id: "att-2",
+            filename: "log.txt",
+            contentType: "text/plain",
+            size: 500,
+            createdAt: "2024-01-15T12:00:00Z",
+          },
+        ],
+        createdAt: "2024-01-15T12:00:00Z",
+      },
+    ];
+    vi.mocked(axios.get).mockResolvedValue({ data: replies });
+    renderWithProviders(<ReplyThread ticket={mockTicket} />);
+
+    const attachments = await screen.findByRole("list", { name: /attachments/i });
+    expect(within(attachments).getByText("screenshot.png")).toBeInTheDocument();
+    expect(within(attachments).getByText("log.txt")).toBeInTheDocument();
+    expect(within(attachments).getByText("2 KB")).toBeInTheDocument();
+    expect(within(attachments).getByText("500 B")).toBeInTheDocument();
+  });
+
+  it("does not render an attachments list when a reply has no attachments", async () => {
+    const replies: Reply[] = [
+      {
+        id: 11,
+        ticketId: 42,
+        senderType: SenderType.agent,
+        body: "No files here.",
+        bodyHtml: null,
+        author: { id: "agent-1", name: "Bob" },
+        attachments: [],
+        createdAt: "2024-01-15T12:00:00Z",
+      },
+    ];
+    vi.mocked(axios.get).mockResolvedValue({ data: replies });
+    renderWithProviders(<ReplyThread ticket={mockTicket} />);
+
+    await screen.findByText("No files here.");
+    expect(screen.queryByRole("list", { name: /attachments/i })).not.toBeInTheDocument();
+  });
+
+  it("fetches a download URL and opens it in a new tab when a chip is clicked", async () => {
+    const replies: Reply[] = [
+      {
+        id: 12,
+        ticketId: 42,
+        senderType: SenderType.agent,
+        body: "PDF attached.",
+        bodyHtml: null,
+        author: { id: "agent-1", name: "Bob" },
+        attachments: [
+          {
+            id: "att-pdf",
+            filename: "report.pdf",
+            contentType: "application/pdf",
+            size: 5000,
+            createdAt: "2024-01-15T12:00:00Z",
+          },
+        ],
+        createdAt: "2024-01-15T12:00:00Z",
+      },
+    ];
+    vi.mocked(axios.get).mockImplementation(async (url: string) => {
+      if (url === "/api/attachments/att-pdf") return { data: { url: "/files/x.pdf" } };
+      return { data: replies };
+    });
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyThread ticket={mockTicket} />);
+
+    const chip = await screen.findByRole("button", { name: /report\.pdf/i });
+    await user.click(chip);
+
+    expect(axios.get).toHaveBeenCalledWith("/api/attachments/att-pdf");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(openSpy).toHaveBeenCalledWith("/files/x.pdf", "_blank", "noopener,noreferrer");
+    openSpy.mockRestore();
   });
 });

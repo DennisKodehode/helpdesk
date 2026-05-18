@@ -264,8 +264,45 @@ describe("attachments routes", () => {
         });
       expect(res.status).toBe(200);
       expect(res.headers["content-type"]).toMatch(/^text\/plain/);
-      expect(res.headers["content-disposition"]).toMatch(/filename="doc\.txt"/);
+      // text/plain is NOT inline-previewable → attachment disposition
+      expect(res.headers["content-disposition"]).toMatch(
+        /^attachment; filename="doc\.txt"/,
+      );
       expect((res.body as Buffer).toString("utf8")).toBe("file contents here");
+    });
+
+    it("uses Content-Disposition: inline for image/* MIMEs", async () => {
+      const upload = await request(app)
+        .post(`/api/replies/${replyId}/attachments`)
+        .set("Cookie", authCookie)
+        .attach("files", Buffer.from([0x89, 0x50, 0x4e, 0x47]), {
+          filename: "shot.png",
+          contentType: "image/png",
+        });
+      const attachmentId = upload.body[0].id;
+
+      const res = await request(app)
+        .get(`/api/attachments/${attachmentId}/file`)
+        .set("Cookie", authCookie);
+      expect(res.status).toBe(200);
+      expect(res.headers["content-disposition"]).toMatch(/^inline; filename="shot\.png"/);
+    });
+
+    it("uses Content-Disposition: inline for application/pdf", async () => {
+      const upload = await request(app)
+        .post(`/api/replies/${replyId}/attachments`)
+        .set("Cookie", authCookie)
+        .attach("files", Buffer.from("%PDF-1.4"), {
+          filename: "doc.pdf",
+          contentType: "application/pdf",
+        });
+      const attachmentId = upload.body[0].id;
+
+      const res = await request(app)
+        .get(`/api/attachments/${attachmentId}/file`)
+        .set("Cookie", authCookie);
+      expect(res.status).toBe(200);
+      expect(res.headers["content-disposition"]).toMatch(/^inline; filename="doc\.pdf"/);
     });
 
     it("returns 401 without auth", async () => {

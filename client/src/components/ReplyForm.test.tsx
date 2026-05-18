@@ -1,3 +1,4 @@
+import { fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import axios from "axios";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -31,7 +32,7 @@ describe("ReplyForm", () => {
     expect(screen.getByRole("button", { name: /polish/i })).toBeDisabled();
   });
 
-  it("calls POST /api/tickets/:id/replies with the body and isInternal=false by default", async () => {
+  it("calls POST /api/tickets/:id/replies with a FormData containing body and isInternal=false by default", async () => {
     vi.mocked(axios.post).mockResolvedValue({ data: {} });
     const user = userEvent.setup();
     renderWithProviders(<ReplyForm ticketId="42" />);
@@ -40,11 +41,14 @@ describe("ReplyForm", () => {
     await user.click(screen.getByRole("button", { name: /send reply/i }));
 
     await waitFor(() => {
-      expect(axios.post).toHaveBeenCalledWith("/api/tickets/42/replies", {
-        body: "Hello there.",
-        isInternal: false,
-      });
+      expect(axios.post).toHaveBeenCalledTimes(1);
     });
+    const [url, fd] = vi.mocked(axios.post).mock.calls[0];
+    expect(url).toBe("/api/tickets/42/replies");
+    expect(fd).toBeInstanceOf(FormData);
+    expect((fd as FormData).get("body")).toBe("Hello there.");
+    expect((fd as FormData).get("isInternal")).toBe("false");
+    expect((fd as FormData).getAll("files")).toEqual([]);
   });
 
   it("clears the textarea after a successful submission", async () => {
@@ -194,11 +198,11 @@ describe("ReplyForm", () => {
     await user.click(screen.getByRole("button", { name: /add note/i }));
 
     await waitFor(() => {
-      expect(axios.post).toHaveBeenCalledWith("/api/tickets/42/replies", {
-        body: "Called the customer yesterday.",
-        isInternal: true,
-      });
+      expect(axios.post).toHaveBeenCalledTimes(1);
     });
+    const [, fd] = vi.mocked(axios.post).mock.calls[0];
+    expect((fd as FormData).get("body")).toBe("Called the customer yesterday.");
+    expect((fd as FormData).get("isInternal")).toBe("true");
   });
 
   it("toggling back to Reply to customer restores Send reply and Polish", async () => {
@@ -212,5 +216,134 @@ describe("ReplyForm", () => {
 
     expect(screen.getByRole("button", { name: /send reply/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /polish with ai/i })).toBeInTheDocument();
+  });
+
+  it("shows a chip with filename and size after a valid file is picked", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyForm ticketId="42" />);
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File([new Uint8Array(2048)], "screenshot.png", {
+      type: "image/png",
+    });
+    await user.upload(fileInput, file);
+
+    const list = await screen.findByRole("list", { name: /attached files/i });
+    expect(list).toHaveTextContent("screenshot.png");
+    expect(list).toHaveTextContent("2 KB");
+  });
+
+  it("rejects a file with disallowed MIME and shows an inline error", async () => {
+    renderWithProviders(<ReplyForm ticketId="42" />);
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["<svg/>"], "evil.svg", { type: "image/svg+xml" });
+    // fireEvent.change bypasses userEvent's `accept`-attribute filter so the
+    // server-mirrored validation in addFiles is what actually runs.
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/evil\.svg/);
+    expect(alert.textContent).toMatch(/not allowed/i);
+    expect(
+      screen.queryByRole("list", { name: /attached files/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("rejects a file larger than 10 MB and shows an inline error", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyForm ticketId="42" />);
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const big = new File([new Uint8Array(11 * 1024 * 1024)], "big.png", {
+      type: "image/png",
+    });
+    await user.upload(fileInput, big);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/big\.png/);
+    expect(alert.textContent).toMatch(/10 MB/i);
+  });
+
+  it("removes a chip when × is clicked", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyForm ticketId="42" />);
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(fileInput, [
+      new File(["a"], "first.png", { type: "image/png" }),
+      new File(["bb"], "second.png", { type: "image/png" }),
+    ]);
+
+    const list = await screen.findByRole("list", { name: /attached files/i });
+    expect(list).toHaveTextContent("first.png");
+    expect(list).toHaveTextContent("second.png");
+
+    await user.click(screen.getByRole("button", { name: /remove first\.png/i }));
+
+    const updated = await screen.findByRole("list", { name: /attached files/i });
+    expect(updated).not.toHaveTextContent("first.png");
+    expect(updated).toHaveTextContent("second.png");
+  });
+
+  it("submits multipart with picked files appended to FormData", async () => {
+    vi.mocked(axios.post).mockResolvedValue({ data: {} });
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyForm ticketId="42" />);
+
+    await user.type(
+      screen.getByRole("textbox", { name: /reply body/i }),
+      "Here is your fix.",
+    );
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File([new Uint8Array(512)], "fix.png", { type: "image/png" });
+    await user.upload(fileInput, file);
+
+    await user.click(screen.getByRole("button", { name: /send reply/i }));
+
+    await waitFor(() => {
+      expect(axios.post).toHaveBeenCalledTimes(1);
+    });
+    const [, fd] = vi.mocked(axios.post).mock.calls[0];
+    expect(fd).toBeInstanceOf(FormData);
+    expect((fd as FormData).get("body")).toBe("Here is your fix.");
+    expect((fd as FormData).getAll("files")).toHaveLength(1);
+    const sent = (fd as FormData).get("files");
+    expect(sent).toBeInstanceOf(File);
+    expect((sent as File).name).toBe("fix.png");
+  });
+
+  it("clears all chips on successful submit", async () => {
+    vi.mocked(axios.post).mockResolvedValue({ data: {} });
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyForm ticketId="42" />);
+
+    await user.type(screen.getByRole("textbox", { name: /reply body/i }), "Done");
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(fileInput, new File(["a"], "a.png", { type: "image/png" }));
+    await user.click(screen.getByRole("button", { name: /send reply/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("list", { name: /attached files/i }),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it("caps picking at 5 files and surfaces a message", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyForm ticketId="42" />);
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const six = Array.from(
+      { length: 6 },
+      (_, i) => new File([String(i)], `f${i}.png`, { type: "image/png" }),
+    );
+    await user.upload(fileInput, six);
+
+    const list = await screen.findByRole("list", { name: /attached files/i });
+    expect(list.querySelectorAll("li")).toHaveLength(5);
+    expect(await screen.findByText(/5 max per reply/i)).toBeInTheDocument();
   });
 });

@@ -1,8 +1,13 @@
-import { type Reply, SenderType, type TicketDetail } from "@helpdesk/core";
+import {
+  type Attachment,
+  type Reply,
+  SenderType,
+  type TicketDetail,
+} from "@helpdesk/core";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import DOMPurify from "dompurify";
-import { Sparkles } from "lucide-react";
+import { File as FileIcon, FileText, Image as ImageIcon, Sparkles } from "lucide-react";
 import ErrorAlert from "@/components/ui/ErrorAlert";
 
 interface Props {
@@ -14,6 +19,23 @@ async function fetchReplies(ticketId: number): Promise<Reply[]> {
   return data;
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function iconForMime(mime: string) {
+  if (mime.startsWith("image/")) return ImageIcon;
+  if (mime === "application/pdf" || mime.startsWith("text/")) return FileText;
+  return FileIcon;
+}
+
+async function openAttachment(id: string) {
+  const { data } = await axios.get<{ url: string }>(`/api/attachments/${id}`);
+  window.open(data.url, "_blank", "noopener,noreferrer");
+}
+
 type Message = {
   id: string;
   isAgent: boolean;
@@ -21,6 +43,7 @@ type Message = {
   senderLabel: string;
   senderName: string;
   html: string;
+  attachments: Attachment[];
   createdAt: string;
 };
 
@@ -46,6 +69,7 @@ export default function ReplyThread({ ticket }: Props) {
       senderLabel: "Customer",
       senderName: ticket.fromName,
       html: originalHtml,
+      attachments: [],
       createdAt: ticket.createdAt,
     },
     ...replies.map((r: Reply) => {
@@ -59,6 +83,7 @@ export default function ReplyThread({ ticket }: Props) {
         senderLabel: isInternal ? "Internal" : isAgent ? "Agent" : "Customer",
         senderName: isAgentSide ? (r.author?.name ?? "AI") : ticket.fromName,
         html: r.bodyHtml ?? r.body.replace(/\n/g, "<br>"),
+        attachments: r.attachments ?? [],
         createdAt: r.createdAt,
       };
     }),
@@ -168,6 +193,34 @@ export default function ReplyThread({ ticket }: Props) {
                     <div className="rounded-md bg-card px-4 py-3 text-[14px] italic text-muted-foreground ring-1 ring-border">
                       (no message body)
                     </div>
+                  )}
+
+                  {msg.attachments.length > 0 && (
+                    <ul aria-label="Attachments" className="mt-2 flex flex-wrap gap-2">
+                      {msg.attachments.map((att) => {
+                        const Icon = iconForMime(att.contentType);
+                        return (
+                          <li key={att.id}>
+                            <button
+                              type="button"
+                              onClick={() => openAttachment(att.id)}
+                              className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-3 py-1 text-[12px] text-foreground transition-colors hover:border-primary/50 hover:bg-muted/40"
+                            >
+                              <Icon
+                                className="size-3 text-muted-foreground"
+                                aria-hidden
+                              />
+                              <span className="max-w-[200px] truncate font-medium">
+                                {att.filename}
+                              </span>
+                              <span className="text-muted-foreground/80">
+                                {formatBytes(att.size)}
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
                   )}
                 </div>
               </div>

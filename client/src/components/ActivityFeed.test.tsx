@@ -1,7 +1,7 @@
 import { type AuditEvent, AuditEventType, SenderType } from "@helpdesk/core";
 import axios from "axios";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, renderWithProviders, screen, waitFor, within } from "../test/utils";
+import { cleanup, renderWithProviders, screen, within } from "../test/utils";
 import ActivityFeed from "./ActivityFeed";
 
 vi.mock("axios", () => ({

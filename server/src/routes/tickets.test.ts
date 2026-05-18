@@ -1567,6 +1567,85 @@ describe("POST /api/tickets/:id/replies", () => {
       senderType: "internal_note",
     });
   });
+
+  it("accepts a multipart upload with body + one file and persists the attachment", async () => {
+    const res = await request(app)
+      .post(`/api/tickets/${ticketId}/replies`)
+      .set("Cookie", authCookie)
+      .field("body", "Reply with attachment")
+      .field("isInternal", "false")
+      .attach("files", Buffer.from("hello"), {
+        filename: "hello.txt",
+        contentType: "text/plain",
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.body).toBe("Reply with attachment");
+    expect(res.body.attachments).toHaveLength(1);
+    expect(res.body.attachments[0].filename).toBe("hello.txt");
+    expect(res.body.attachments[0].contentType).toBe("text/plain");
+    expect(res.body.attachments[0].size).toBe(5);
+
+    const persisted = await prisma.attachment.findMany({
+      where: { replyId: res.body.id },
+    });
+    expect(persisted).toHaveLength(1);
+    expect(persisted[0].storageKey).toMatch(/^attachments\/\d+\//);
+  });
+
+  it("accepts multipart with two files", async () => {
+    const res = await request(app)
+      .post(`/api/tickets/${ticketId}/replies`)
+      .set("Cookie", authCookie)
+      .field("body", "Reply with two files")
+      .field("isInternal", "false")
+      .attach("files", Buffer.from("one"), {
+        filename: "a.txt",
+        contentType: "text/plain",
+      })
+      .attach("files", Buffer.from("twotwo"), {
+        filename: "b.txt",
+        contentType: "text/plain",
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.attachments).toHaveLength(2);
+  });
+
+  it("rejects multipart with unsupported MIME and persists nothing", async () => {
+    const before = await prisma.reply.count({ where: { ticketId } });
+    const res = await request(app)
+      .post(`/api/tickets/${ticketId}/replies`)
+      .set("Cookie", authCookie)
+      .field("body", "Should fail")
+      .field("isInternal", "false")
+      .attach("files", Buffer.from("<svg/>"), {
+        filename: "evil.svg",
+        contentType: "image/svg+xml",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/unsupported/i);
+    const after = await prisma.reply.count({ where: { ticketId } });
+    expect(after).toBe(before);
+  });
+
+  it("rejects multipart with an oversize file (413)", async () => {
+    const before = await prisma.reply.count({ where: { ticketId } });
+    const res = await request(app)
+      .post(`/api/tickets/${ticketId}/replies`)
+      .set("Cookie", authCookie)
+      .field("body", "Should fail")
+      .field("isInternal", "false")
+      .attach("files", Buffer.alloc(11 * 1024 * 1024, 1), {
+        filename: "big.png",
+        contentType: "image/png",
+      });
+
+    expect(res.status).toBe(413);
+    const after = await prisma.reply.count({ where: { ticketId } });
+    expect(after).toBe(before);
+  });
 });
 
 describe("GET /api/tickets/:id/audit-events", () => {

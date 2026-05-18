@@ -1,19 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { ATTACHMENT_MIME_ALLOWLIST, MAX_ATTACHMENT_SIZE_BYTES } from "@helpdesk/core";
+import { ATTACHMENT_MIME_ALLOWLIST } from "@helpdesk/core";
 import { Router } from "express";
-import multer from "multer";
 import { env } from "../lib/env";
+import { handleMulterError, upload } from "../lib/multipart";
 import { prisma } from "../lib/prisma";
-import { safeFilename, storage } from "../lib/storage";
+import { dispositionForMime, safeFilename, storage } from "../lib/storage";
 import { requireAuth } from "../middleware/auth-middleware";
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: MAX_ATTACHMENT_SIZE_BYTES,
-    files: 5,
-  },
-});
 
 /**
  * POST /api/replies/:id/attachments
@@ -27,18 +19,7 @@ uploadRouter.post(
   requireAuth,
   (req, res, next) => {
     upload.array("files", 5)(req, res, (err) => {
-      if (err instanceof multer.MulterError) {
-        if (err.code === "LIMIT_FILE_SIZE") {
-          res.status(413).json({ error: "File too large (max 10 MB per file)" });
-          return;
-        }
-        if (err.code === "LIMIT_FILE_COUNT") {
-          res.status(400).json({ error: "Too many files (max 5 per request)" });
-          return;
-        }
-        res.status(400).json({ error: err.message });
-        return;
-      }
+      if (handleMulterError(err, res)) return;
       if (err) return next(err);
       next();
     });
@@ -112,7 +93,7 @@ attachmentsRouter.get("/:id", requireAuth, async (req, res) => {
   const id = req.params.id as string;
   const attachment = await prisma.attachment.findUnique({
     where: { id },
-    select: { id: true, filename: true, storageKey: true },
+    select: { id: true, filename: true, contentType: true, storageKey: true },
   });
   if (!attachment) {
     res.status(404).json({ error: "Attachment not found" });
@@ -124,7 +105,11 @@ attachmentsRouter.get("/:id", requireAuth, async (req, res) => {
     return;
   }
 
-  const url = await storage.presignDownload(attachment.storageKey, attachment.filename);
+  const url = await storage.presignDownload(
+    attachment.storageKey,
+    attachment.filename,
+    attachment.contentType,
+  );
   res.json({ url });
 });
 
@@ -140,10 +125,11 @@ attachmentsRouter.get("/:id/file", requireAuth, async (req, res) => {
   }
 
   const buf = await storage.get(attachment.storageKey);
+  const disposition = dispositionForMime(attachment.contentType);
   res.setHeader("Content-Type", attachment.contentType);
   res.setHeader(
     "Content-Disposition",
-    `attachment; filename="${attachment.filename.replace(/"/g, "")}"`,
+    `${disposition}; filename="${attachment.filename.replace(/"/g, "")}"`,
   );
   res.send(buf);
 });

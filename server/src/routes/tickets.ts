@@ -1,6 +1,8 @@
+import { randomUUID } from "node:crypto";
 import { google } from "@ai-sdk/google";
 import {
   ADMIN_VALID_TRANSITIONS,
+  ATTACHMENT_MIME_ALLOWLIST,
   AuditEventType,
   createReplySchema,
   NotificationType,
@@ -21,8 +23,10 @@ import type { Prisma } from "../generated/prisma/client";
 import { assigneeType, isAiAssigned } from "../lib/ai-user";
 import { recordAuditEvent } from "../lib/audit";
 import boss from "../lib/boss";
+import { handleMulterError, upload } from "../lib/multipart";
 import { prisma } from "../lib/prisma";
 import { SEND_REPLY_EMAIL_QUEUE } from "../lib/send-reply-email-job";
+import { safeFilename, storage } from "../lib/storage";
 import { firstIssue } from "../lib/validation";
 import { requireAuth } from "../middleware/auth-middleware";
 import { aiEndpointLimiter } from "../middleware/rate-limit";
@@ -349,6 +353,14 @@ router.patch("/:id", requireAuth, async (req, res) => {
   res.json({ ...updated, assigneeType: assigneeType(updated.assignedToId) });
 });
 
+const ATTACHMENT_SELECT = {
+  id: true,
+  filename: true,
+  contentType: true,
+  size: true,
+  createdAt: true,
+} as const;
+
 const REPLY_SELECT = {
   id: true,
   ticketId: true,
@@ -356,8 +368,12 @@ const REPLY_SELECT = {
   body: true,
   bodyHtml: true,
   author: { select: { id: true, name: true } },
+  attachments: {
+    select: ATTACHMENT_SELECT,
+    orderBy: { createdAt: "asc" },
+  },
   createdAt: true,
-} as const;
+} as const satisfies Prisma.ReplySelect;
 
 router.get("/:id/replies", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
@@ -381,73 +397,123 @@ router.get("/:id/replies", requireAuth, async (req, res) => {
   res.json(replies);
 });
 
-router.post("/:id/replies", requireAuth, async (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id <= 0) {
-    res.status(400).json({ error: "Invalid ticket ID" });
-    return;
-  }
-
-  const result = createReplySchema.safeParse(req.body);
-  if (!result.success) {
-    res.status(400).json({ error: firstIssue(result.error) });
-    return;
-  }
-
-  const ticket = await prisma.ticket.findUnique({ where: { id } });
-  if (!ticket) {
-    res.status(404).json({ error: "Ticket not found" });
-    return;
-  }
-
-  const now = new Date();
-  const { body, isInternal } = result.data;
-  // Atomic: reply create + ticket update + email-send enqueue all commit
-  // together via pg-boss's fromPrisma adapter. If the queue insert fails,
-  // the whole transaction rolls back — no orphan reply, agent gets a clean
-  // 500 to retry, no duplicate rows. Internal notes skip both the email
-  // enqueue and the firstAgentReplyAt write since they're not customer-facing.
-  const reply = await prisma.$transaction(async (tx) => {
-    const created = await tx.reply.create({
-      data: {
-        ticketId: id,
-        authorId: req.user!.id,
-        senderType: isInternal ? SenderType.internal_note : SenderType.agent,
-        body,
-      },
-      select: REPLY_SELECT,
+router.post(
+  "/:id/replies",
+  requireAuth,
+  // Always-mount multer: it's a no-op when Content-Type isn't
+  // multipart/form-data, so JSON requests still go through the
+  // express.json()-populated req.body path unchanged.
+  (req, res, next) => {
+    upload.array("files", 5)(req, res, (err) => {
+      if (handleMulterError(err, res)) return;
+      if (err) return next(err);
+      next();
     });
-    await recordAuditEvent(tx, {
-      ticketId: id,
-      actorId: req.user!.id,
-      type: AuditEventType.reply_added,
-      data: { replyId: created.id, senderType: created.senderType },
-    });
-    await tx.ticket.update({
-      where: { id },
-      data: {
-        updatedAt: now,
-        ...(!isInternal && !ticket.firstAgentReplyAt && { firstAgentReplyAt: now }),
-      },
-    });
-    if (!isInternal) {
-      await boss.send(
-        SEND_REPLY_EMAIL_QUEUE,
-        {
-          to: ticket.fromEmail,
-          toName: ticket.fromName,
-          subject: ticket.subject,
-          replyBody: body,
-          _requestId: String(req.id),
-        },
-        { db: fromPrisma(tx) },
-      );
+  },
+  async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ error: "Invalid ticket ID" });
+      return;
     }
-    return created;
-  });
 
-  res.status(201).json(reply);
-});
+    // Multipart text fields arrive as strings from busboy/multer; coerce
+    // isInternal back to a boolean before Zod parsing so the shared schema
+    // can stay typed `z.boolean()`.
+    const rawBody = { ...req.body } as Record<string, unknown>;
+    if (typeof rawBody.isInternal === "string") {
+      rawBody.isInternal = rawBody.isInternal === "true";
+    }
+    const result = createReplySchema.safeParse(rawBody);
+    if (!result.success) {
+      res.status(400).json({ error: firstIssue(result.error) });
+      return;
+    }
+
+    const files = (req.files as Express.Multer.File[] | undefined) ?? [];
+    for (const f of files) {
+      if (!ATTACHMENT_MIME_ALLOWLIST.includes(f.mimetype)) {
+        res.status(400).json({ error: `Unsupported file type: ${f.mimetype}` });
+        return;
+      }
+    }
+
+    const ticket = await prisma.ticket.findUnique({ where: { id } });
+    if (!ticket) {
+      res.status(404).json({ error: "Ticket not found" });
+      return;
+    }
+
+    const now = new Date();
+    const { body, isInternal } = result.data;
+    // Atomic: reply create + audit + ticket update + attachment writes +
+    // email-send enqueue all commit together via pg-boss's fromPrisma
+    // adapter. If any step fails (including a storage put), the whole
+    // transaction rolls back — no orphan reply, no orphan Attachment rows,
+    // no duplicate email. Internal notes skip the email enqueue and the
+    // firstAgentReplyAt write since they're not customer-facing.
+    const reply = await prisma.$transaction(async (tx) => {
+      const created = await tx.reply.create({
+        data: {
+          ticketId: id,
+          authorId: req.user!.id,
+          senderType: isInternal ? SenderType.internal_note : SenderType.agent,
+          body,
+        },
+        select: { id: true },
+      });
+      await recordAuditEvent(tx, {
+        ticketId: id,
+        actorId: req.user!.id,
+        type: AuditEventType.reply_added,
+        data: {
+          replyId: created.id,
+          senderType: isInternal ? SenderType.internal_note : SenderType.agent,
+        },
+      });
+      await tx.ticket.update({
+        where: { id },
+        data: {
+          updatedAt: now,
+          ...(!isInternal && !ticket.firstAgentReplyAt && { firstAgentReplyAt: now }),
+        },
+      });
+      for (const file of files) {
+        const storageKey = `attachments/${created.id}/${randomUUID()}-${safeFilename(file.originalname)}`;
+        await storage.put(storageKey, file.buffer, file.mimetype);
+        await tx.attachment.create({
+          data: {
+            replyId: created.id,
+            filename: file.originalname,
+            contentType: file.mimetype,
+            size: file.size,
+            storageKey,
+          },
+        });
+      }
+      if (!isInternal) {
+        await boss.send(
+          SEND_REPLY_EMAIL_QUEUE,
+          {
+            to: ticket.fromEmail,
+            toName: ticket.fromName,
+            subject: ticket.subject,
+            replyBody: body,
+            _requestId: String(req.id),
+          },
+          { db: fromPrisma(tx) },
+        );
+      }
+      // Re-fetch with REPLY_SELECT so the response includes attachments + author
+      return tx.reply.findUniqueOrThrow({
+        where: { id: created.id },
+        select: REPLY_SELECT,
+      });
+    });
+
+    res.status(201).json(reply);
+  },
+);
 
 router.get("/:id/audit-events", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
