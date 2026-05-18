@@ -43,6 +43,9 @@ COPY core/package.json ./core/
 # Workspace source — required for `bun install` to create workspace symlinks
 COPY --from=build /app/server/src ./server/src
 COPY --from=build /app/server/prisma ./server/prisma
+# prisma.config.ts is where the datasource URL is wired (schema.prisma has
+# no inline `url`). preDeployCommand `prisma migrate deploy` needs this.
+COPY --from=build /app/server/prisma.config.ts ./server/prisma.config.ts
 COPY --from=build /app/server/knowledge-base.md ./server/knowledge-base.md
 COPY --from=build /app/core/src ./core/src
 
