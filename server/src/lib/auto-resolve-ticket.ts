@@ -150,6 +150,7 @@ async function runAutoResolve(data: AutoResolveJobData, log: Logger) {
             toName: ticket.fromName,
             subject: ticket.subject,
             replyBody: parsed.reply!,
+            replyId: reply.id,
             _requestId: data._requestId,
           },
           { db: fromPrisma(tx) },

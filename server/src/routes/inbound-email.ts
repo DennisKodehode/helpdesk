@@ -1,6 +1,9 @@
+import { randomUUID } from "node:crypto";
 import {
   AuditEventType,
   inboundEmailSchema,
+  isAttachmentSafe,
+  MAX_ATTACHMENT_SIZE_BYTES,
   NotificationType,
   SenderType,
   TicketStatus,
@@ -10,6 +13,8 @@ import EmailReplyParser from "email-reply-parser";
 import { Router } from "express";
 import he from "he";
 import { fromPrisma } from "pg-boss";
+import type { Logger } from "pino";
+import type { Prisma } from "../generated/prisma/client";
 import { SuppressionReason } from "../generated/prisma/client";
 import { isAiAssigned } from "../lib/ai-user";
 import { recordAuditEvent } from "../lib/audit";
@@ -19,6 +24,7 @@ import { CLASSIFY_TICKET_QUEUE } from "../lib/classify-ticket";
 import { env } from "../lib/env";
 import { prisma } from "../lib/prisma";
 import resend from "../lib/resend";
+import { safeFilename, storage } from "../lib/storage";
 import { firstIssue } from "../lib/validation";
 import { webhookLimiter } from "../middleware/rate-limit";
 
@@ -41,6 +47,95 @@ function parseFrom(from: string): { fromName: string; fromEmail: string } {
     return { fromName: match[1].trim() || match[2].trim(), fromEmail: match[2].trim() };
   }
   return { fromName: from.trim(), fromEmail: from.trim() };
+}
+
+type AttachmentParent = { replyId: number } | { ticketId: number };
+
+/**
+ * Persists inbound email attachments onto either a Reply (customer-reply path)
+ * or a Ticket (new-ticket path — the customer's first email). Skips items that
+ * fail the MIME/extension denylist or the size cap (logs a warn per skip;
+ * doesn't fail the transaction). Wraps the Resend API call in try/catch so a
+ * transient API hiccup doesn't roll back the customer's reply/ticket.
+ */
+async function processInboundAttachments(
+  tx: Prisma.TransactionClient,
+  parent: AttachmentParent,
+  emailId: string,
+  log: Logger,
+): Promise<void> {
+  let listResult: Awaited<ReturnType<typeof resend.emails.receiving.attachments.list>>;
+  try {
+    listResult = await resend.emails.receiving.attachments.list({ emailId });
+  } catch (err) {
+    log.error({ err, emailId }, "inbound-email: attachments.list failed");
+    Sentry.captureException(err);
+    return;
+  }
+  if (listResult.error) {
+    log.error(
+      { err: listResult.error, emailId },
+      "inbound-email: attachments.list returned error",
+    );
+    return;
+  }
+
+  // The SDK wraps results: outer `data` is the success object, inner `data`
+  // is the actual attachment array ({ object: 'list', has_more, data: [...] }).
+  const attachments = listResult.data?.data ?? [];
+  for (const att of attachments) {
+    const filename = att.filename ?? `attachment-${att.id}`;
+    if (!isAttachmentSafe(filename, att.content_type)) {
+      log.warn(
+        { emailId, filename, contentType: att.content_type, reason: "denylisted" },
+        "inbound-email: skipping attachment",
+      );
+      continue;
+    }
+    if (att.size > MAX_ATTACHMENT_SIZE_BYTES) {
+      log.warn(
+        { emailId, filename, size: att.size, reason: "oversize" },
+        "inbound-email: skipping attachment",
+      );
+      continue;
+    }
+
+    let buffer: Buffer;
+    try {
+      const response = await fetch(att.download_url);
+      if (!response.ok) {
+        log.warn(
+          { emailId, filename, status: response.status, reason: "download_failed" },
+          "inbound-email: skipping attachment",
+        );
+        continue;
+      }
+      buffer = Buffer.from(await response.arrayBuffer());
+    } catch (err) {
+      log.warn(
+        { err, emailId, filename, reason: "fetch_threw" },
+        "inbound-email: skipping attachment",
+      );
+      continue;
+    }
+
+    // Prefix the storage key with the parent kind so the same numeric ID
+    // can't collide across the two parent tables (Ticket.id and Reply.id
+    // are independent autoincrements).
+    const parentLabel =
+      "ticketId" in parent ? `ticket-${parent.ticketId}` : `reply-${parent.replyId}`;
+    const storageKey = `attachments/${parentLabel}/${randomUUID()}-${safeFilename(filename)}`;
+    await storage.put(storageKey, buffer, att.content_type);
+    await tx.attachment.create({
+      data: {
+        ...parent,
+        filename,
+        contentType: att.content_type,
+        size: att.size,
+        storageKey,
+      },
+    });
+  }
 }
 
 function findHeader(
@@ -107,6 +202,14 @@ router.post("/", webhookLimiter, async (req, res) => {
       subject: string;
       to: string[];
       bounce?: { type: string; subType?: string; message?: string };
+      attachments?: Array<{
+        id: string;
+        filename: string | null;
+        content_type: string;
+        size: number;
+        content_id: string | null;
+        content_disposition: string | null;
+      }>;
     };
   };
 
@@ -276,6 +379,14 @@ router.post("/", webhookLimiter, async (req, res) => {
             },
           });
         }
+        if ((event.data.attachments ?? []).length > 0) {
+          await processInboundAttachments(
+            tx,
+            { replyId: createdReply.id },
+            emailId,
+            req.log,
+          );
+        }
         return { reply: createdReply, refreshedTicket: updatedTicket };
       }));
     } catch (err) {
@@ -333,6 +444,9 @@ router.post("/", webhookLimiter, async (req, res) => {
         type: AuditEventType.ticket_created,
         data: { fromEmail: created.fromEmail },
       });
+      if ((event.data.attachments ?? []).length > 0) {
+        await processInboundAttachments(tx, { ticketId: created.id }, emailId, req.log);
+      }
       await boss.send(
         CLASSIFY_TICKET_QUEUE,
         {

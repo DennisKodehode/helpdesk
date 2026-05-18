@@ -73,6 +73,38 @@ export const ATTACHMENT_MIME_ALLOWLIST: readonly string[] = [
   "application/zip",
 ];
 
+// Inbound email attachments use a permissive denylist instead of the strict
+// allowlist above — we want to accept whatever a customer's email client
+// produces (HEIC iPhone photos, .mov clips, .pages, etc.) so agents see what
+// the customer actually sent. Only known-dangerous types are dropped.
+export const INBOUND_MIME_DENYLIST: readonly string[] = [
+  "image/svg+xml",
+  "application/x-msdownload",
+  "application/x-msdos-program",
+  "application/x-msi",
+  "application/x-sh",
+  "application/x-javascript",
+  "text/javascript",
+  "application/javascript",
+];
+
+export const INBOUND_EXTENSION_DENYLIST: readonly string[] = [
+  "exe",
+  "bat",
+  "sh",
+  "js",
+  "msi",
+  "cmd",
+  "ps1",
+];
+
+export function isAttachmentSafe(filename: string, contentType: string): boolean {
+  if (INBOUND_MIME_DENYLIST.includes(contentType)) return false;
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+  if (INBOUND_EXTENSION_DENYLIST.includes(ext)) return false;
+  return true;
+}
+
 export const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   [TicketStatus.new]: [],
   [TicketStatus.processing]: [],

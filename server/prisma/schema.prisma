@@ -127,6 +127,7 @@ model Ticket {
   replies            Reply[]
   notifications      Notification[]
   auditEvents        AuditEvent[]
+  attachments        Attachment[]
 
   @@index([status, createdAt])
   @@index([assignedToId, status])
@@ -155,8 +156,14 @@ model Reply {
 
 model Attachment {
   id          String   @id @default(cuid())
-  replyId     Int
-  reply       Reply    @relation(fields: [replyId], references: [id], onDelete: Cascade)
+  // Polymorphic parent: exactly ONE of replyId or ticketId is set, enforced
+  // at the DB level via the attachment_xor_parent CHECK constraint added in
+  // the corresponding migration (raw SQL — Prisma doesn't model CHECK
+  // constraints natively).
+  replyId     Int?
+  reply       Reply?   @relation(fields: [replyId], references: [id], onDelete: Cascade)
+  ticketId    Int?
+  ticket      Ticket?  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   filename    String
   contentType String
   size        Int
@@ -164,6 +171,7 @@ model Attachment {
   createdAt   DateTime @default(now())
 
   @@index([replyId])
+  @@index([ticketId])
   @@map("attachment")
 }
 

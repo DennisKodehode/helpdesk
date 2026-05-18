@@ -153,6 +153,10 @@ router.get("/:id", requireAuth, async (req, res) => {
       priority: true,
       assignedToId: true,
       assignedTo: { select: { id: true, name: true, email: true } },
+      attachments: {
+        select: ATTACHMENT_SELECT,
+        orderBy: { createdAt: "asc" },
+      },
       createdAt: true,
       updatedAt: true,
     },
@@ -499,6 +503,7 @@ router.post(
             toName: ticket.fromName,
             subject: ticket.subject,
             replyBody: body,
+            replyId: created.id,
             _requestId: String(req.id),
           },
           { db: fromPrisma(tx) },

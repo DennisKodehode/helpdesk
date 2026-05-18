@@ -12,7 +12,10 @@ vi.mock("../lib/resend", () => ({
   default: {
     webhooks: { verify: vi.fn() },
     emails: {
-      receiving: { get: vi.fn() },
+      receiving: {
+        get: vi.fn(),
+        attachments: { list: vi.fn() },
+      },
       send: vi.fn(),
     },
   },
@@ -34,7 +37,19 @@ const SVIX_HEADERS = {
 
 // from/subject come from the webhook payload; body comes from the API
 const makeEvent = (
-  overrides: { from?: string; subject?: string; email_id?: string } = {},
+  overrides: {
+    from?: string;
+    subject?: string;
+    email_id?: string;
+    attachments?: Array<{
+      id: string;
+      filename: string | null;
+      content_type: string;
+      size: number;
+      content_id?: string | null;
+      content_disposition?: string | null;
+    }>;
+  } = {},
 ) => ({
   type: "email.received",
   data: {
@@ -42,6 +57,7 @@ const makeEvent = (
     from: overrides.from ?? "Alice <alice@example.com>",
     subject: overrides.subject ?? "Hello",
     to: ["support@contact.tjemsland.dev"],
+    ...(overrides.attachments ? { attachments: overrides.attachments } : {}),
   },
 });
 
@@ -642,6 +658,411 @@ describe("POST /api/inbound-email", () => {
       orderBy: { type: "asc" },
     });
     expect(events.map((e) => e.type).sort()).toEqual(["auto_reopened", "reply_added"]);
+  });
+
+  describe("inbound attachments (customer-reply path)", () => {
+    let originalFetch: typeof globalThis.fetch;
+
+    beforeEach(() => {
+      originalFetch = globalThis.fetch;
+      vi.mocked(resend.emails.receiving.attachments.list).mockReset();
+    });
+
+    afterEach(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    async function seedRepliableTicket() {
+      return prisma.ticket.create({
+        data: {
+          fromName: "Alice",
+          fromEmail: "alice@example.com",
+          subject: "Hello",
+          body: "First message",
+          status: TicketStatus.open,
+        },
+      });
+    }
+
+    function mockAttachmentsList(
+      items: Array<{
+        id: string;
+        filename: string | null;
+        content_type: string;
+        size: number;
+        download_url: string;
+      }>,
+    ) {
+      // SDK wraps the array in { object, has_more, data } per ListAttachmentsResponseSuccess.
+      vi.mocked(resend.emails.receiving.attachments.list).mockResolvedValueOnce({
+        data: { object: "list", has_more: false, data: items } as never,
+        error: null,
+      } as never);
+    }
+
+    function mockFetchBuffer(map: Record<string, Buffer>) {
+      globalThis.fetch = vi.fn(async (url: string) => {
+        const buf = map[url];
+        if (!buf) {
+          return new Response(null, { status: 404 });
+        }
+        return new Response(buf as unknown as BodyInit, { status: 200 });
+      }) as unknown as typeof globalThis.fetch;
+    }
+
+    it("persists a PNG attachment from the inbound webhook onto the customer reply", async () => {
+      const existing = await seedRepliableTicket();
+      createdTicketId = existing.id;
+      const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+      mockAttachmentsList([
+        {
+          id: "att-png",
+          filename: "screenshot.png",
+          content_type: "image/png",
+          size: pngBytes.length,
+          download_url: "https://example.com/dl/att-png",
+        },
+      ]);
+      mockFetchBuffer({ "https://example.com/dl/att-png": pngBytes });
+
+      const res = await request(app)
+        .post("/api/inbound-email")
+        .set(SVIX_HEADERS)
+        .send(
+          makeEvent({
+            subject: "Re: Hello",
+            attachments: [
+              {
+                id: "att-png",
+                filename: "screenshot.png",
+                content_type: "image/png",
+                size: pngBytes.length,
+              },
+            ],
+          }),
+        );
+
+      expect(res.status).toBe(201);
+      createdReplyId = res.body.reply.id;
+
+      const persisted = await prisma.attachment.findMany({
+        where: { replyId: createdReplyId },
+      });
+      expect(persisted).toHaveLength(1);
+      expect(persisted[0].filename).toBe("screenshot.png");
+      expect(persisted[0].contentType).toBe("image/png");
+      expect(persisted[0].size).toBe(pngBytes.length);
+      expect(persisted[0].storageKey).toMatch(/^attachments\/reply-\d+\//);
+    });
+
+    it("skips a denylisted SVG attachment but still creates the reply", async () => {
+      const existing = await seedRepliableTicket();
+      createdTicketId = existing.id;
+
+      mockAttachmentsList([
+        {
+          id: "att-svg",
+          filename: "evil.svg",
+          content_type: "image/svg+xml",
+          size: 100,
+          download_url: "https://example.com/dl/att-svg",
+        },
+      ]);
+      mockFetchBuffer({}); // shouldn't be called
+
+      const res = await request(app)
+        .post("/api/inbound-email")
+        .set(SVIX_HEADERS)
+        .send(
+          makeEvent({
+            subject: "Re: Hello",
+            attachments: [
+              {
+                id: "att-svg",
+                filename: "evil.svg",
+                content_type: "image/svg+xml",
+                size: 100,
+              },
+            ],
+          }),
+        );
+
+      expect(res.status).toBe(201);
+      createdReplyId = res.body.reply.id;
+
+      const persisted = await prisma.attachment.findMany({
+        where: { replyId: createdReplyId },
+      });
+      expect(persisted).toHaveLength(0);
+    });
+
+    it("skips an oversize attachment but still creates the reply", async () => {
+      const existing = await seedRepliableTicket();
+      createdTicketId = existing.id;
+
+      mockAttachmentsList([
+        {
+          id: "att-big",
+          filename: "big.png",
+          content_type: "image/png",
+          size: 11 * 1024 * 1024,
+          download_url: "https://example.com/dl/att-big",
+        },
+      ]);
+      mockFetchBuffer({});
+
+      const res = await request(app)
+        .post("/api/inbound-email")
+        .set(SVIX_HEADERS)
+        .send(
+          makeEvent({
+            subject: "Re: Hello",
+            attachments: [
+              {
+                id: "att-big",
+                filename: "big.png",
+                content_type: "image/png",
+                size: 11 * 1024 * 1024,
+              },
+            ],
+          }),
+        );
+
+      expect(res.status).toBe(201);
+      createdReplyId = res.body.reply.id;
+
+      const persisted = await prisma.attachment.findMany({
+        where: { replyId: createdReplyId },
+      });
+      expect(persisted).toHaveLength(0);
+    });
+
+    it("persists only the allowed attachment when the batch is mixed", async () => {
+      const existing = await seedRepliableTicket();
+      createdTicketId = existing.id;
+      const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+
+      mockAttachmentsList([
+        {
+          id: "att-png",
+          filename: "ok.png",
+          content_type: "image/png",
+          size: pngBytes.length,
+          download_url: "https://example.com/dl/ok",
+        },
+        {
+          id: "att-svg",
+          filename: "bad.svg",
+          content_type: "image/svg+xml",
+          size: 50,
+          download_url: "https://example.com/dl/bad",
+        },
+      ]);
+      mockFetchBuffer({ "https://example.com/dl/ok": pngBytes });
+
+      const res = await request(app)
+        .post("/api/inbound-email")
+        .set(SVIX_HEADERS)
+        .send(
+          makeEvent({
+            subject: "Re: Hello",
+            attachments: [
+              {
+                id: "att-png",
+                filename: "ok.png",
+                content_type: "image/png",
+                size: pngBytes.length,
+              },
+              {
+                id: "att-svg",
+                filename: "bad.svg",
+                content_type: "image/svg+xml",
+                size: 50,
+              },
+            ],
+          }),
+        );
+
+      expect(res.status).toBe(201);
+      createdReplyId = res.body.reply.id;
+
+      const persisted = await prisma.attachment.findMany({
+        where: { replyId: createdReplyId },
+      });
+      expect(persisted).toHaveLength(1);
+      expect(persisted[0].filename).toBe("ok.png");
+    });
+  });
+
+  describe("inbound attachments (new-ticket path)", () => {
+    let originalFetch: typeof globalThis.fetch;
+
+    beforeEach(() => {
+      originalFetch = globalThis.fetch;
+      vi.mocked(resend.emails.receiving.attachments.list).mockReset();
+    });
+
+    afterEach(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    function mockAttachmentsList(
+      items: Array<{
+        id: string;
+        filename: string | null;
+        content_type: string;
+        size: number;
+        download_url: string;
+      }>,
+    ) {
+      vi.mocked(resend.emails.receiving.attachments.list).mockResolvedValueOnce({
+        data: { object: "list", has_more: false, data: items } as never,
+        error: null,
+      } as never);
+    }
+
+    function mockFetchBuffer(map: Record<string, Buffer>) {
+      globalThis.fetch = vi.fn(async (url: string) => {
+        const buf = map[url];
+        if (!buf) return new Response(null, { status: 404 });
+        return new Response(buf as unknown as BodyInit, { status: 200 });
+      }) as unknown as typeof globalThis.fetch;
+    }
+
+    it("persists a PNG attachment from a brand-new inbound email onto the Ticket", async () => {
+      const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+      mockAttachmentsList([
+        {
+          id: "att-png",
+          filename: "first-screenshot.png",
+          content_type: "image/png",
+          size: pngBytes.length,
+          download_url: "https://example.com/dl/att-png",
+        },
+      ]);
+      mockFetchBuffer({ "https://example.com/dl/att-png": pngBytes });
+
+      const res = await request(app)
+        .post("/api/inbound-email")
+        .set(SVIX_HEADERS)
+        .send(
+          makeEvent({
+            from: "Newbie <newbie@example.com>",
+            subject: "Brand new ticket with attachment",
+            attachments: [
+              {
+                id: "att-png",
+                filename: "first-screenshot.png",
+                content_type: "image/png",
+                size: pngBytes.length,
+              },
+            ],
+          }),
+        );
+
+      expect(res.status).toBe(201);
+      expect(res.body.type).toBe("ticket");
+      createdTicketId = res.body.ticket.id;
+
+      const persisted = await prisma.attachment.findMany({
+        where: { ticketId: createdTicketId },
+      });
+      expect(persisted).toHaveLength(1);
+      expect(persisted[0].filename).toBe("first-screenshot.png");
+      expect(persisted[0].ticketId).toBe(createdTicketId);
+      expect(persisted[0].replyId).toBeNull();
+      expect(persisted[0].storageKey).toMatch(/^attachments\/ticket-\d+\//);
+    });
+
+    it("skips a denylisted SVG on a new ticket but still creates the ticket", async () => {
+      mockAttachmentsList([
+        {
+          id: "att-svg",
+          filename: "evil.svg",
+          content_type: "image/svg+xml",
+          size: 50,
+          download_url: "https://example.com/dl/att-svg",
+        },
+      ]);
+      mockFetchBuffer({});
+
+      const res = await request(app)
+        .post("/api/inbound-email")
+        .set(SVIX_HEADERS)
+        .send(
+          makeEvent({
+            from: "Newbie <newbie2@example.com>",
+            subject: "New ticket with SVG",
+            attachments: [
+              {
+                id: "att-svg",
+                filename: "evil.svg",
+                content_type: "image/svg+xml",
+                size: 50,
+              },
+            ],
+          }),
+        );
+
+      expect(res.status).toBe(201);
+      createdTicketId = res.body.ticket.id;
+
+      const persisted = await prisma.attachment.findMany({
+        where: { ticketId: createdTicketId },
+      });
+      expect(persisted).toHaveLength(0);
+    });
+
+    it("rejects writing an Attachment with both replyId and ticketId via the CHECK constraint", async () => {
+      // Need a Ticket + Reply to FK against.
+      const ticket = await prisma.ticket.create({
+        data: {
+          fromName: "Constraint Test",
+          fromEmail: "constraint@example.com",
+          subject: "Constraint test",
+          body: "",
+          status: TicketStatus.open,
+        },
+      });
+      createdTicketId = ticket.id;
+      const reply = await prisma.reply.create({
+        data: {
+          ticketId: ticket.id,
+          authorId: null,
+          senderType: SenderType.customer,
+          body: "x",
+        },
+      });
+      createdReplyId = reply.id;
+
+      await expect(
+        prisma.attachment.create({
+          data: {
+            replyId: reply.id,
+            ticketId: ticket.id,
+            filename: "both.bin",
+            contentType: "application/octet-stream",
+            size: 1,
+            storageKey: `attachments/test-${Date.now()}-both.bin`,
+          },
+        }),
+      ).rejects.toThrow();
+
+      // Also rejects when neither is set.
+      await expect(
+        prisma.attachment.create({
+          data: {
+            replyId: null,
+            ticketId: null,
+            filename: "neither.bin",
+            contentType: "application/octet-stream",
+            size: 1,
+            storageKey: `attachments/test-${Date.now()}-neither.bin`,
+          },
+        }),
+      ).rejects.toThrow();
+    });
   });
 });
 

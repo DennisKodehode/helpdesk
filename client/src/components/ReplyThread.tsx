@@ -69,7 +69,7 @@ export default function ReplyThread({ ticket }: Props) {
       senderLabel: "Customer",
       senderName: ticket.fromName,
       html: originalHtml,
-      attachments: [],
+      attachments: ticket.attachments ?? [],
       createdAt: ticket.createdAt,
     },
     ...replies.map((r: Reply) => {

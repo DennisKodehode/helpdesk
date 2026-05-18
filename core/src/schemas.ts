@@ -64,6 +64,18 @@ export type InboundEmailData = z.infer<typeof inboundEmailSchema>;
 export const assigneeTypeSchema = z.enum(["human", "ai", "none"]);
 export type AssigneeType = z.infer<typeof assigneeTypeSchema>;
 
+// Attachment schema must come BEFORE ticketDetailSchema + replySchema since
+// both reference it (TDZ ReferenceError otherwise — caught at module load).
+export const attachmentSchema = z.object({
+  id: z.string(),
+  filename: z.string(),
+  contentType: z.string(),
+  size: z.number(),
+  createdAt: z.string(),
+});
+
+export type Attachment = z.infer<typeof attachmentSchema>;
+
 export const ticketSchema = z.object({
   id: z.number(),
   fromName: z.string(),
@@ -96,6 +108,7 @@ export const ticketDetailSchema = z.object({
     .nullable(),
   assigneeType: assigneeTypeSchema,
   isSuppressed: z.boolean(),
+  attachments: z.array(attachmentSchema).default([]),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -142,16 +155,6 @@ export const updateTicketSchema = z.object({
 });
 
 export type UpdateTicketData = z.infer<typeof updateTicketSchema>;
-
-export const attachmentSchema = z.object({
-  id: z.string(),
-  filename: z.string(),
-  contentType: z.string(),
-  size: z.number(),
-  createdAt: z.string(),
-});
-
-export type Attachment = z.infer<typeof attachmentSchema>;
 
 export const attachmentsResponseSchema = z.array(attachmentSchema);
 

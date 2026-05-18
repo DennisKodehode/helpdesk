@@ -5,11 +5,18 @@ import resend from "./resend";
 
 const EMAIL_FROM = env.EMAIL_FROM;
 
+export interface OutboundAttachment {
+  filename: string;
+  content_type: string;
+  content: Buffer;
+}
+
 export interface SendReplyEmailParams {
   to: string;
   toName: string;
   subject: string;
   replyBody: string;
+  attachments?: OutboundAttachment[];
 }
 
 export async function sendReplyEmail({
@@ -17,6 +24,7 @@ export async function sendReplyEmail({
   toName,
   subject,
   replyBody,
+  attachments,
 }: SendReplyEmailParams): Promise<void> {
   // Skip suppressed addresses (hard-bounced or marked-as-spam). Return rather
   // than throw so pg-boss doesn't retry the job forever — the suppression is
@@ -39,6 +47,7 @@ export async function sendReplyEmail({
     subject: `Re: ${subject}`,
     text: replyBody,
     html: `<p>${replyBody.replace(/\n/g, "<br>")}</p>`,
+    ...(attachments && attachments.length > 0 ? { attachments } : {}),
   });
   if (error) throw new Error(error.message);
 }

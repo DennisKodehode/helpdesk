@@ -38,6 +38,7 @@ const mockTicket: TicketDetail = {
   assignedTo: null,
   assigneeType: "none",
   isSuppressed: false,
+  attachments: [],
   createdAt: "2024-01-15T10:30:00Z",
   updatedAt: "2024-01-15T11:00:00Z",
 };
@@ -273,5 +274,26 @@ describe("ReplyThread", () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(openSpy).toHaveBeenCalledWith("/files/x.pdf", "_blank", "noopener,noreferrer");
     openSpy.mockRestore();
+  });
+
+  it("renders chips on the ORIGINAL message when ticket.attachments is non-empty", async () => {
+    vi.mocked(axios.get).mockResolvedValue({ data: [] });
+    const ticketWithAttachments: TicketDetail = {
+      ...mockTicket,
+      attachments: [
+        {
+          id: "att-original",
+          filename: "from-the-customer.png",
+          contentType: "image/png",
+          size: 1024,
+          createdAt: "2024-01-15T10:30:00Z",
+        },
+      ],
+    };
+    renderWithProviders(<ReplyThread ticket={ticketWithAttachments} />);
+
+    const list = await screen.findByRole("list", { name: /attachments/i });
+    expect(within(list).getByText("from-the-customer.png")).toBeInTheDocument();
+    expect(within(list).getByText("1 KB")).toBeInTheDocument();
   });
 });
