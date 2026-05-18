@@ -139,6 +139,20 @@ This project is developed properly, following best practices. When in doubt, do 
 - **Error handling**: 4-argument middleware `(err, req, res, next)` at the bottom of `app.ts`.
 - **Data fetching**: always use **axios** + **TanStack Query**. `useQuery` for reads, `useMutation` for writes; invalidate the relevant query key in `onSuccess`. Never use `fetch` directly or `useState` + `useEffect` for server state.
 
+## Per-feature workflow
+
+Non-trivial features (anything more than a typo / single-line fix / rename) follow a five-step rhythm:
+
+1. **Plan in plan mode.** Use `/plan` to draft a focused implementation plan into the plan file. The roadmap at `~/.claude/plans/okay-for-a-helpdesk-ticket-glimmering-finch.md` also gets a `CURRENT FOCUS` section while the item is active, then the row is ~~struck through~~ with a post-ship summary after ship. Surface design questions via `AskUserQuestion` before writing the plan, not as text questions.
+
+2. **Three context7 checkpoints** for any library surface the diff touches: one while writing the plan, one after the plan is written, one pre-commit against the actual diff. Never trust assumed API shapes; never reinvent a wheel an existing project utility already implements (e.g. `formatRelative` in `client/src/lib/ticket-ui.ts`, `firstIssue` in `server/src/lib/validation.ts`, `recordAuditEvent` in `server/src/lib/audit.ts`).
+
+3. **Pre-commit review.** Before staging, scan the full diff against the context7 docs and the project conventions in this file. Note convention adherence, library-surface validity, and any deliberate-but-surprising choices — call them out in the commit message body so future-you can spot the reasoning.
+
+4. **Pause for explicit commit approval.** Never auto-commit. Stage only the files listed in the pre-commit review (no `git add -A`). Push is a *separate* explicit decision — direct pushes to `master` need explicit "push to master" wording per the auto-mode classifier.
+
+5. **After ship.** Update the roadmap: strike the row, append the post-ship summary (what shipped, what surprised, what's deferred), bump the Done counter, remove the `CURRENT FOCUS` section.
+
 ## Testing strategy — Testing Trophy model
 
 ```

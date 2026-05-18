@@ -1,0 +1,149 @@
+import { randomUUID } from "node:crypto";
+import { ATTACHMENT_MIME_ALLOWLIST, MAX_ATTACHMENT_SIZE_BYTES } from "@helpdesk/core";
+import { Router } from "express";
+import multer from "multer";
+import { env } from "../lib/env";
+import { prisma } from "../lib/prisma";
+import { safeFilename, storage } from "../lib/storage";
+import { requireAuth } from "../middleware/auth-middleware";
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: MAX_ATTACHMENT_SIZE_BYTES,
+    files: 5,
+  },
+});
+
+/**
+ * POST /api/replies/:id/attachments
+ * Multipart form with field name "files" (up to 5 files, 10 MB each).
+ * Persists Attachment rows and writes blobs to the configured storage adapter.
+ */
+export const uploadRouter = Router({ mergeParams: true });
+
+uploadRouter.post(
+  "/",
+  requireAuth,
+  (req, res, next) => {
+    upload.array("files", 5)(req, res, (err) => {
+      if (err instanceof multer.MulterError) {
+        if (err.code === "LIMIT_FILE_SIZE") {
+          res.status(413).json({ error: "File too large (max 10 MB per file)" });
+          return;
+        }
+        if (err.code === "LIMIT_FILE_COUNT") {
+          res.status(400).json({ error: "Too many files (max 5 per request)" });
+          return;
+        }
+        res.status(400).json({ error: err.message });
+        return;
+      }
+      if (err) return next(err);
+      next();
+    });
+  },
+  async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ error: "Invalid reply ID" });
+      return;
+    }
+
+    const files = (req.files as Express.Multer.File[] | undefined) ?? [];
+    if (files.length === 0) {
+      res.status(400).json({ error: "No files attached" });
+      return;
+    }
+
+    for (const f of files) {
+      if (!ATTACHMENT_MIME_ALLOWLIST.includes(f.mimetype)) {
+        res.status(400).json({ error: `Unsupported file type: ${f.mimetype}` });
+        return;
+      }
+    }
+
+    const reply = await prisma.reply.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!reply) {
+      res.status(404).json({ error: "Reply not found" });
+      return;
+    }
+
+    const created = [];
+    for (const file of files) {
+      const safeName = safeFilename(file.originalname);
+      const storageKey = `attachments/${id}/${randomUUID()}-${safeName}`;
+      await storage.put(storageKey, file.buffer, file.mimetype);
+      const row = await prisma.attachment.create({
+        data: {
+          replyId: id,
+          filename: file.originalname,
+          contentType: file.mimetype,
+          size: file.size,
+          storageKey,
+        },
+        select: {
+          id: true,
+          filename: true,
+          contentType: true,
+          size: true,
+          createdAt: true,
+        },
+      });
+      created.push(row);
+    }
+
+    res.status(201).json(created);
+  },
+);
+
+/**
+ * GET /api/attachments/:id
+ * Returns { url } the client can fetch. In dev (local driver) this points
+ * back at /api/attachments/:id/file. In prod (s3 driver) this is a presigned
+ * GET URL on the bucket with a 5-minute expiry.
+ */
+export const attachmentsRouter = Router();
+
+attachmentsRouter.get("/:id", requireAuth, async (req, res) => {
+  const id = req.params.id as string;
+  const attachment = await prisma.attachment.findUnique({
+    where: { id },
+    select: { id: true, filename: true, storageKey: true },
+  });
+  if (!attachment) {
+    res.status(404).json({ error: "Attachment not found" });
+    return;
+  }
+
+  if (env.STORAGE_DRIVER === "local") {
+    res.json({ url: `/api/attachments/${attachment.id}/file` });
+    return;
+  }
+
+  const url = await storage.presignDownload(attachment.storageKey, attachment.filename);
+  res.json({ url });
+});
+
+attachmentsRouter.get("/:id/file", requireAuth, async (req, res) => {
+  const id = req.params.id as string;
+  const attachment = await prisma.attachment.findUnique({
+    where: { id },
+    select: { contentType: true, filename: true, storageKey: true },
+  });
+  if (!attachment) {
+    res.status(404).json({ error: "Attachment not found" });
+    return;
+  }
+
+  const buf = await storage.get(attachment.storageKey);
+  res.setHeader("Content-Type", attachment.contentType);
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${attachment.filename.replace(/"/g, "")}"`,
+  );
+  res.send(buf);
+});

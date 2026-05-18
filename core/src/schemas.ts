@@ -197,6 +197,18 @@ export const notificationsResponseSchema = z.object({
 
 export type NotificationsResponse = z.infer<typeof notificationsResponseSchema>;
 
+export const attachmentSchema = z.object({
+  id: z.string(),
+  filename: z.string(),
+  contentType: z.string(),
+  size: z.number(),
+  createdAt: z.string(),
+});
+
+export type Attachment = z.infer<typeof attachmentSchema>;
+
+export const attachmentsResponseSchema = z.array(attachmentSchema);
+
 export const auditEventSchema = z.object({
   id: z.string(),
   type: z.enum(AuditEventType),

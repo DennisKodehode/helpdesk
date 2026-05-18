@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.70",
+    "@bradenmacdonald/s3-lite-client": "^0.9.6",
     "@godaddy/terminus": "^4.12.1",
     "@helpdesk/core": "workspace:*",
     "@prisma/adapter-pg": "^7.0.0",
@@ -29,6 +30,7 @@
     "express": "^5.1.0",
     "express-rate-limit": "^8.5.2",
     "he": "^1.2.0",
+    "multer": "^2.1.1",
     "pg": "^8.13.3",
     "pg-boss": "^12.18.2",
     "pino": "^10.3.1",
@@ -41,6 +43,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.1",
     "@types/he": "^1.2.3",
+    "@types/multer": "^2.1.0",
     "@types/pg": "^8.11.10",
     "@types/supertest": "^6.0.2",
     "pino-pretty": "^13.1.3",

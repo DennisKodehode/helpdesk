@@ -9,3 +9,4 @@ server/.env.test
 .claude/agent-memory/
 *.tsbuildinfo
 e2e/test-results/
+server/.attachments/

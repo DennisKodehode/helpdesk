@@ -9,6 +9,7 @@ import { env } from "./lib/env";
 import { logger } from "./lib/logger";
 import { requestLogger, sentryRequestTag } from "./middleware/request-logger";
 import agentsRouter from "./routes/agents";
+import { attachmentsRouter, uploadRouter } from "./routes/attachments";
 import inboundEmailRouter from "./routes/inbound-email";
 import notificationsRouter from "./routes/notifications";
 import statsRouter from "./routes/stats";
@@ -37,6 +38,8 @@ app.use("/api/tickets", ticketsRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/inbound-email", inboundEmailRouter);
 app.use("/api/notifications", notificationsRouter);
+app.use("/api/replies/:id/attachments", uploadRouter);
+app.use("/api/attachments", attachmentsRouter);
 
 // Serve the built SPA when it exists on disk. In the prod Docker image the
 // Vite build always produces client/dist; in dev Vite serves the client on

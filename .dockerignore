@@ -38,6 +38,9 @@ test-results
 **/*.md
 !server/knowledge-base.md
 
+# Local-driver attachment storage (dev only)
+server/.attachments
+
 # Lockfile-adjacent caches
 .bun
 bun-cache

@@ -146,10 +146,25 @@ model Reply {
   bodyHtml      String?
   resendEmailId String?   @unique
   createdAt     DateTime  @default(now())
+  attachments   Attachment[]
 
   @@index([ticketId, createdAt])
   @@index([authorId, senderType])
   @@map("reply")
+}
+
+model Attachment {
+  id          String   @id @default(cuid())
+  replyId     Int
+  reply       Reply    @relation(fields: [replyId], references: [id], onDelete: Cascade)
+  filename    String
+  contentType String
+  size        Int
+  storageKey  String   @unique
+  createdAt   DateTime @default(now())
+
+  @@index([replyId])
+  @@map("attachment")
 }
 
 enum SuppressionReason {

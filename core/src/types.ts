@@ -58,6 +58,21 @@ export enum AuditEventType {
   auto_closed = "auto_closed",
 }
 
+export const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024;
+
+export const ATTACHMENT_MIME_ALLOWLIST: readonly string[] = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "application/pdf",
+  "text/plain",
+  "text/csv",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/zip",
+];
+
 export const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   [TicketStatus.new]: [],
   [TicketStatus.processing]: [],

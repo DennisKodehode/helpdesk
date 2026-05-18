@@ -31,8 +31,32 @@ const EnvSchema = z
     RESEND_WEBHOOK_SECRET: z.string().min(1),
     GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1),
     EMAIL_FROM: z.string().min(1).default("support@helpdesk.internal"),
+    STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
+    S3_ENDPOINT: z.string().optional(),
+    S3_REGION: z.string().optional(),
+    S3_BUCKET: z.string().optional(),
+    S3_ACCESS_KEY: z.string().optional(),
+    S3_SECRET_KEY: z.string().optional(),
   })
   .superRefine((env, ctx) => {
+    if (env.STORAGE_DRIVER === "s3") {
+      for (const key of [
+        "S3_ENDPOINT",
+        "S3_REGION",
+        "S3_BUCKET",
+        "S3_ACCESS_KEY",
+        "S3_SECRET_KEY",
+      ] as const) {
+        if (!env[key]) {
+          ctx.addIssue({
+            code: "custom",
+            path: [key],
+            message: `must be set when STORAGE_DRIVER=s3`,
+          });
+        }
+      }
+    }
+
     if (env.NODE_ENV !== "production") return;
 
     if (PLACEHOLDER_API_KEYS.has(env.GOOGLE_GENERATIVE_AI_API_KEY)) {
