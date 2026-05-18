@@ -17,6 +17,7 @@ async function fetchReplies(ticketId: number): Promise<Reply[]> {
 type Message = {
   id: string;
   isAgent: boolean;
+  isInternal: boolean;
   senderLabel: string;
   senderName: string;
   html: string;
@@ -41,20 +42,26 @@ export default function ReplyThread({ ticket }: Props) {
     {
       id: "original",
       isAgent: false,
+      isInternal: false,
       senderLabel: "Customer",
       senderName: ticket.fromName,
       html: originalHtml,
       createdAt: ticket.createdAt,
     },
-    ...replies.map((r: Reply) => ({
-      id: String(r.id),
-      isAgent: r.senderType === SenderType.agent,
-      senderLabel: r.senderType === SenderType.agent ? "Agent" : "Customer",
-      senderName:
-        r.senderType === SenderType.agent ? (r.author?.name ?? "AI") : ticket.fromName,
-      html: r.bodyHtml ?? r.body.replace(/\n/g, "<br>"),
-      createdAt: r.createdAt,
-    })),
+    ...replies.map((r: Reply) => {
+      const isInternal = r.senderType === SenderType.internal_note;
+      const isAgent = r.senderType === SenderType.agent;
+      const isAgentSide = isAgent || isInternal;
+      return {
+        id: String(r.id),
+        isAgent,
+        isInternal,
+        senderLabel: isInternal ? "Internal" : isAgent ? "Agent" : "Customer",
+        senderName: isAgentSide ? (r.author?.name ?? "AI") : ticket.fromName,
+        html: r.bodyHtml ?? r.body.replace(/\n/g, "<br>"),
+        createdAt: r.createdAt,
+      };
+    }),
   ];
 
   return (
@@ -103,9 +110,11 @@ export default function ReplyThread({ ticket }: Props) {
                 {/* Avatar */}
                 <div
                   className={`relative z-[1] grid size-8 shrink-0 place-items-center rounded-full text-[11px] font-medium ${
-                    msg.isAgent
-                      ? "bg-primary/12 text-primary ring-1 ring-primary/25"
-                      : "bg-card text-muted-foreground ring-1 ring-border"
+                    msg.isInternal
+                      ? "bg-amber-100 text-amber-900 ring-1 ring-amber-300 dark:bg-amber-950/50 dark:text-amber-200 dark:ring-amber-900/70"
+                      : msg.isAgent
+                        ? "bg-primary/12 text-primary ring-1 ring-primary/25"
+                        : "bg-card text-muted-foreground ring-1 ring-border"
                   }`}
                 >
                   {initial}
@@ -119,7 +128,11 @@ export default function ReplyThread({ ticket }: Props) {
                     </span>
                     <span
                       className={`font-mono text-[10px] uppercase tracking-[0.15em] ${
-                        msg.isAgent ? "text-primary" : "text-muted-foreground/70"
+                        msg.isInternal
+                          ? "text-amber-700 dark:text-amber-300"
+                          : msg.isAgent
+                            ? "text-primary"
+                            : "text-muted-foreground/70"
                       }`}
                     >
                       {msg.senderLabel}
@@ -136,9 +149,11 @@ export default function ReplyThread({ ticket }: Props) {
                   {msg.html ? (
                     <div
                       className={`prose-reply rounded-md px-4 py-3 text-[14px] leading-[1.65] text-foreground ${
-                        msg.isAgent
-                          ? "bg-primary/[0.04] ring-1 ring-primary/15 dark:bg-primary/[0.07] dark:ring-primary/20"
-                          : "bg-card ring-1 ring-border"
+                        msg.isInternal
+                          ? "bg-amber-50 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:ring-amber-900/50"
+                          : msg.isAgent
+                            ? "bg-primary/[0.04] ring-1 ring-primary/15 dark:bg-primary/[0.07] dark:ring-primary/20"
+                            : "bg-card ring-1 ring-border"
                       }`}
                       // biome-ignore lint/security/noDangerouslySetInnerHtml: rendered HTML is sanitized with DOMPurify
                       dangerouslySetInnerHTML={{

@@ -37,6 +37,7 @@ export enum TicketPriority {
 export enum SenderType {
   agent = "agent",
   customer = "customer",
+  internal_note = "internal_note",
 }
 
 export enum NotificationType {

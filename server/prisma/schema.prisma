@@ -102,6 +102,7 @@ model Verification {
 enum SenderType {
   agent
   customer
+  internal_note
 }
 
 model Ticket {

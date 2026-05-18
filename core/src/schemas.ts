@@ -156,6 +156,7 @@ export type Reply = z.infer<typeof replySchema>;
 
 export const createReplySchema = z.object({
   body: z.string().trim().min(1, "Reply cannot be empty").max(10_000),
+  isInternal: z.boolean(),
 });
 
 export type CreateReplyData = z.infer<typeof createReplySchema>;

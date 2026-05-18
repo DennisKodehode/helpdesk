@@ -1332,7 +1332,7 @@ describe("POST /api/tickets/:id/replies", () => {
     const res = await request(app)
       .post("/api/tickets/999999999/replies")
       .set("Cookie", authCookie)
-      .send({ body: "Hello" });
+      .send({ body: "Hello", isInternal: false });
     expect(res.status).toBe(404);
     expect(res.body.error).toBeTypeOf("string");
   });
@@ -1341,7 +1341,7 @@ describe("POST /api/tickets/:id/replies", () => {
     const res = await request(app)
       .post(`/api/tickets/${ticketId}/replies`)
       .set("Cookie", authCookie)
-      .send({ body: "This is my reply." });
+      .send({ body: "This is my reply.", isInternal: false });
     expect(res.status).toBe(201);
     expect(res.body.ticketId).toBe(ticketId);
     expect(res.body.body).toBe("This is my reply.");
@@ -1356,7 +1356,7 @@ describe("POST /api/tickets/:id/replies", () => {
     await request(app)
       .post(`/api/tickets/${ticketId}/replies`)
       .set("Cookie", authCookie)
-      .send({ body: "Here is your answer." });
+      .send({ body: "Here is your answer.", isInternal: false });
 
     expect(vi.mocked(boss.send)).toHaveBeenCalledOnce();
     expect(vi.mocked(boss.send)).toHaveBeenCalledWith(
@@ -1379,7 +1379,7 @@ describe("POST /api/tickets/:id/replies", () => {
     const res = await request(app)
       .post(`/api/tickets/${ticketId}/replies`)
       .set("Cookie", authCookie)
-      .send({ body: "This reply must NOT persist." });
+      .send({ body: "This reply must NOT persist.", isInternal: false });
 
     expect(res.status).toBe(500);
 
@@ -1397,7 +1397,7 @@ describe("POST /api/tickets/:id/replies", () => {
     await request(app)
       .post(`/api/tickets/${ticketId}/replies`)
       .set("Cookie", authCookie)
-      .send({ body: "Bumping update timestamp." });
+      .send({ body: "Bumping update timestamp.", isInternal: false });
 
     const after = await prisma.ticket.findUnique({
       where: { id: ticketId },
@@ -1410,7 +1410,7 @@ describe("POST /api/tickets/:id/replies", () => {
     await request(app)
       .post(`/api/tickets/${ticketId}/replies`)
       .set("Cookie", authCookie)
-      .send({ body: "First reply." });
+      .send({ body: "First reply.", isInternal: false });
 
     const afterFirst = await prisma.ticket.findUnique({
       where: { id: ticketId },
@@ -1423,13 +1423,49 @@ describe("POST /api/tickets/:id/replies", () => {
     await request(app)
       .post(`/api/tickets/${ticketId}/replies`)
       .set("Cookie", authCookie)
-      .send({ body: "Second reply." });
+      .send({ body: "Second reply.", isInternal: false });
 
     const afterSecond = await prisma.ticket.findUnique({
       where: { id: ticketId },
       select: { firstAgentReplyAt: true },
     });
     expect(afterSecond!.firstAgentReplyAt!.getTime()).toBe(firstTimestamp);
+  });
+
+  it("persists an internal note with senderType internal_note", async () => {
+    const res = await request(app)
+      .post(`/api/tickets/${ticketId}/replies`)
+      .set("Cookie", authCookie)
+      .send({ body: "Heads up — this customer called yesterday.", isInternal: true });
+
+    expect(res.status).toBe(201);
+    expect(res.body.senderType).toBe("internal_note");
+    expect(res.body.body).toBe("Heads up — this customer called yesterday.");
+    expect(res.body.author).toMatchObject({ id: testUserId, name: "Replies Post Agent" });
+  });
+
+  it("does not enqueue a send-reply-email job for an internal note", async () => {
+    vi.mocked(boss.send).mockClear();
+
+    await request(app)
+      .post(`/api/tickets/${ticketId}/replies`)
+      .set("Cookie", authCookie)
+      .send({ body: "Internal context, do not email.", isInternal: true });
+
+    expect(vi.mocked(boss.send)).not.toHaveBeenCalled();
+  });
+
+  it("does not set firstAgentReplyAt when the only reply is an internal note", async () => {
+    await request(app)
+      .post(`/api/tickets/${ticketId}/replies`)
+      .set("Cookie", authCookie)
+      .send({ body: "Just an internal note.", isInternal: true });
+
+    const after = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+      select: { firstAgentReplyAt: true },
+    });
+    expect(after!.firstAgentReplyAt).toBeNull();
   });
 });
 

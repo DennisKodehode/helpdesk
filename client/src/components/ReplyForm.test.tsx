@@ -31,7 +31,7 @@ describe("ReplyForm", () => {
     expect(screen.getByRole("button", { name: /polish/i })).toBeDisabled();
   });
 
-  it("calls POST /api/tickets/:id/replies with the body", async () => {
+  it("calls POST /api/tickets/:id/replies with the body and isInternal=false by default", async () => {
     vi.mocked(axios.post).mockResolvedValue({ data: {} });
     const user = userEvent.setup();
     renderWithProviders(<ReplyForm ticketId="42" />);
@@ -42,6 +42,7 @@ describe("ReplyForm", () => {
     await waitFor(() => {
       expect(axios.post).toHaveBeenCalledWith("/api/tickets/42/replies", {
         body: "Hello there.",
+        isInternal: false,
       });
     });
   });
@@ -165,5 +166,51 @@ describe("ReplyForm", () => {
         screen.queryByRole("textbox", { name: /refinement note/i }),
       ).not.toBeInTheDocument();
     });
+  });
+
+  it("toggling to Internal note swaps the submit label and hides Polish", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyForm ticketId="42" />);
+
+    await user.click(screen.getByRole("button", { name: /internal note/i }));
+
+    expect(screen.getByRole("button", { name: /add note/i })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /polish with ai/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /send reply/i })).not.toBeInTheDocument();
+  });
+
+  it("submits with isInternal=true when Internal note is active", async () => {
+    vi.mocked(axios.post).mockResolvedValue({ data: {} });
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyForm ticketId="42" />);
+
+    await user.click(screen.getByRole("button", { name: /internal note/i }));
+    await user.type(
+      screen.getByRole("textbox", { name: /internal note body/i }),
+      "Called the customer yesterday.",
+    );
+    await user.click(screen.getByRole("button", { name: /add note/i }));
+
+    await waitFor(() => {
+      expect(axios.post).toHaveBeenCalledWith("/api/tickets/42/replies", {
+        body: "Called the customer yesterday.",
+        isInternal: true,
+      });
+    });
+  });
+
+  it("toggling back to Reply to customer restores Send reply and Polish", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyForm ticketId="42" />);
+
+    await user.click(screen.getByRole("button", { name: /internal note/i }));
+    expect(screen.getByRole("button", { name: /add note/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /reply to customer/i }));
+
+    expect(screen.getByRole("button", { name: /send reply/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /polish with ai/i })).toBeInTheDocument();
   });
 });

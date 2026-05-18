@@ -138,6 +138,32 @@ describe("ReplyThread", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders internal notes with an Internal label", async () => {
+    const replies: Reply[] = [
+      {
+        id: 1,
+        ticketId: 42,
+        senderType: SenderType.internal_note,
+        body: "FYI — called this customer earlier, they're frustrated.",
+        bodyHtml: null,
+        author: { id: "agent-1", name: "Bob Agent" },
+        createdAt: "2024-01-15T12:00:00Z",
+      },
+    ];
+    vi.mocked(axios.get).mockResolvedValue({ data: replies });
+    renderWithProviders(<ReplyThread ticket={mockTicket} />);
+    const thread = await screen.findByRole("list", { name: /reply thread/i });
+
+    expect(
+      await within(thread).findByText(
+        "FYI — called this customer earlier, they're frustrated.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(thread).getByText("Internal")).toBeInTheDocument();
+    expect(within(thread).getByText("Bob Agent")).toBeInTheDocument();
+    expect(within(thread).queryByText("Agent")).not.toBeInTheDocument();
+  });
+
   it("shows an error alert when the summarize request fails", async () => {
     vi.mocked(axios.get).mockResolvedValue({ data: [] });
     vi.mocked(axios.post).mockRejectedValue(new Error("Network error"));

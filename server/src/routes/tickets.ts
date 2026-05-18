@@ -342,17 +342,19 @@ router.post("/:id/replies", requireAuth, async (req, res) => {
   }
 
   const now = new Date();
+  const { body, isInternal } = result.data;
   // Atomic: reply create + ticket update + email-send enqueue all commit
   // together via pg-boss's fromPrisma adapter. If the queue insert fails,
   // the whole transaction rolls back — no orphan reply, agent gets a clean
-  // 500 to retry, no duplicate rows.
+  // 500 to retry, no duplicate rows. Internal notes skip both the email
+  // enqueue and the firstAgentReplyAt write since they're not customer-facing.
   const reply = await prisma.$transaction(async (tx) => {
     const created = await tx.reply.create({
       data: {
         ticketId: id,
         authorId: req.user!.id,
-        senderType: SenderType.agent,
-        body: result.data.body,
+        senderType: isInternal ? SenderType.internal_note : SenderType.agent,
+        body,
       },
       select: REPLY_SELECT,
     });
@@ -360,20 +362,22 @@ router.post("/:id/replies", requireAuth, async (req, res) => {
       where: { id },
       data: {
         updatedAt: now,
-        ...(!ticket.firstAgentReplyAt && { firstAgentReplyAt: now }),
+        ...(!isInternal && !ticket.firstAgentReplyAt && { firstAgentReplyAt: now }),
       },
     });
-    await boss.send(
-      SEND_REPLY_EMAIL_QUEUE,
-      {
-        to: ticket.fromEmail,
-        toName: ticket.fromName,
-        subject: ticket.subject,
-        replyBody: result.data.body,
-        _requestId: String(req.id),
-      },
-      { db: fromPrisma(tx) },
-    );
+    if (!isInternal) {
+      await boss.send(
+        SEND_REPLY_EMAIL_QUEUE,
+        {
+          to: ticket.fromEmail,
+          toName: ticket.fromName,
+          subject: ticket.subject,
+          replyBody: body,
+          _requestId: String(req.id),
+        },
+        { db: fromPrisma(tx) },
+      );
+    }
     return created;
   });
 
@@ -404,11 +408,15 @@ router.post("/:id/summarize", requireAuth, aiEndpointLimiter, async (req, res) =
 
   const conversation = [
     `Customer (${ticket.fromName}): ${ticket.body}`,
-    ...replies.map((r) =>
-      r.senderType === "agent"
-        ? `Agent (${r.author?.name ?? "Agent"}): ${r.body}`
-        : `Customer: ${r.body}`,
-    ),
+    ...replies.map((r) => {
+      if (r.senderType === SenderType.agent) {
+        return `Agent (${r.author?.name ?? "Agent"}): ${r.body}`;
+      }
+      if (r.senderType === SenderType.internal_note) {
+        return `Internal note (${r.author?.name ?? "Agent"}): ${r.body}`;
+      }
+      return `Customer: ${r.body}`;
+    }),
   ].join("\n\n");
 
   const prompt = [
