@@ -5,7 +5,7 @@ dockerfilePath = "Dockerfile"
 [deploy]
 # Runs once before each new revision goes live. Applies any pending DB
 # migrations before traffic is routed to the new container.
-preDeployCommand = ["bun --cwd=server x prisma migrate deploy"]
+preDeployCommand = ["bunx prisma migrate deploy --config server/prisma.config.ts"]
 # Terminus exposes /api/health on the http.Server and returns 503 when
 # the DB or pg-boss is unreachable.
 healthcheckPath = "/api/health"
