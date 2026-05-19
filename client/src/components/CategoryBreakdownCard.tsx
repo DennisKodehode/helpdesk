@@ -88,8 +88,10 @@ function CategoryRow({
 export default function CategoryBreakdownCard() {
   const query = useQuery<CategoryBreakdownResponse>({
     queryKey: ["stats", "categories"],
-    queryFn: () =>
-      axios.get<CategoryBreakdownResponse>("/api/stats/categories").then((r) => r.data),
+    queryFn: ({ signal }) =>
+      axios
+        .get<CategoryBreakdownResponse>("/api/stats/categories", { signal })
+        .then((r) => r.data),
   });
 
   if (query.isLoading) return <CategoryBreakdownSkeleton />;

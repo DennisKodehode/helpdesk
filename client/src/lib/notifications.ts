@@ -12,15 +12,17 @@ const QUERY_KEY = ["notifications"] as const;
 
 const POLL_INTERVAL_MS = 30_000;
 
-async function fetchNotifications(): Promise<NotificationsResponse> {
-  const { data } = await axios.get<NotificationsResponse>("/api/notifications");
+async function fetchNotifications(signal?: AbortSignal): Promise<NotificationsResponse> {
+  const { data } = await axios.get<NotificationsResponse>("/api/notifications", {
+    signal,
+  });
   return data;
 }
 
 export function useNotifications(enabled: boolean) {
   return useQuery({
     queryKey: QUERY_KEY,
-    queryFn: fetchNotifications,
+    queryFn: ({ signal }) => fetchNotifications(signal),
     enabled,
     refetchInterval: enabled ? POLL_INTERVAL_MS : false,
     refetchOnWindowFocus: true,

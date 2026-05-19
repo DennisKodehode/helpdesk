@@ -32,13 +32,16 @@ function DashboardSkeleton() {
 export default function HomePage() {
   const statsQuery = useQuery<StatsResponse>({
     queryKey: ["stats"],
-    queryFn: () => axios.get<StatsResponse>("/api/stats").then((r) => r.data),
+    queryFn: ({ signal }) =>
+      axios.get<StatsResponse>("/api/stats", { signal }).then((r) => r.data),
   });
 
   const chartQuery = useQuery<TicketsPerDayResponse>({
     queryKey: ["stats", "tickets-per-day"],
-    queryFn: () =>
-      axios.get<TicketsPerDayResponse>("/api/stats/tickets-per-day").then((r) => r.data),
+    queryFn: ({ signal }) =>
+      axios
+        .get<TicketsPerDayResponse>("/api/stats/tickets-per-day", { signal })
+        .then((r) => r.data),
   });
 
   return (

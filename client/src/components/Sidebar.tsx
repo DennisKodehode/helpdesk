@@ -119,12 +119,17 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
 
   async function handleSignOut() {
     setMenuOpen(false);
+    // Abort in-flight authenticated requests BEFORE the session is
+    // invalidated. cancelQueries() triggers AbortSignal.abort() on each
+    // query's queryFn — every authenticated queryFn forwards that signal
+    // into axios so the underlying HTTP fetch actually closes. Without
+    // this, a polling tick mid-flight (or a pending dashboard fetch) lands
+    // on the server after signOut deletes the session row and returns
+    // 401, visible in DevTools' Network tab even though the UI no longer
+    // shows the error. This is the deferred follow-up the #25.7 commit
+    // body called out.
+    await queryClient.cancelQueries();
     await signOut();
-    // Clear the query cache AFTER signOut so the cookie is already gone
-    // when in-flight queries get canceled. Without this, every signout
-    // produces a burst of 401s as queries refetch in the gap between the
-    // cookie clearing and the component tree unmounting — Sentry would
-    // see them as real errors in production.
     queryClient.clear();
     navigate("/login", { replace: true });
   }

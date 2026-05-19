@@ -80,7 +80,10 @@ describe("Sidebar", () => {
       const link = screen.getByRole("link", { name: /my tickets/i });
       expect(link).toHaveTextContent("5");
     });
-    expect(axios.get).toHaveBeenCalledWith("/api/tickets/my-open-count");
+    expect(axios.get).toHaveBeenCalledWith(
+      "/api/tickets/my-open-count",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
   });
 
   it("renders the My stats link for agents", () => {

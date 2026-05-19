@@ -70,8 +70,10 @@ function SlaHealthCardSkeleton() {
 export default function SlaHealthCard() {
   const query = useQuery<SlaHealthResponse>({
     queryKey: ["stats", "sla-health"],
-    queryFn: () =>
-      axios.get<SlaHealthResponse>("/api/stats/sla-health").then((r) => r.data),
+    queryFn: ({ signal }) =>
+      axios
+        .get<SlaHealthResponse>("/api/stats/sla-health", { signal })
+        .then((r) => r.data),
   });
 
   if (query.isLoading) return <SlaHealthCardSkeleton />;
