@@ -74,6 +74,24 @@ describe("SlaHealthCard", () => {
     expect(link).toHaveAttribute("href", "/tickets?breachedOnly=true");
   });
 
+  it("wraps the at-risk column in a link to /tickets?slaState=at_risk", async () => {
+    vi.mocked(axios.get).mockResolvedValue({
+      data: makeResponse({ total: 3, breached: 0, atRisk: 2, ok: 1 }),
+    });
+    renderWithProviders(<SlaHealthCard />);
+    const link = await screen.findByRole("link", { name: /at risk: 2/i });
+    expect(link).toHaveAttribute("href", "/tickets?slaState=at_risk");
+  });
+
+  it("wraps the on-track column in a link to /tickets?slaState=ok", async () => {
+    vi.mocked(axios.get).mockResolvedValue({
+      data: makeResponse({ total: 3, breached: 0, atRisk: 0, ok: 3 }),
+    });
+    renderWithProviders(<SlaHealthCard />);
+    const link = await screen.findByRole("link", { name: /on track: 3/i });
+    expect(link).toHaveAttribute("href", "/tickets?slaState=ok");
+  });
+
   it("exposes a byMetric tooltip on the breached column", async () => {
     vi.mocked(axios.get).mockResolvedValue({
       data: makeResponse({

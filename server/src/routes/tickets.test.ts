@@ -23,6 +23,7 @@ import { auth } from "../lib/auth";
 import boss from "../lib/boss";
 import { prisma } from "../lib/prisma";
 import { SEND_REPLY_EMAIL_QUEUE } from "../lib/send-reply-email-job";
+import { seedSlaPolicies } from "../lib/sla-defaults";
 
 vi.mock("../lib/boss", () => ({
   default: { send: vi.fn().mockResolvedValue("mock-job-id") },
@@ -739,6 +740,160 @@ describe("GET /api/tickets — sorting", () => {
     // View wins — both open and resolved unassigned tickets appear.
     expect(ids).toContain(createdTicketIds[0]);
     expect(ids).toContain(resolvedUnassigned.id);
+  });
+});
+
+describe("GET /api/tickets — slaState filter", () => {
+  const HOUR = 60 * 60 * 1000;
+  const MINUTE = 60 * 1000;
+  let authCookie: string;
+  let testUserId: string;
+  let createdTicketIds: number[] = [];
+
+  beforeAll(async () => {
+    await seedSlaPolicies();
+
+    const ctx = await auth.$context;
+    const hashedPassword = await ctx.password.hash("Testpassword1!");
+    const id = generateId();
+    const now = new Date();
+
+    await prisma.user.create({
+      data: {
+        id,
+        name: "Sla State Filter Test",
+        email: "test-sla-state-filter@example.com",
+        emailVerified: true,
+        role: "agent",
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await prisma.account.create({
+      data: {
+        id: generateId(),
+        accountId: id,
+        providerId: "credential",
+        userId: id,
+        password: hashedPassword,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    testUserId = id;
+
+    const signInRes = await request(app)
+      .post("/api/auth/sign-in/email")
+      .send({ email: "test-sla-state-filter@example.com", password: "Testpassword1!" });
+    const cookies = signInRes.headers["set-cookie"] as string[] | string;
+    authCookie = Array.isArray(cookies) ? cookies.join("; ") : cookies;
+  });
+
+  afterAll(async () => {
+    await prisma.session.deleteMany({ where: { userId: testUserId } });
+    await prisma.account.deleteMany({ where: { userId: testUserId } });
+    await prisma.user.delete({ where: { id: testUserId } });
+  });
+
+  afterEach(async () => {
+    if (createdTicketIds.length > 0) {
+      await prisma.ticket.deleteMany({ where: { id: { in: createdTicketIds } } });
+      createdTicketIds = [];
+    }
+  });
+
+  async function createTicket(opts: {
+    priority: TicketPriority;
+    createdAt: Date;
+    firstAgentReplyAt?: Date | null;
+    status?: TicketStatus;
+  }) {
+    const ticket = await prisma.ticket.create({
+      data: {
+        fromName: "SLA State",
+        fromEmail: `sla-state-${generateId()}@example.com`,
+        subject: "SLA state test",
+        body: "",
+        priority: opts.priority,
+        status: opts.status ?? TicketStatus.open,
+        createdAt: opts.createdAt,
+        firstAgentReplyAt: opts.firstAgentReplyAt ?? null,
+      },
+    });
+    createdTicketIds.push(ticket.id);
+    return ticket;
+  }
+
+  it("rejects garbage slaState values with 400", async () => {
+    const res = await request(app)
+      .get("/api/tickets?slaState=lolwut")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(400);
+  });
+
+  it("?slaState=at_risk returns only tickets in the at-risk window", async () => {
+    // urgent → firstResponseMinutes=60. 50 of 60 min = 83% → at_risk.
+    const atRisk = await createTicket({
+      priority: TicketPriority.urgent,
+      createdAt: new Date(Date.now() - 50 * MINUTE),
+    });
+    // urgent breached: 3h elapsed → breached, not at_risk.
+    const breached = await createTicket({
+      priority: TicketPriority.urgent,
+      createdAt: new Date(Date.now() - 3 * HOUR),
+    });
+    // urgent healthy: 2 min elapsed.
+    const healthy = await createTicket({
+      priority: TicketPriority.urgent,
+      createdAt: new Date(Date.now() - 2 * MINUTE),
+    });
+
+    const res = await request(app)
+      .get("/api/tickets?slaState=at_risk&pageSize=100")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
+    expect(ids).toContain(atRisk.id);
+    expect(ids).not.toContain(breached.id);
+    expect(ids).not.toContain(healthy.id);
+  });
+
+  it("?slaState=ok returns only healthy tickets", async () => {
+    const atRisk = await createTicket({
+      priority: TicketPriority.urgent,
+      createdAt: new Date(Date.now() - 50 * MINUTE),
+    });
+    const healthy = await createTicket({
+      priority: TicketPriority.urgent,
+      createdAt: new Date(Date.now() - 2 * MINUTE),
+    });
+
+    const res = await request(app)
+      .get("/api/tickets?slaState=ok&pageSize=100")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
+    expect(ids).toContain(healthy.id);
+    expect(ids).not.toContain(atRisk.id);
+  });
+
+  it("excludes resolved/closed tickets from slaState filtering entirely", async () => {
+    // A resolved ticket past its policy window should NOT appear under
+    // any slaState filter — done is done.
+    const resolved = await createTicket({
+      priority: TicketPriority.urgent,
+      createdAt: new Date(Date.now() - 10 * HOUR),
+      status: TicketStatus.resolved,
+    });
+
+    for (const state of ["at_risk", "ok"] as const) {
+      const res = await request(app)
+        .get(`/api/tickets?slaState=${state}&pageSize=100`)
+        .set("Cookie", authCookie);
+      expect(res.status).toBe(200);
+      const ids = (res.body.data as { id: number }[]).map((t) => t.id);
+      expect(ids).not.toContain(resolved.id);
+    }
   });
 });
 

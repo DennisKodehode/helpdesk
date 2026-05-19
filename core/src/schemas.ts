@@ -143,6 +143,12 @@ export const ticketSortSchema = z.object({
   assignee: z.enum(["unassigned", "me"]).optional(),
   search: z.string().optional(),
   breachedOnly: z.coerce.boolean().optional(),
+  // Filter by current SLA state. Only the real-time-computed states are
+  // exposed here — breached has its own `breachedOnly` filter that goes
+  // through the notification relation (5-min cron-driven). The server
+  // evaluates these via the same `computeSlaState` the dashboard widget
+  // uses, against the active-ticket set.
+  slaState: z.enum(["at_risk", "ok"]).optional(),
   view: z.enum(TicketView).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(10),

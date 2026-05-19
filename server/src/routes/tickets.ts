@@ -4,11 +4,13 @@ import {
   ADMIN_VALID_TRANSITIONS,
   ATTACHMENT_MIME_ALLOWLIST,
   AuditEventType,
+  computeSlaState,
   createReplySchema,
   NotificationType,
   polishReplySchema,
   Role,
   SenderType,
+  type TicketPriority,
   TicketStatus,
   TicketView,
   TRIAGING_FILTER_VALUE,
@@ -51,6 +53,7 @@ router.get("/", requireAuth, async (req, res) => {
     assignee,
     search,
     breachedOnly,
+    slaState,
     view,
     page,
     pageSize,
@@ -84,11 +87,63 @@ router.get("/", requireAuth, async (req, res) => {
           : null;
 
   const categoryFilter: Prisma.TicketWhereInput["category"] =
-    category === UNCATEGORIZED_FILTER_VALUE
-      ? null
-      : category
-        ? category
-        : undefined;
+    category === UNCATEGORIZED_FILTER_VALUE ? null : category ? category : undefined;
+
+  // slaState filtering needs the real-time computed state (at_risk fires
+  // at >=75% of the policy window, ok is the residual). There's no
+  // denormalized column for these, so mirror the /api/stats/sla-health
+  // pattern: fetch active tickets + policies, compute states in JS, then
+  // narrow the main query by `id: { in: ... }`. Bounded by active-ticket
+  // count (O(few hundred) at portfolio scale); skip when slaState is not
+  // set so the cost only lands on requests that asked for it.
+  let slaStateIdFilter: number[] | null = null;
+  if (slaState !== undefined && viewWhere === null) {
+    const [activeTickets, policies] = await Promise.all([
+      prisma.ticket.findMany({
+        where: {
+          status: { in: [TicketStatus.new, TicketStatus.processing, TicketStatus.open] },
+        },
+        select: {
+          id: true,
+          priority: true,
+          status: true,
+          createdAt: true,
+          firstAgentReplyAt: true,
+          resolvedAt: true,
+        },
+      }),
+      prisma.slaPolicy.findMany(),
+    ]);
+
+    const policyMap = new Map<
+      string,
+      { firstResponseMinutes: number | null; resolutionMinutes: number | null }
+    >(
+      policies.map((p) => [
+        p.priority,
+        {
+          firstResponseMinutes: p.firstResponseMinutes,
+          resolutionMinutes: p.resolutionMinutes,
+        },
+      ]),
+    );
+
+    slaStateIdFilter = activeTickets
+      .filter((t) => {
+        const computed = computeSlaState(
+          {
+            createdAt: t.createdAt.toISOString(),
+            firstAgentReplyAt: t.firstAgentReplyAt?.toISOString() ?? null,
+            resolvedAt: t.resolvedAt?.toISOString() ?? null,
+            priority: t.priority as TicketPriority,
+            status: t.status as TicketStatus,
+          },
+          policyMap.get(t.priority),
+        );
+        return computed.state === slaState;
+      })
+      .map((t) => t.id);
+  }
 
   const baseWhere: Prisma.TicketWhereInput =
     viewWhere !== null
@@ -102,6 +157,7 @@ router.get("/", requireAuth, async (req, res) => {
           ...(breachedOnly && {
             notifications: { some: { type: NotificationType.sla_breach_warning } },
           }),
+          ...(slaStateIdFilter !== null && { id: { in: slaStateIdFilter } }),
         };
 
   const where: Prisma.TicketWhereInput = {

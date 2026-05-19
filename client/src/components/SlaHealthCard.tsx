@@ -138,7 +138,15 @@ export default function SlaHealthCard() {
               title={metricBreakdownTitle("Breached", data.byMetric, "breached")}
             />
           </Link>
-          <div className="bg-card">
+          <Link
+            to="/tickets?slaState=at_risk"
+            className="group relative block bg-card transition-colors duration-150 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+            aria-label={`At risk: ${data.atRisk} — view at-risk tickets`}
+          >
+            <ArrowUpRight
+              className="pointer-events-none absolute right-3 top-3 size-3 text-muted-foreground/30 transition-colors duration-150 group-hover:text-foreground group-focus-visible:text-foreground"
+              aria-hidden
+            />
             <StatColumn
               label="At risk"
               value={data.atRisk}
@@ -148,15 +156,23 @@ export default function SlaHealthCard() {
               }
               title={metricBreakdownTitle("At risk", data.byMetric, "atRisk")}
             />
-          </div>
-          <div className="bg-card">
+          </Link>
+          <Link
+            to="/tickets?slaState=ok"
+            className="group relative block bg-card transition-colors duration-150 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+            aria-label={`On track: ${data.ok} — view on-track tickets`}
+          >
+            <ArrowUpRight
+              className="pointer-events-none absolute right-3 top-3 size-3 text-muted-foreground/30 transition-colors duration-150 group-hover:text-foreground group-focus-visible:text-foreground"
+              aria-hidden
+            />
             <StatColumn
               label="On track"
               value={data.ok}
               dotClass="bg-emerald-500"
               valueClass="text-foreground"
             />
-          </div>
+          </Link>
         </div>
       )}
     </section>

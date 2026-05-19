@@ -39,6 +39,9 @@ function setParam(params: URLSearchParams, key: string, value: string | number |
 
 const VALID_VIEWS = new Set<string>(Object.values(TicketView));
 
+type SlaStateFilterValue = "at_risk" | "ok" | "";
+const VALID_SLA_STATES = new Set<string>(["at_risk", "ok"]);
+
 async function fetchTickets(
   sortBy: TicketSortField,
   sortOrder: "asc" | "desc",
@@ -48,6 +51,7 @@ async function fetchTickets(
   assignee: string,
   search: string,
   breachedOnly: boolean,
+  slaState: SlaStateFilterValue,
   view: TicketView | null,
   page: number,
 ): Promise<PaginatedTickets> {
@@ -64,6 +68,7 @@ async function fetchTickets(
       ...(!view && priority && { priority }),
       ...(!view && assignee && { assignee }),
       ...(!view && breachedOnly && { breachedOnly: "true" }),
+      ...(!view && slaState && { slaState }),
       ...(search.trim() && { search: search.trim() }),
       page,
       pageSize: PAGE_SIZE,
@@ -87,6 +92,10 @@ export default function TicketsPage() {
   const priority = (searchParams.get("priority") ?? "") as TicketPriority | "";
   const assignee = searchParams.get("assignee") ?? "";
   const breachedOnly = searchParams.get("breachedOnly") === "true";
+  const slaStateRaw = searchParams.get("slaState") ?? "";
+  const slaState: SlaStateFilterValue = VALID_SLA_STATES.has(slaStateRaw)
+    ? (slaStateRaw as SlaStateFilterValue)
+    : "";
   const viewRaw = searchParams.get("view");
   const view: TicketView | null =
     viewRaw && VALID_VIEWS.has(viewRaw) ? (viewRaw as TicketView) : null;
@@ -126,6 +135,7 @@ export default function TicketsPage() {
       assignee,
       searchFromUrl,
       breachedOnly,
+      slaState,
       view,
       page,
     ],
@@ -139,6 +149,7 @@ export default function TicketsPage() {
         assignee,
         searchFromUrl,
         breachedOnly,
+        slaState,
         view,
         page,
       ),
@@ -175,6 +186,7 @@ export default function TicketsPage() {
       params.delete("priority");
       params.delete("assignee");
       params.delete("breachedOnly");
+      params.delete("slaState");
       params.delete("page");
       if (next) {
         params.set("view", next);
