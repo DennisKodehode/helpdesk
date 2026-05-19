@@ -4,6 +4,8 @@ import {
   TicketStatus,
   TRIAGING_FILTER_VALUE,
   type TriagingFilterValue,
+  UNCATEGORIZED_FILTER_VALUE,
+  type UncategorizedFilterValue,
 } from "@helpdesk/core";
 import { AlertTriangle, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -17,6 +19,7 @@ import {
 import { Toggle } from "@/components/ui/toggle";
 
 export type StatusFilterValue = TicketStatus | TriagingFilterValue | "";
+export type CategoryFilterValue = TicketCategory | UncategorizedFilterValue | "";
 
 const STATUS_LABELS: Record<string, string> = {
   "": "All statuses",
@@ -28,6 +31,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 const CATEGORY_LABELS: Record<string, string> = {
   "": "All categories",
+  [UNCATEGORIZED_FILTER_VALUE]: "Uncategorized",
   [TicketCategory.technical_question]: "Technical",
   [TicketCategory.billing_inquiry]: "Billing",
   [TicketCategory.refund_request]: "Refund",
@@ -46,12 +50,12 @@ const PRIORITY_FILTER_LABELS: Record<string, string> = {
 interface Props {
   search: string;
   status: StatusFilterValue;
-  category: TicketCategory | "";
+  category: CategoryFilterValue;
   priority: TicketPriority | "";
   breachedOnly: boolean;
   onSearchChange: (v: string) => void;
   onStatusChange: (v: StatusFilterValue) => void;
-  onCategoryChange: (v: TicketCategory | "") => void;
+  onCategoryChange: (v: CategoryFilterValue) => void;
   onPriorityChange: (v: TicketPriority | "") => void;
   onBreachedOnlyChange: (v: boolean) => void;
 }
@@ -104,9 +108,9 @@ export default function TicketFilters({
         </SelectContent>
       </Select>
 
-      <Select<TicketCategory | "">
+      <Select<CategoryFilterValue>
         value={category}
-        onValueChange={(v) => onCategoryChange(v as TicketCategory | "")}
+        onValueChange={(v) => onCategoryChange(v as CategoryFilterValue)}
       >
         <SelectTrigger
           aria-label="Category"
@@ -117,6 +121,7 @@ export default function TicketFilters({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="">All categories</SelectItem>
+          <SelectItem value={UNCATEGORIZED_FILTER_VALUE}>Uncategorized</SelectItem>
           <SelectItem value={TicketCategory.technical_question}>Technical</SelectItem>
           <SelectItem value={TicketCategory.billing_inquiry}>Billing</SelectItem>
           <SelectItem value={TicketCategory.refund_request}>Refund</SelectItem>

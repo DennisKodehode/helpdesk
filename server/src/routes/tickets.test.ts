@@ -359,6 +359,45 @@ describe("GET /api/tickets — sorting", () => {
     expect(ids).not.toContain(refundTicket.id);
   });
 
+  it("filters to category-null tickets via the `uncategorized` sentinel", async () => {
+    const nullCategoryTicket = await prisma.ticket.create({
+      data: {
+        fromName: "Filter Test",
+        fromEmail: "filter@example.com",
+        subject: "Uncategorized ticket",
+        body: "",
+        status: TicketStatus.open,
+        category: null,
+      },
+    });
+    const categorizedTicket = await prisma.ticket.create({
+      data: {
+        fromName: "Filter Test",
+        fromEmail: "filter@example.com",
+        subject: "Categorized ticket",
+        body: "",
+        status: TicketStatus.open,
+        category: TicketCategory.refund_request,
+      },
+    });
+    createdTicketIds.push(nullCategoryTicket.id, categorizedTicket.id);
+
+    const res = await request(app)
+      .get("/api/tickets?category=uncategorized")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
+    expect(ids).toContain(nullCategoryTicket.id);
+    expect(ids).not.toContain(categorizedTicket.id);
+  });
+
+  it("rejects garbage category values with 400", async () => {
+    const res = await request(app)
+      .get("/api/tickets?category=not_a_real_category")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(400);
+  });
+
   it("filters by priority", async () => {
     const urgentTicket = await prisma.ticket.create({
       data: {

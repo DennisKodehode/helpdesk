@@ -1,4 +1,8 @@
-import type { CategoryBreakdownResponse, TicketCategory } from "@helpdesk/core";
+import {
+  type CategoryBreakdownResponse,
+  type TicketCategory,
+  UNCATEGORIZED_FILTER_VALUE,
+} from "@helpdesk/core";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { ArrowUpRight } from "lucide-react";
@@ -9,6 +13,14 @@ import { CATEGORY_LABELS } from "@/lib/ticket-ui";
 
 function labelFor(category: TicketCategory | null): string {
   return category === null ? "Uncategorized" : CATEGORY_LABELS[category];
+}
+
+function hrefFor(category: TicketCategory | null): string {
+  // `category=uncategorized` is a server-side sentinel translated to
+  // `category IS NULL` in the WHERE clause (see ticketSortSchema +
+  // tickets.ts categoryFilter). Mirrors the TRIAGING_FILTER_VALUE pattern.
+  const value = category ?? UNCATEGORIZED_FILTER_VALUE;
+  return `/tickets?category=${value}`;
 }
 
 function CategoryBreakdownSkeleton() {
@@ -66,13 +78,9 @@ function CategoryRow({
     </>
   );
 
-  if (category === null) {
-    return <div className="py-3">{body}</div>;
-  }
-
   return (
     <Link
-      to={`/tickets?category=${category}`}
+      to={hrefFor(category)}
       className="group relative block py-3 transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
       aria-label={`${label}: ${count} open ${count === 1 ? "ticket" : "tickets"} — view`}
     >

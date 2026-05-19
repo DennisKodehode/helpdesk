@@ -58,7 +58,7 @@ describe("CategoryBreakdownCard", () => {
     );
   });
 
-  it("renders the null bucket as 'Uncategorized' without a link", async () => {
+  it("renders the null bucket as 'Uncategorized' linked to the uncategorized filter", async () => {
     vi.mocked(axios.get).mockResolvedValue({
       data: [
         { category: null, count: 5 },
@@ -66,11 +66,8 @@ describe("CategoryBreakdownCard", () => {
       ],
     });
     renderWithProviders(<CategoryBreakdownCard />);
-    expect(await screen.findByText(/uncategorized/i)).toBeInTheDocument();
-    // Confirm there's no link wrapping "Uncategorized"
-    expect(
-      screen.queryByRole("link", { name: /uncategorized/i }),
-    ).not.toBeInTheDocument();
+    const link = await screen.findByRole("link", { name: /uncategorized: 5/i });
+    expect(link).toHaveAttribute("href", "/tickets?category=uncategorized");
   });
 
   it("renders the empty state when no rows are returned", async () => {

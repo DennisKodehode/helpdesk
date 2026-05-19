@@ -4,13 +4,17 @@ import {
   type TicketPriority,
   type TicketSortField,
   TicketView,
+  UNCATEGORIZED_FILTER_VALUE,
 } from "@helpdesk/core";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { SortingState } from "@tanstack/react-table";
 import axios from "axios";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
-import TicketFilters, { type StatusFilterValue } from "@/components/TicketFilters";
+import TicketFilters, {
+  type CategoryFilterValue,
+  type StatusFilterValue,
+} from "@/components/TicketFilters";
 import TicketPagination from "@/components/TicketPagination";
 import TicketsTable from "@/components/TicketsTable";
 import TicketViewChips from "@/components/TicketViewChips";
@@ -39,7 +43,7 @@ async function fetchTickets(
   sortBy: TicketSortField,
   sortOrder: "asc" | "desc",
   status: StatusFilterValue,
-  category: TicketCategory | "",
+  category: CategoryFilterValue,
   priority: TicketPriority | "",
   assignee: string,
   search: string,
@@ -72,7 +76,14 @@ export default function TicketsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const status = (searchParams.get("status") ?? "") as StatusFilterValue;
-  const category = (searchParams.get("category") ?? "") as TicketCategory | "";
+  // Accept either a TicketCategory value or the "uncategorized" sentinel
+  // (server translates it to `category IS NULL`). Unknown values fall back
+  // to "" (all categories).
+  const categoryRaw = searchParams.get("category") ?? "";
+  const category: CategoryFilterValue =
+    categoryRaw === UNCATEGORIZED_FILTER_VALUE
+      ? UNCATEGORIZED_FILTER_VALUE
+      : (categoryRaw as TicketCategory | "");
   const priority = (searchParams.get("priority") ?? "") as TicketPriority | "";
   const assignee = searchParams.get("assignee") ?? "";
   const breachedOnly = searchParams.get("breachedOnly") === "true";

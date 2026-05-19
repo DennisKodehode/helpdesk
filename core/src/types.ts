@@ -27,6 +27,13 @@ export enum TicketCategory {
   feature_request = "feature_request",
 }
 
+// Sentinel for the tickets-list `category` query param when the caller wants
+// rows where `category IS NULL` (AI hasn't classified yet, or classification
+// failed). Mirrors the TRIAGING_FILTER_VALUE convention so the server can
+// distinguish "no filter" (omitted) from "explicitly want uncategorized".
+export const UNCATEGORIZED_FILTER_VALUE = "uncategorized" as const;
+export type UncategorizedFilterValue = typeof UNCATEGORIZED_FILTER_VALUE;
+
 export enum TicketPriority {
   low = "low",
   normal = "normal",

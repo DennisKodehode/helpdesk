@@ -14,6 +14,7 @@ import {
   TRIAGING_FILTER_VALUE,
   TRIAGING_STATUSES,
   ticketSortSchema,
+  UNCATEGORIZED_FILTER_VALUE,
   updateTicketSchema,
   VALID_TRANSITIONS,
 } from "@helpdesk/core";
@@ -82,12 +83,19 @@ router.get("/", requireAuth, async (req, res) => {
           ? { status: TicketStatus.open, lastReplySenderType: SenderType.agent }
           : null;
 
+  const categoryFilter: Prisma.TicketWhereInput["category"] =
+    category === UNCATEGORIZED_FILTER_VALUE
+      ? null
+      : category
+        ? category
+        : undefined;
+
   const baseWhere: Prisma.TicketWhereInput =
     viewWhere !== null
       ? viewWhere
       : {
           ...(statusFilter !== undefined && { status: statusFilter }),
-          ...(category && { category }),
+          ...(categoryFilter !== undefined && { category: categoryFilter }),
           ...(priority && { priority }),
           ...(assignee === "unassigned" && { assignedToId: null }),
           ...(assignee === "me" && { assignedToId: req.user!.id }),

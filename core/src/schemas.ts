@@ -8,6 +8,7 @@ import {
   TicketStatus,
   TicketView,
   TRIAGING_FILTER_VALUE,
+  UNCATEGORIZED_FILTER_VALUE,
 } from "./types";
 
 export const userSchema = z.object({
@@ -135,7 +136,9 @@ export const ticketSortSchema = z.object({
   sortBy: z.enum(TICKET_SORT_FIELDS).optional(),
   sortOrder: z.enum(["asc", "desc"]).optional(),
   status: z.union([z.enum(TicketStatus), z.literal(TRIAGING_FILTER_VALUE)]).optional(),
-  category: z.enum(TicketCategory).optional(),
+  category: z
+    .union([z.enum(TicketCategory), z.literal(UNCATEGORIZED_FILTER_VALUE)])
+    .optional(),
   priority: z.enum(TicketPriority).optional(),
   assignee: z.enum(["unassigned", "me"]).optional(),
   search: z.string().optional(),
