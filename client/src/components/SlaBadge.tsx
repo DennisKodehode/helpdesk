@@ -1,9 +1,8 @@
-import type { Ticket, TicketDetail } from "@helpdesk/core";
+import { computeSlaState, type Ticket, type TicketDetail } from "@helpdesk/core";
 import type { ReactNode } from "react";
 import { useSlaPolicies } from "@/lib/sla-policies";
 import {
   BADGE_BASE,
-  computeSlaState,
   formatDurationShort,
   SLA_DOT,
   SLA_LABELS,

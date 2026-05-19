@@ -1,7 +1,9 @@
 import type { StatsResponse, TicketsPerDayResponse } from "@helpdesk/core";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
+import CategoryBreakdownCard from "@/components/CategoryBreakdownCard";
 import DashboardStats from "@/components/DashboardStats";
+import SlaHealthCard from "@/components/SlaHealthCard";
 import TicketsBarChart from "@/components/TicketsBarChart";
 import ErrorAlert from "@/components/ui/ErrorAlert";
 import PageHeader from "@/components/ui/PageHeader";
@@ -75,6 +77,12 @@ export default function HomePage() {
           <TicketsBarChart data={chartQuery.data} />
         ) : null}
       </section>
+
+      {/* Operational signal: SLA load + queue composition */}
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <SlaHealthCard />
+        <CategoryBreakdownCard />
+      </div>
     </main>
   );
 }

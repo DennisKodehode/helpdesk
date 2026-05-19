@@ -1,8 +1,19 @@
-import { SenderType, TicketStatus } from "@helpdesk/core";
+import {
+  type CategoryBreakdownResponse,
+  computeSlaState,
+  SenderType,
+  type SlaHealthResponse,
+  SlaMetric,
+  type TicketCategory,
+  type TicketPriority,
+  TicketStatus,
+} from "@helpdesk/core";
 import { Router } from "express";
 import { getAiUserId } from "../lib/ai-user";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth-middleware";
+
+const ACTIVE_STATUSES = [TicketStatus.new, TicketStatus.processing, TicketStatus.open];
 
 type TicketStatsRow = {
   total_tickets: bigint;
@@ -129,6 +140,99 @@ router.get("/tickets-per-day", requireAuth, async (_req, res) => {
   }
 
   res.json(series);
+});
+
+router.get("/sla-health", requireAuth, async (_req, res) => {
+  const [tickets, policies] = await Promise.all([
+    prisma.ticket.findMany({
+      where: { status: { in: ACTIVE_STATUSES } },
+      select: {
+        priority: true,
+        status: true,
+        createdAt: true,
+        firstAgentReplyAt: true,
+        resolvedAt: true,
+      },
+    }),
+    prisma.slaPolicy.findMany(),
+  ]);
+
+  // Keyed by raw priority string to sidestep the nominal mismatch between
+  // core's TS string-enum `TicketPriority` and Prisma's generated literal
+  // union — values are identical at runtime. Same pattern as sla-breach-check.
+  const policyMap = new Map<
+    string,
+    { firstResponseMinutes: number | null; resolutionMinutes: number | null }
+  >(
+    policies.map((p) => [
+      p.priority,
+      {
+        firstResponseMinutes: p.firstResponseMinutes,
+        resolutionMinutes: p.resolutionMinutes,
+      },
+    ]),
+  );
+
+  let breached = 0;
+  let atRisk = 0;
+  let ok = 0;
+  const byMetric: SlaHealthResponse["byMetric"] = {
+    firstResponse: { breached: 0, atRisk: 0 },
+    resolution: { breached: 0, atRisk: 0 },
+  };
+
+  for (const t of tickets) {
+    const state = computeSlaState(
+      {
+        createdAt: t.createdAt.toISOString(),
+        firstAgentReplyAt: t.firstAgentReplyAt?.toISOString() ?? null,
+        resolvedAt: t.resolvedAt?.toISOString() ?? null,
+        // Cast across the Prisma-vs-core nominal-but-structurally-identical enum gap.
+        priority: t.priority as TicketPriority,
+        status: t.status as TicketStatus,
+      },
+      policyMap.get(t.priority),
+    );
+    if (state.state === "ok") {
+      ok++;
+      continue;
+    }
+    const bucket =
+      state.metric === SlaMetric.first_response
+        ? byMetric.firstResponse
+        : byMetric.resolution;
+    if (state.state === "breached") {
+      breached++;
+      bucket.breached++;
+    } else {
+      atRisk++;
+      bucket.atRisk++;
+    }
+  }
+
+  const response: SlaHealthResponse = {
+    total: tickets.length,
+    breached,
+    atRisk,
+    ok,
+    byMetric,
+  };
+  res.json(response);
+});
+
+router.get("/categories", requireAuth, async (_req, res) => {
+  const rows = await prisma.ticket.groupBy({
+    by: ["category"],
+    where: { status: { in: ACTIVE_STATUSES } },
+    _count: { _all: true },
+    orderBy: { _count: { category: "desc" } },
+  });
+
+  const response: CategoryBreakdownResponse = rows.map((r) => ({
+    category: r.category as TicketCategory | null,
+    count: r._count._all,
+  }));
+  res.json(response);
 });
 
 export default router;

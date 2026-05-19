@@ -1,4 +1,4 @@
-import { SenderType, TicketStatus } from "@helpdesk/core";
+import { SenderType, TicketCategory, TicketPriority, TicketStatus } from "@helpdesk/core";
 import { generateId } from "better-auth";
 import request from "supertest";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
@@ -6,6 +6,7 @@ import app from "../app";
 import { initAiUserId } from "../lib/ai-user";
 import { auth } from "../lib/auth";
 import { prisma } from "../lib/prisma";
+import { seedSlaPolicies } from "../lib/sla-defaults";
 
 describe("GET /api/stats", () => {
   let authCookie: string;
@@ -488,5 +489,384 @@ describe("GET /api/stats/me", () => {
     const res = await request(app).get("/api/stats/me").set("Cookie", meCookie);
     expect(res.body.repliesLifetime).toBe(2);
     expect(res.body.replies30d).toBe(1);
+  });
+});
+
+const HOUR = 60 * 60 * 1000;
+const MINUTE = 60 * 1000;
+
+describe("GET /api/stats/sla-health", () => {
+  let authCookie: string;
+  let testUserId: string;
+  let createdTicketIds: number[] = [];
+
+  beforeAll(async () => {
+    await seedSlaPolicies();
+
+    const ctx = await auth.$context;
+    const hashedPassword = await ctx.password.hash("Testpassword1!");
+    const now = new Date();
+
+    testUserId = generateId();
+    await prisma.user.create({
+      data: {
+        id: testUserId,
+        name: "SLA Health Test",
+        email: "test-sla-health@example.com",
+        emailVerified: true,
+        role: "agent",
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await prisma.account.create({
+      data: {
+        id: generateId(),
+        accountId: testUserId,
+        providerId: "credential",
+        userId: testUserId,
+        password: hashedPassword,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+
+    const signInRes = await request(app)
+      .post("/api/auth/sign-in/email")
+      .send({ email: "test-sla-health@example.com", password: "Testpassword1!" });
+    const cookies = signInRes.headers["set-cookie"] as string[] | string;
+    authCookie = Array.isArray(cookies) ? cookies.join("; ") : cookies;
+  });
+
+  afterAll(async () => {
+    await prisma.session.deleteMany({ where: { userId: testUserId } });
+    await prisma.account.deleteMany({ where: { userId: testUserId } });
+    await prisma.user.delete({ where: { id: testUserId } });
+  });
+
+  afterEach(async () => {
+    if (createdTicketIds.length > 0) {
+      await prisma.notification.deleteMany({
+        where: { ticketId: { in: createdTicketIds } },
+      });
+      await prisma.ticket.deleteMany({ where: { id: { in: createdTicketIds } } });
+      createdTicketIds = [];
+    }
+  });
+
+  async function createTicket(opts: {
+    priority: TicketPriority;
+    status: TicketStatus;
+    createdAt: Date;
+    firstAgentReplyAt?: Date | null;
+    resolvedAt?: Date | null;
+  }) {
+    const ticket = await prisma.ticket.create({
+      data: {
+        fromName: "SLA Health",
+        fromEmail: `slah-${generateId()}@example.com`,
+        subject: "SLA health test",
+        body: "",
+        priority: opts.priority,
+        status: opts.status,
+        createdAt: opts.createdAt,
+        firstAgentReplyAt: opts.firstAgentReplyAt ?? null,
+        resolvedAt: opts.resolvedAt ?? null,
+      },
+    });
+    createdTicketIds.push(ticket.id);
+    return ticket;
+  }
+
+  async function fetchHealth() {
+    const res = await request(app).get("/api/stats/sla-health").set("Cookie", authCookie);
+    return res;
+  }
+
+  it("returns 401 when not authenticated", async () => {
+    const res = await request(app).get("/api/stats/sla-health");
+    expect(res.status).toBe(401);
+  });
+
+  it("returns the documented shape", async () => {
+    const res = await fetchHealth();
+    expect(res.status).toBe(200);
+    expect(typeof res.body.total).toBe("number");
+    expect(typeof res.body.breached).toBe("number");
+    expect(typeof res.body.atRisk).toBe("number");
+    expect(typeof res.body.ok).toBe("number");
+    expect(res.body.byMetric).toMatchObject({
+      firstResponse: { breached: expect.any(Number), atRisk: expect.any(Number) },
+      resolution: { breached: expect.any(Number), atRisk: expect.any(Number) },
+    });
+  });
+
+  it("counts a first-response breach in both `breached` and `byMetric.firstResponse`", async () => {
+    const before = (await fetchHealth()).body;
+
+    // urgent → firstResponseMinutes=60. Aging 3h with no reply trips it.
+    await createTicket({
+      priority: TicketPriority.urgent,
+      status: TicketStatus.open,
+      createdAt: new Date(Date.now() - 3 * HOUR),
+      firstAgentReplyAt: null,
+    });
+
+    const after = (await fetchHealth()).body;
+    expect(after.total).toBe(before.total + 1);
+    expect(after.breached).toBe(before.breached + 1);
+    expect(after.byMetric.firstResponse.breached).toBe(
+      before.byMetric.firstResponse.breached + 1,
+    );
+    expect(after.byMetric.resolution.breached).toBe(before.byMetric.resolution.breached);
+  });
+
+  it("counts an at-risk resolution as `atRisk` and in `byMetric.resolution`", async () => {
+    const before = (await fetchHealth()).body;
+
+    // normal → resolutionMinutes=4320 (72h). 80% elapsed = 57.6h triggers at_risk.
+    // First-response is already satisfied so only resolution metric remains in play.
+    await createTicket({
+      priority: TicketPriority.normal,
+      status: TicketStatus.open,
+      createdAt: new Date(Date.now() - 58 * HOUR),
+      firstAgentReplyAt: new Date(Date.now() - 50 * HOUR),
+    });
+
+    const after = (await fetchHealth()).body;
+    expect(after.total).toBe(before.total + 1);
+    expect(after.atRisk).toBe(before.atRisk + 1);
+    expect(after.byMetric.resolution.atRisk).toBe(before.byMetric.resolution.atRisk + 1);
+    expect(after.byMetric.firstResponse.atRisk).toBe(
+      before.byMetric.firstResponse.atRisk,
+    );
+  });
+
+  it("counts a healthy ticket toward `ok` only", async () => {
+    const before = (await fetchHealth()).body;
+
+    // urgent ticket created 5 minutes ago — well under any threshold.
+    await createTicket({
+      priority: TicketPriority.urgent,
+      status: TicketStatus.open,
+      createdAt: new Date(Date.now() - 5 * MINUTE),
+      firstAgentReplyAt: null,
+    });
+
+    const after = (await fetchHealth()).body;
+    expect(after.total).toBe(before.total + 1);
+    expect(after.ok).toBe(before.ok + 1);
+    expect(after.breached).toBe(before.breached);
+    expect(after.atRisk).toBe(before.atRisk);
+  });
+
+  it("excludes resolved and closed tickets from `total`", async () => {
+    const before = (await fetchHealth()).body;
+
+    await createTicket({
+      priority: TicketPriority.urgent,
+      status: TicketStatus.resolved,
+      createdAt: new Date(Date.now() - 10 * HOUR),
+      firstAgentReplyAt: null,
+      resolvedAt: new Date(),
+    });
+    await createTicket({
+      priority: TicketPriority.urgent,
+      status: TicketStatus.closed,
+      createdAt: new Date(Date.now() - 10 * HOUR),
+      firstAgentReplyAt: null,
+      resolvedAt: new Date(),
+    });
+
+    const after = (await fetchHealth()).body;
+    expect(after.total).toBe(before.total);
+  });
+
+  it("aggregates mixed states correctly", async () => {
+    const before = (await fetchHealth()).body;
+
+    // 1 breached, 1 at-risk, 1 ok — three urgent tickets at different ages.
+    await createTicket({
+      priority: TicketPriority.urgent,
+      status: TicketStatus.open,
+      createdAt: new Date(Date.now() - 3 * HOUR),
+    }); // breached (firstResponseMinutes=60, 3h elapsed)
+    await createTicket({
+      priority: TicketPriority.urgent,
+      status: TicketStatus.open,
+      createdAt: new Date(Date.now() - 50 * MINUTE),
+    }); // at-risk (50 of 60 = 83% > 75%)
+    await createTicket({
+      priority: TicketPriority.urgent,
+      status: TicketStatus.open,
+      createdAt: new Date(Date.now() - 2 * MINUTE),
+    }); // ok
+
+    const after = (await fetchHealth()).body;
+    expect(after.total).toBe(before.total + 3);
+    expect(after.breached).toBe(before.breached + 1);
+    expect(after.atRisk).toBe(before.atRisk + 1);
+    expect(after.ok).toBe(before.ok + 1);
+  });
+});
+
+describe("GET /api/stats/categories", () => {
+  let authCookie: string;
+  let testUserId: string;
+  let createdTicketIds: number[] = [];
+
+  beforeAll(async () => {
+    const ctx = await auth.$context;
+    const hashedPassword = await ctx.password.hash("Testpassword1!");
+    const now = new Date();
+
+    testUserId = generateId();
+    await prisma.user.create({
+      data: {
+        id: testUserId,
+        name: "Categories Test",
+        email: "test-categories@example.com",
+        emailVerified: true,
+        role: "agent",
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await prisma.account.create({
+      data: {
+        id: generateId(),
+        accountId: testUserId,
+        providerId: "credential",
+        userId: testUserId,
+        password: hashedPassword,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+
+    const signInRes = await request(app)
+      .post("/api/auth/sign-in/email")
+      .send({ email: "test-categories@example.com", password: "Testpassword1!" });
+    const cookies = signInRes.headers["set-cookie"] as string[] | string;
+    authCookie = Array.isArray(cookies) ? cookies.join("; ") : cookies;
+    await initAiUserId();
+  });
+
+  afterAll(async () => {
+    await prisma.session.deleteMany({ where: { userId: testUserId } });
+    await prisma.account.deleteMany({ where: { userId: testUserId } });
+    await prisma.user.delete({ where: { id: testUserId } });
+  });
+
+  afterEach(async () => {
+    if (createdTicketIds.length > 0) {
+      await prisma.ticket.deleteMany({ where: { id: { in: createdTicketIds } } });
+      createdTicketIds = [];
+    }
+  });
+
+  async function createTicket(opts: {
+    category: TicketCategory | null;
+    status: TicketStatus;
+  }) {
+    const ticket = await prisma.ticket.create({
+      data: {
+        fromName: "Cat",
+        fromEmail: `cat-${generateId()}@example.com`,
+        subject: "category test",
+        body: "",
+        category: opts.category,
+        status: opts.status,
+      },
+    });
+    createdTicketIds.push(ticket.id);
+    return ticket;
+  }
+
+  function findRow(
+    rows: Array<{ category: TicketCategory | null; count: number }>,
+    category: TicketCategory | null,
+  ) {
+    return rows.find((r) => r.category === category);
+  }
+
+  it("returns 401 when not authenticated", async () => {
+    const res = await request(app).get("/api/stats/categories");
+    expect(res.status).toBe(401);
+  });
+
+  it("returns an array of { category, count } rows", async () => {
+    const res = await request(app).get("/api/stats/categories").set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    for (const row of res.body) {
+      expect(row).toMatchObject({
+        category: expect.anything(),
+        count: expect.any(Number),
+      });
+    }
+  });
+
+  it("counts open tickets per category and includes the null bucket", async () => {
+    const before = (
+      await request(app).get("/api/stats/categories").set("Cookie", authCookie)
+    ).body as Array<{ category: TicketCategory | null; count: number }>;
+    const beforeRefund = findRow(before, TicketCategory.refund_request)?.count ?? 0;
+    const beforeNull = findRow(before, null)?.count ?? 0;
+
+    await createTicket({
+      category: TicketCategory.refund_request,
+      status: TicketStatus.open,
+    });
+    await createTicket({
+      category: TicketCategory.refund_request,
+      status: TicketStatus.open,
+    });
+    await createTicket({ category: null, status: TicketStatus.open });
+
+    const after = (
+      await request(app).get("/api/stats/categories").set("Cookie", authCookie)
+    ).body as Array<{ category: TicketCategory | null; count: number }>;
+    expect(findRow(after, TicketCategory.refund_request)?.count).toBe(beforeRefund + 2);
+    expect(findRow(after, null)?.count).toBe(beforeNull + 1);
+  });
+
+  it("excludes closed and resolved tickets", async () => {
+    const before = (
+      await request(app).get("/api/stats/categories").set("Cookie", authCookie)
+    ).body as Array<{ category: TicketCategory | null; count: number }>;
+    const beforeFeature = findRow(before, TicketCategory.feature_request)?.count ?? 0;
+
+    await createTicket({
+      category: TicketCategory.feature_request,
+      status: TicketStatus.closed,
+    });
+    await createTicket({
+      category: TicketCategory.feature_request,
+      status: TicketStatus.resolved,
+    });
+
+    const after = (
+      await request(app).get("/api/stats/categories").set("Cookie", authCookie)
+    ).body as Array<{ category: TicketCategory | null; count: number }>;
+    expect(findRow(after, TicketCategory.feature_request)?.count ?? 0).toBe(
+      beforeFeature,
+    );
+  });
+
+  it("returns rows sorted by count desc", async () => {
+    // Seed enough tickets in one category that it should pull to the top of the list.
+    for (let i = 0; i < 5; i++) {
+      await createTicket({
+        category: TicketCategory.billing_inquiry,
+        status: TicketStatus.open,
+      });
+    }
+
+    const res = await request(app).get("/api/stats/categories").set("Cookie", authCookie);
+    const rows = res.body as Array<{ category: TicketCategory | null; count: number }>;
+    for (let i = 1; i < rows.length; i++) {
+      expect(rows[i].count).toBeLessThanOrEqual(rows[i - 1].count);
+    }
   });
 });

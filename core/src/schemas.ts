@@ -289,3 +289,31 @@ export const updateSlaPolicySchema = z
   );
 
 export type UpdateSlaPolicyData = z.infer<typeof updateSlaPolicySchema>;
+
+const slaMetricCountSchema = z.object({
+  breached: z.number().int().nonnegative(),
+  atRisk: z.number().int().nonnegative(),
+});
+
+export const slaHealthResponseSchema = z.object({
+  total: z.number().int().nonnegative(),
+  breached: z.number().int().nonnegative(),
+  atRisk: z.number().int().nonnegative(),
+  ok: z.number().int().nonnegative(),
+  byMetric: z.object({
+    firstResponse: slaMetricCountSchema,
+    resolution: slaMetricCountSchema,
+  }),
+});
+
+export type SlaHealthResponse = z.infer<typeof slaHealthResponseSchema>;
+
+export const categoryBreakdownRowSchema = z.object({
+  category: z.enum(TicketCategory).nullable(),
+  count: z.number().int().nonnegative(),
+});
+
+export const categoryBreakdownResponseSchema = z.array(categoryBreakdownRowSchema);
+
+export type CategoryBreakdownRow = z.infer<typeof categoryBreakdownRowSchema>;
+export type CategoryBreakdownResponse = z.infer<typeof categoryBreakdownResponseSchema>;
