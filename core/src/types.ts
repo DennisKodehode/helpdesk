@@ -43,6 +43,12 @@ export enum SenderType {
 export enum NotificationType {
   customer_reply = "customer_reply",
   ticket_assigned = "ticket_assigned",
+  sla_breach_warning = "sla_breach_warning",
+}
+
+export enum SlaMetric {
+  first_response = "first_response",
+  resolution = "resolution",
 }
 
 export enum AuditEventType {

@@ -18,6 +18,7 @@ router.get("/", requireAuth, async (req, res) => {
         id: true,
         type: true,
         ticketId: true,
+        data: true,
         readAt: true,
         createdAt: true,
         ticket: { select: { subject: true } },
@@ -33,6 +34,7 @@ router.get("/", requireAuth, async (req, res) => {
     ticketId: n.ticketId,
     ticketSubject: n.ticket.subject,
     actorName: n.actor?.name ?? null,
+    data: n.data,
     readAt: n.readAt?.toISOString() ?? null,
     createdAt: n.createdAt.toISOString(),
   }));

@@ -188,6 +188,29 @@ describe("notifications API", () => {
       expect(res.body.unreadCount).toBe(2);
     });
 
+    it("round-trips the data JSON payload (used by sla_breach_warning notifications)", async () => {
+      const payload = {
+        metric: "first_response",
+        policyMinutes: 60,
+        breachedAt: new Date().toISOString(),
+      };
+      await prisma.notification.create({
+        data: {
+          userId: recipientId,
+          type: NotificationType.sla_breach_warning,
+          ticketId,
+          data: payload,
+        },
+      });
+      const res = await request(app)
+        .get("/api/notifications")
+        .set("Cookie", recipientCookie);
+      expect(res.status).toBe(200);
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0].type).toBe(NotificationType.sla_breach_warning);
+      expect(res.body.data[0].data).toEqual(payload);
+    });
+
     it("does not return notifications belonging to other users", async () => {
       await prisma.notification.create({
         data: { userId: otherUserId, type: NotificationType.customer_reply, ticketId },

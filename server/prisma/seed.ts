@@ -3,6 +3,7 @@ import { generateId } from "better-auth";
 import { Role } from "../src/generated/prisma/client";
 import { auth } from "../src/lib/auth";
 import { prisma } from "../src/lib/prisma";
+import { seedSlaPolicies } from "../src/lib/sla-defaults";
 
 const email = process.env.SEED_ADMIN_EMAIL;
 const password = process.env.SEED_ADMIN_PASSWORD;
@@ -84,6 +85,7 @@ async function seedAiUser() {
 async function seed() {
   await seedAdmin();
   await seedAiUser();
+  await seedSlaPolicies();
 }
 
 seed()

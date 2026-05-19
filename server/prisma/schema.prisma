@@ -195,6 +195,7 @@ model EmailSuppression {
 enum NotificationType {
   customer_reply
   ticket_assigned
+  sla_breach_warning
 }
 
 model Notification {
@@ -206,11 +207,21 @@ model Notification {
   type      NotificationType
   ticketId  Int
   ticket    Ticket           @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  data      Json?
   readAt    DateTime?
   createdAt DateTime         @default(now())
 
   @@index([userId, readAt, createdAt])
   @@map("notification")
+}
+
+model SlaPolicy {
+  priority             TicketPriority @id
+  firstResponseMinutes Int?
+  resolutionMinutes    Int?
+  updatedAt            DateTime       @updatedAt
+
+  @@map("sla_policy")
 }
 
 enum AuditEventType {
