@@ -27,6 +27,8 @@ const mockTicket: TicketDetail = {
   attachments: [],
   createdAt: "2024-01-15T10:30:00Z",
   updatedAt: "2024-01-15T11:00:00Z",
+  firstAgentReplyAt: null,
+  resolvedAt: null,
 };
 
 describe("TicketDetails", () => {

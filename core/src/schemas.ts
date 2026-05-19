@@ -88,6 +88,8 @@ export const ticketSchema = z.object({
   assigneeType: assigneeTypeSchema,
   isSuppressed: z.boolean(),
   createdAt: z.string(),
+  firstAgentReplyAt: z.string().nullable(),
+  resolvedAt: z.string().nullable(),
 });
 
 export type Ticket = z.infer<typeof ticketSchema>;
@@ -111,6 +113,8 @@ export const ticketDetailSchema = z.object({
   attachments: z.array(attachmentSchema).default([]),
   createdAt: z.string(),
   updatedAt: z.string(),
+  firstAgentReplyAt: z.string().nullable(),
+  resolvedAt: z.string().nullable(),
 });
 
 export type TicketDetail = z.infer<typeof ticketDetailSchema>;
@@ -134,6 +138,7 @@ export const ticketSortSchema = z.object({
   priority: z.enum(TicketPriority).optional(),
   assignee: z.enum(["unassigned", "me"]).optional(),
   search: z.string().optional(),
+  breachedOnly: z.coerce.boolean().optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(10),
 });
@@ -200,6 +205,7 @@ export const notificationSchema = z.object({
   ticketId: z.number(),
   ticketSubject: z.string(),
   actorName: z.string().nullable(),
+  data: z.unknown().nullish(),
   readAt: z.string().nullable(),
   createdAt: z.string(),
 });
@@ -255,3 +261,29 @@ export const statsResponseSchema = z.object({
 });
 
 export type StatsResponse = z.infer<typeof statsResponseSchema>;
+
+export const slaPolicySchema = z.object({
+  priority: z.enum(TicketPriority),
+  firstResponseMinutes: z.number().int().nullable(),
+  resolutionMinutes: z.number().int().nullable(),
+  updatedAt: z.string(),
+});
+
+export type SlaPolicy = z.infer<typeof slaPolicySchema>;
+
+export const slaPoliciesResponseSchema = z.array(slaPolicySchema);
+
+// Either field may be omitted to leave it unchanged, or set to null to drop
+// the target for that metric. Negative or non-integer minutes are rejected
+// at the route boundary via firstIssue.
+export const updateSlaPolicySchema = z
+  .object({
+    firstResponseMinutes: z.number().int().min(1).nullable().optional(),
+    resolutionMinutes: z.number().int().min(1).nullable().optional(),
+  })
+  .refine(
+    (v) => v.firstResponseMinutes !== undefined || v.resolutionMinutes !== undefined,
+    { message: "At least one of firstResponseMinutes or resolutionMinutes is required" },
+  );
+
+export type UpdateSlaPolicyData = z.infer<typeof updateSlaPolicySchema>;

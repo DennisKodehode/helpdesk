@@ -11,10 +11,12 @@ const baseProps = {
   status: "" as TicketStatus | "",
   category: "" as TicketCategory | "",
   priority: "" as TicketPriority | "",
+  breachedOnly: false,
   onSearchChange: vi.fn(),
   onStatusChange: vi.fn(),
   onCategoryChange: vi.fn(),
   onPriorityChange: vi.fn(),
+  onBreachedOnlyChange: vi.fn(),
 };
 
 describe("TicketFilters", () => {
@@ -72,5 +74,46 @@ describe("TicketFilters", () => {
     renderWithProviders(<TicketFilters {...baseProps} onSearchChange={onSearchChange} />);
     await user.type(screen.getByRole("textbox", { name: /search/i }), "Alice");
     expect(onSearchChange).toHaveBeenCalled();
+  });
+
+  it("renders the Breached-only toggle in its unpressed default state", () => {
+    renderWithProviders(<TicketFilters {...baseProps} />);
+    const toggle = screen.getByRole("button", { name: /breached/i });
+    expect(toggle).toBeInTheDocument();
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("reflects the breachedOnly prop in the aria-pressed state", () => {
+    renderWithProviders(<TicketFilters {...baseProps} breachedOnly={true} />);
+    const toggle = screen.getByRole("button", { name: /breached/i });
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("calls onBreachedOnlyChange(true) when the toggle is clicked while unpressed", async () => {
+    const onBreachedOnlyChange = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(
+      <TicketFilters {...baseProps} onBreachedOnlyChange={onBreachedOnlyChange} />,
+    );
+    await user.click(screen.getByRole("button", { name: /breached/i }));
+    // base-ui's Toggle passes (pressed, eventDetails) — only the first arg
+    // matters to us.
+    expect(onBreachedOnlyChange).toHaveBeenCalled();
+    expect(onBreachedOnlyChange.mock.calls[0][0]).toBe(true);
+  });
+
+  it("calls onBreachedOnlyChange(false) when the toggle is clicked while pressed", async () => {
+    const onBreachedOnlyChange = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(
+      <TicketFilters
+        {...baseProps}
+        breachedOnly={true}
+        onBreachedOnlyChange={onBreachedOnlyChange}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /breached/i }));
+    expect(onBreachedOnlyChange).toHaveBeenCalled();
+    expect(onBreachedOnlyChange.mock.calls[0][0]).toBe(false);
   });
 });

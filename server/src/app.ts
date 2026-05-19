@@ -12,6 +12,7 @@ import agentsRouter from "./routes/agents";
 import { attachmentsRouter, uploadRouter } from "./routes/attachments";
 import inboundEmailRouter from "./routes/inbound-email";
 import notificationsRouter from "./routes/notifications";
+import slaPoliciesRouter from "./routes/sla-policies";
 import statsRouter from "./routes/stats";
 import ticketsRouter from "./routes/tickets";
 import usersRouter from "./routes/users";
@@ -38,6 +39,7 @@ app.use("/api/tickets", ticketsRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/inbound-email", inboundEmailRouter);
 app.use("/api/notifications", notificationsRouter);
+app.use("/api/sla-policies", slaPoliciesRouter);
 app.use("/api/replies/:id/attachments", uploadRouter);
 app.use("/api/attachments", attachmentsRouter);
 

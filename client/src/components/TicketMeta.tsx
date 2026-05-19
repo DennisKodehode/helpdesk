@@ -11,6 +11,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { Sparkles } from "lucide-react";
+import { SlaBadge } from "@/components/SlaBadge";
 import StatusPill from "@/components/StatusPill";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { useSession } from "@/lib/auth-client";
@@ -252,6 +253,13 @@ export default function TicketMeta({ ticket }: Props) {
             Reopen the ticket to reassign.
           </p>
         )}
+      </MetaField>
+
+      <MetaField label="SLA">
+        <SlaBadge
+          ticket={ticket}
+          fallback={<span className="text-sm text-muted-foreground/40">—</span>}
+        />
       </MetaField>
 
       <MetaField label="Timeline">

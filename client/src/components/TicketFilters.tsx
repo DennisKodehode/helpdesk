@@ -5,7 +5,7 @@ import {
   TRIAGING_FILTER_VALUE,
   type TriagingFilterValue,
 } from "@helpdesk/core";
-import { Search } from "lucide-react";
+import { AlertTriangle, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Toggle } from "@/components/ui/toggle";
 
 export type StatusFilterValue = TicketStatus | TriagingFilterValue | "";
 
@@ -47,10 +48,12 @@ interface Props {
   status: StatusFilterValue;
   category: TicketCategory | "";
   priority: TicketPriority | "";
+  breachedOnly: boolean;
   onSearchChange: (v: string) => void;
   onStatusChange: (v: StatusFilterValue) => void;
   onCategoryChange: (v: TicketCategory | "") => void;
   onPriorityChange: (v: TicketPriority | "") => void;
+  onBreachedOnlyChange: (v: boolean) => void;
 }
 
 export default function TicketFilters({
@@ -58,10 +61,12 @@ export default function TicketFilters({
   status,
   category,
   priority,
+  breachedOnly,
   onSearchChange,
   onStatusChange,
   onCategoryChange,
   onPriorityChange,
+  onBreachedOnlyChange,
 }: Props) {
   return (
     <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
@@ -141,6 +146,18 @@ export default function TicketFilters({
           <SelectItem value={TicketPriority.low}>Low</SelectItem>
         </SelectContent>
       </Select>
+
+      <Toggle
+        aria-label="Show only tickets that have breached their SLA"
+        variant="outline"
+        size="default"
+        pressed={breachedOnly}
+        onPressedChange={onBreachedOnlyChange}
+        className="h-10 sm:h-9"
+      >
+        <AlertTriangle className="size-3.5" aria-hidden />
+        Breached only
+      </Toggle>
     </div>
   );
 }

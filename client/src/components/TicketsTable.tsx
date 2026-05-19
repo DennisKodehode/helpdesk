@@ -8,6 +8,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { ChevronDown, ChevronsUpDown, ChevronUp } from "lucide-react";
+import { SlaBadge } from "@/components/SlaBadge";
 import StatusPill from "@/components/StatusPill";
 import SuppressionPill from "@/components/SuppressionPill";
 import ErrorAlert from "@/components/ui/ErrorAlert";
@@ -112,6 +113,12 @@ const columns: ColumnDef<Ticket>[] = [
         </span>
       );
     },
+  },
+  {
+    id: "sla",
+    header: "SLA",
+    enableSorting: false,
+    cell: ({ row }) => <SlaBadge ticket={row.original} />,
   },
   {
     id: "createdAt",

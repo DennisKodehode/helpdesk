@@ -23,6 +23,8 @@ const mockTickets: Ticket[] = [
     assignedToId: null,
     assigneeType: "none",
     isSuppressed: false,
+    firstAgentReplyAt: null,
+    resolvedAt: null,
     createdAt: "2024-01-15T00:00:00Z",
   },
   {
@@ -36,6 +38,8 @@ const mockTickets: Ticket[] = [
     assignedToId: null,
     assigneeType: "none",
     isSuppressed: false,
+    firstAgentReplyAt: null,
+    resolvedAt: null,
     createdAt: "2024-03-20T00:00:00Z",
   },
 ];

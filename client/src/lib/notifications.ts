@@ -1,6 +1,12 @@
-import { type NotificationsResponse, NotificationType } from "@helpdesk/core";
+import {
+  type Notification,
+  type NotificationsResponse,
+  NotificationType,
+  type SlaMetric,
+} from "@helpdesk/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
+import { formatRelative, SLA_METRIC_LABELS } from "./ticket-ui";
 
 const QUERY_KEY = ["notifications"] as const;
 
@@ -37,11 +43,22 @@ export function useMarkAllNotificationsRead() {
   });
 }
 
+function formatSlaBreach(n: Notification): string {
+  const data = n.data as { metric?: SlaMetric; breachedAt?: string } | null | undefined;
+  const metric =
+    data?.metric && data.metric in SLA_METRIC_LABELS
+      ? SLA_METRIC_LABELS[data.metric]
+      : "SLA";
+  const when = data?.breachedAt ? ` ${formatRelative(data.breachedAt)}` : "";
+  return `${metric} breached${when}`;
+}
+
 export const NOTIFICATION_TYPE_LABEL: Record<
   NotificationType,
-  (actorName: string | null) => string
+  (n: Notification) => string
 > = {
   [NotificationType.customer_reply]: () => "Customer replied",
-  [NotificationType.ticket_assigned]: (actor) =>
-    actor ? `${actor} assigned you a ticket` : "You were assigned a ticket",
+  [NotificationType.ticket_assigned]: (n) =>
+    n.actorName ? `${n.actorName} assigned you a ticket` : "You were assigned a ticket",
+  [NotificationType.sla_breach_warning]: formatSlaBreach,
 };

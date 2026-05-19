@@ -1,5 +1,5 @@
 import { type Notification, NotificationType } from "@helpdesk/core";
-import { Bell, MailOpen, UserPlus } from "lucide-react";
+import { AlertTriangle, Bell, MailOpen, UserPlus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useSession } from "@/lib/auth-client";
@@ -18,6 +18,7 @@ const ICON_FOR_TYPE: Record<
 > = {
   [NotificationType.customer_reply]: MailOpen,
   [NotificationType.ticket_assigned]: UserPlus,
+  [NotificationType.sla_breach_warning]: AlertTriangle,
 };
 
 interface Props {
@@ -129,8 +130,12 @@ export default function NotificationBell({ className, align = "end" }: Props) {
             ) : (
               <ul>
                 {items.map((n) => {
-                  const Icon = ICON_FOR_TYPE[n.type];
-                  const label = NOTIFICATION_TYPE_LABEL[n.type](n.actorName);
+                  // Guard against unknown notification types — keeps a stale
+                  // bundle (post-deploy) from crashing when the server adds
+                  // a new NotificationType value the bundle doesn't know.
+                  const Icon = ICON_FOR_TYPE[n.type] ?? Bell;
+                  const formatter = NOTIFICATION_TYPE_LABEL[n.type];
+                  const label = formatter ? formatter(n) : "Notification";
                   const unread = !n.readAt;
                   return (
                     <li key={n.id}>

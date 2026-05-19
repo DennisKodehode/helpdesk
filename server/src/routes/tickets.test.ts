@@ -454,6 +454,46 @@ describe("GET /api/tickets — sorting", () => {
     expect(seed?.assigneeType).toBe("none");
   });
 
+  it("includes firstAgentReplyAt and resolvedAt on every list row", async () => {
+    const res = await request(app)
+      .get("/api/tickets?pageSize=100")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    for (const row of res.body.data as Record<string, unknown>[]) {
+      expect(row).toHaveProperty("firstAgentReplyAt");
+      expect(row).toHaveProperty("resolvedAt");
+    }
+  });
+
+  it("?breachedOnly=true returns only tickets with an sla_breach_warning notification", async () => {
+    // Seed: createdTicketIds[0] gets a breach notification; [1] does not.
+    await prisma.notification.create({
+      data: {
+        userId: testUserId,
+        type: NotificationType.sla_breach_warning,
+        ticketId: createdTicketIds[0],
+        data: {
+          metric: "first_response",
+          policyMinutes: 60,
+          breachedAt: new Date().toISOString(),
+        },
+      },
+    });
+
+    const res = await request(app)
+      .get("/api/tickets?breachedOnly=true&pageSize=100")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
+    expect(ids).toContain(createdTicketIds[0]);
+    expect(ids).not.toContain(createdTicketIds[1]);
+
+    // Cleanup: the afterEach cascades via ticket FK, but be explicit.
+    await prisma.notification.deleteMany({
+      where: { ticketId: createdTicketIds[0] },
+    });
+  });
+
   it("filters by search term across subject, fromName, and fromEmail", async () => {
     const matchTicket = await prisma.ticket.create({
       data: {

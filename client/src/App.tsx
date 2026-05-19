@@ -8,6 +8,7 @@ import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import MyStatsPage from "./pages/MyStatsPage";
 import MyTicketsPage from "./pages/MyTicketsPage";
+import SlaPoliciesPage from "./pages/SlaPoliciesPage";
 import TicketDetailPage from "./pages/TicketDetailPage";
 import TicketsPage from "./pages/TicketsPage";
 import UsersPage from "./pages/UsersPage";
@@ -64,6 +65,7 @@ export default function App() {
         <Route path="/my-stats" element={<MyStatsPage />} />
         <Route element={<AdminLayout />}>
           <Route path="/users" element={<UsersPage />} />
+          <Route path="/sla-policies" element={<SlaPoliciesPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

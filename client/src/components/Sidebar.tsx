@@ -7,6 +7,7 @@ import {
   LineChart,
   LogOut,
   Moon,
+  ShieldCheck,
   Sun,
   UserCheck,
   Users,
@@ -134,7 +135,10 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
   const myStatsItem: NavItem = { to: "/my-stats", label: "My stats", icon: LineChart };
   const { data: myOpenCount } = useMyOpenCount(isAgent);
 
-  const adminNav: NavItem[] = [{ to: "/users", label: "Agents", icon: Users }];
+  const adminNav: NavItem[] = [
+    { to: "/users", label: "Agents", icon: Users },
+    { to: "/sla-policies", label: "SLA targets", icon: ShieldCheck },
+  ];
 
   return (
     <>

@@ -48,6 +48,7 @@ router.get("/", requireAuth, async (req, res) => {
     priority,
     assignee,
     search,
+    breachedOnly,
     page,
     pageSize,
   } = result.data;
@@ -72,6 +73,9 @@ router.get("/", requireAuth, async (req, res) => {
     ...(priority && { priority }),
     ...(assignee === "unassigned" && { assignedToId: null }),
     ...(assignee === "me" && { assignedToId: req.user!.id }),
+    ...(breachedOnly && {
+      notifications: { some: { type: NotificationType.sla_breach_warning } },
+    }),
     ...(trimmed && {
       OR: [
         { subject: { contains: trimmed, mode: "insensitive" } },
@@ -91,6 +95,8 @@ router.get("/", requireAuth, async (req, res) => {
     priority: true,
     assignedToId: true,
     createdAt: true,
+    firstAgentReplyAt: true,
+    resolvedAt: true,
   };
 
   const [rows, total] = await Promise.all([
@@ -159,6 +165,8 @@ router.get("/:id", requireAuth, async (req, res) => {
       },
       createdAt: true,
       updatedAt: true,
+      firstAgentReplyAt: true,
+      resolvedAt: true,
     },
   });
 

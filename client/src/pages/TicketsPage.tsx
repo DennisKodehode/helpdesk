@@ -39,6 +39,7 @@ async function fetchTickets(
   priority: TicketPriority | "",
   assignee: string,
   search: string,
+  breachedOnly: boolean,
   page: number,
 ): Promise<PaginatedTickets> {
   const { data } = await axios.get<PaginatedTickets>("/api/tickets", {
@@ -50,6 +51,7 @@ async function fetchTickets(
       ...(priority && { priority }),
       ...(assignee && { assignee }),
       ...(search.trim() && { search: search.trim() }),
+      ...(breachedOnly && { breachedOnly: "true" }),
       page,
       pageSize: PAGE_SIZE,
     },
@@ -64,6 +66,7 @@ export default function TicketsPage() {
   const category = (searchParams.get("category") ?? "") as TicketCategory | "";
   const priority = (searchParams.get("priority") ?? "") as TicketPriority | "";
   const assignee = searchParams.get("assignee") ?? "";
+  const breachedOnly = searchParams.get("breachedOnly") === "true";
   const page = Math.max(1, Number(searchParams.get("page") ?? "1") || 1);
   const searchFromUrl = searchParams.get("q") ?? "";
 
@@ -99,6 +102,7 @@ export default function TicketsPage() {
       priority,
       assignee,
       searchFromUrl,
+      breachedOnly,
       page,
     ],
     queryFn: () =>
@@ -110,6 +114,7 @@ export default function TicketsPage() {
         priority,
         assignee,
         searchFromUrl,
+        breachedOnly,
         page,
       ),
     placeholderData: keepPreviousData,
@@ -119,7 +124,10 @@ export default function TicketsPage() {
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  function updateFilter(key: "status" | "category" | "priority", value: string) {
+  function updateFilter(
+    key: "status" | "category" | "priority" | "breachedOnly",
+    value: string,
+  ) {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       setParam(next, key, value);
@@ -160,10 +168,12 @@ export default function TicketsPage() {
         status={status}
         category={category}
         priority={priority}
+        breachedOnly={breachedOnly}
         onSearchChange={setSearchInput}
         onStatusChange={(v) => updateFilter("status", v)}
         onCategoryChange={(v) => updateFilter("category", v)}
         onPriorityChange={(v) => updateFilter("priority", v)}
+        onBreachedOnlyChange={(v) => updateFilter("breachedOnly", v ? "true" : "")}
       />
 
       <TicketsTable

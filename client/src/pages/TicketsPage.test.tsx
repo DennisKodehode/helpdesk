@@ -27,6 +27,8 @@ const mockPage: PaginatedTickets = {
       assignedToId: null,
       assigneeType: "none",
       isSuppressed: false,
+      firstAgentReplyAt: null,
+      resolvedAt: null,
       createdAt: "2024-01-15T00:00:00Z",
     },
   ],

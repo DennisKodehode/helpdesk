@@ -199,4 +199,31 @@ describe("NotificationBell", () => {
       await screen.findByRole("button", { name: /mark all as read/i }),
     ).toBeDisabled();
   });
+
+  it("renders an sla_breach_warning row with the metric-aware label", async () => {
+    mockNotificationsResponse({
+      data: [
+        {
+          id: "n-sla",
+          type: NotificationType.sla_breach_warning,
+          ticketId: 77,
+          ticketSubject: "Server down",
+          actorName: null,
+          data: {
+            metric: "first_response",
+            policyMinutes: 60,
+            breachedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+          },
+          readAt: null,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      unreadCount: 1,
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<NotificationBell />);
+    await user.click(await screen.findByRole("button", { name: /notifications/i }));
+    expect(await screen.findByText(/first-response sla breached/i)).toBeInTheDocument();
+    expect(screen.getByText(/#77 · Server down/)).toBeInTheDocument();
+  });
 });
