@@ -1,5 +1,6 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Role } from "@helpdesk/core";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ChevronsUpDown,
   Inbox,
@@ -86,6 +87,7 @@ function SidebarLink({
 function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
   const { data: session, isPending } = useSession();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { pathname } = useLocation();
   const { theme, toggleTheme } = useTheme();
 
@@ -118,6 +120,12 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
   async function handleSignOut() {
     setMenuOpen(false);
     await signOut();
+    // Clear the query cache AFTER signOut so the cookie is already gone
+    // when in-flight queries get canceled. Without this, every signout
+    // produces a burst of 401s as queries refetch in the gap between the
+    // cookie clearing and the component tree unmounting — Sentry would
+    // see them as real errors in production.
+    queryClient.clear();
     navigate("/login", { replace: true });
   }
 

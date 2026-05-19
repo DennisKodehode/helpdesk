@@ -32,8 +32,11 @@ interface Props {
 }
 
 export default function NotificationBell({ className, align = "end" }: Props) {
-  const { data: session } = useSession();
-  const enabled = !!session;
+  const { data: session, isPending } = useSession();
+  // Gate on !isPending so the polling query doesn't fire during the brief
+  // window where useSession is still resolving — otherwise we'd kick off a
+  // request that the server rejects as 401 and show a phantom error toast.
+  const enabled = !isPending && !!session;
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);

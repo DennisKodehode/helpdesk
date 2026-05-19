@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router";
 import LoginForm from "@/components/LoginForm";
@@ -5,6 +6,7 @@ import { signIn, useSession } from "../lib/auth-client";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: session, isPending } = useSession();
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -18,6 +20,11 @@ export default function LoginPage() {
     if (error) {
       setServerError(error.message ?? "Invalid credentials");
     } else {
+      // Drop any cached query state from the unauthenticated page (and any
+      // stale 401 error states from a previous session in the same tab).
+      // Without this the dashboard briefly flashes "Failed to load…" while
+      // queries refetch with the new session.
+      queryClient.clear();
       navigate("/", { replace: true });
     }
   }
