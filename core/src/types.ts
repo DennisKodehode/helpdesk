@@ -40,6 +40,12 @@ export enum SenderType {
   internal_note = "internal_note",
 }
 
+export enum TicketView {
+  unassigned = "unassigned",
+  triage = "triage",
+  awaiting_customer = "awaiting_customer",
+}
+
 export enum NotificationType {
   customer_reply = "customer_reply",
   ticket_assigned = "ticket_assigned",

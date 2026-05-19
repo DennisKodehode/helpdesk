@@ -6,6 +6,7 @@ import {
   TicketCategory,
   TicketPriority,
   TicketStatus,
+  TicketView,
   TRIAGING_FILTER_VALUE,
 } from "./types";
 
@@ -139,6 +140,7 @@ export const ticketSortSchema = z.object({
   assignee: z.enum(["unassigned", "me"]).optional(),
   search: z.string().optional(),
   breachedOnly: z.coerce.boolean().optional(),
+  view: z.enum(TicketView).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(10),
 });

@@ -1,8 +1,9 @@
-import type {
-  PaginatedTickets,
-  TicketCategory,
-  TicketPriority,
-  TicketSortField,
+import {
+  type PaginatedTickets,
+  type TicketCategory,
+  type TicketPriority,
+  type TicketSortField,
+  TicketView,
 } from "@helpdesk/core";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { SortingState } from "@tanstack/react-table";
@@ -12,6 +13,7 @@ import { useSearchParams } from "react-router";
 import TicketFilters, { type StatusFilterValue } from "@/components/TicketFilters";
 import TicketPagination from "@/components/TicketPagination";
 import TicketsTable from "@/components/TicketsTable";
+import TicketViewChips from "@/components/TicketViewChips";
 import PageHeader from "@/components/ui/PageHeader";
 
 const PAGE_SIZE = 10;
@@ -31,6 +33,8 @@ function setParam(params: URLSearchParams, key: string, value: string | number |
   else params.delete(key);
 }
 
+const VALID_VIEWS = new Set<string>(Object.values(TicketView));
+
 async function fetchTickets(
   sortBy: TicketSortField,
   sortOrder: "asc" | "desc",
@@ -40,18 +44,23 @@ async function fetchTickets(
   assignee: string,
   search: string,
   breachedOnly: boolean,
+  view: TicketView | null,
   page: number,
 ): Promise<PaginatedTickets> {
   const { data } = await axios.get<PaginatedTickets>("/api/tickets", {
     params: {
       sortBy,
       sortOrder,
-      ...(status && { status }),
-      ...(category && { category }),
-      ...(priority && { priority }),
-      ...(assignee && { assignee }),
+      // When `view` is set the server applies its preset and ignores the
+      // per-field filters, so we don't bother sending them. Keeps the
+      // request URL meaningful.
+      ...(view ? { view } : null),
+      ...(!view && status && { status }),
+      ...(!view && category && { category }),
+      ...(!view && priority && { priority }),
+      ...(!view && assignee && { assignee }),
+      ...(!view && breachedOnly && { breachedOnly: "true" }),
       ...(search.trim() && { search: search.trim() }),
-      ...(breachedOnly && { breachedOnly: "true" }),
       page,
       pageSize: PAGE_SIZE,
     },
@@ -67,6 +76,9 @@ export default function TicketsPage() {
   const priority = (searchParams.get("priority") ?? "") as TicketPriority | "";
   const assignee = searchParams.get("assignee") ?? "";
   const breachedOnly = searchParams.get("breachedOnly") === "true";
+  const viewRaw = searchParams.get("view");
+  const view: TicketView | null =
+    viewRaw && VALID_VIEWS.has(viewRaw) ? (viewRaw as TicketView) : null;
   const page = Math.max(1, Number(searchParams.get("page") ?? "1") || 1);
   const searchFromUrl = searchParams.get("q") ?? "";
 
@@ -103,6 +115,7 @@ export default function TicketsPage() {
       assignee,
       searchFromUrl,
       breachedOnly,
+      view,
       page,
     ],
     queryFn: () =>
@@ -115,6 +128,7 @@ export default function TicketsPage() {
         assignee,
         searchFromUrl,
         breachedOnly,
+        view,
         page,
       ),
     placeholderData: keepPreviousData,
@@ -131,8 +145,32 @@ export default function TicketsPage() {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       setParam(next, key, value);
+      // Manually changing a per-field filter deactivates the active preset
+      // chip — the URL should only ever carry one of `view` OR the
+      // per-field filters, never both.
+      next.delete("view");
       next.delete("page");
       return next;
+    });
+  }
+
+  function onViewChange(next: TicketView | null) {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      // Exclusive preset: clear every per-field filter when a chip is
+      // toggled. Search (`q`) survives since it's a different axis.
+      params.delete("status");
+      params.delete("category");
+      params.delete("priority");
+      params.delete("assignee");
+      params.delete("breachedOnly");
+      params.delete("page");
+      if (next) {
+        params.set("view", next);
+      } else {
+        params.delete("view");
+      }
+      return params;
     });
   }
 
@@ -162,6 +200,8 @@ export default function TicketsPage() {
         title="Tickets"
         description="Customer requests, auto-categorized by Gemini on arrival."
       />
+
+      <TicketViewChips activeView={view} onChange={onViewChange} />
 
       <TicketFilters
         search={searchInput}

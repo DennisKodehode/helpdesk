@@ -306,6 +306,12 @@ describe("POST /api/inbound-email", () => {
     expect(res.body.reply.senderType).toBe(SenderType.customer);
     expect(res.body.reply.body).toBe("Follow-up message");
     createdReplyId = res.body.reply.id;
+
+    const refreshed = await prisma.ticket.findUnique({
+      where: { id: existing.id },
+      select: { lastReplySenderType: true },
+    });
+    expect(refreshed!.lastReplySenderType).toBe(SenderType.customer);
   });
 
   it("creates a new ticket when fromEmail matches but subject is different", async () => {

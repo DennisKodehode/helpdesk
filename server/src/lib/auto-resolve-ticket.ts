@@ -133,6 +133,7 @@ async function runAutoResolve(data: AutoResolveJobData, log: Logger) {
         data: {
           status: TicketStatus.resolved,
           resolvedAt: now,
+          lastReplySenderType: SenderType.agent,
           ...(!ticket?.firstAgentReplyAt && { firstAgentReplyAt: now }),
         },
       });

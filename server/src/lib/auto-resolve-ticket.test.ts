@@ -1,4 +1,4 @@
-import { TicketStatus } from "@helpdesk/core";
+import { SenderType, TicketStatus } from "@helpdesk/core";
 import { generateId } from "better-auth";
 import {
   afterAll,
@@ -115,9 +115,10 @@ describe("auto-resolve-ticket worker", () => {
 
     const refreshed = await prisma.ticket.findUnique({
       where: { id: ticket.id },
-      select: { status: true },
+      select: { status: true, lastReplySenderType: true },
     });
     expect(refreshed!.status).toBe(TicketStatus.resolved);
+    expect(refreshed!.lastReplySenderType).toBe(SenderType.agent);
 
     const reply = await prisma.reply.findFirst({
       where: { ticketId: ticket.id },

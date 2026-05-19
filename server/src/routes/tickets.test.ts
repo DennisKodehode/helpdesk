@@ -1,5 +1,6 @@
 import {
   NotificationType,
+  SenderType,
   TicketCategory,
   TicketPriority,
   TicketStatus,
@@ -566,6 +567,139 @@ describe("GET /api/tickets — sorting", () => {
       .set("Cookie", authCookie);
     expect(res.status).toBe(400);
     expect(res.body.error).toBeTypeOf("string");
+  });
+
+  it("?view=unassigned returns only unassigned tickets", async () => {
+    const assignedTicket = await prisma.ticket.create({
+      data: {
+        fromName: "Assigned",
+        fromEmail: "assigned@example.com",
+        subject: "Assigned ticket",
+        body: "",
+        status: TicketStatus.open,
+        assignedToId: testUserId,
+      },
+    });
+    createdTicketIds.push(assignedTicket.id);
+
+    const res = await request(app)
+      .get("/api/tickets?view=unassigned&pageSize=100")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
+    expect(ids).toContain(createdTicketIds[0]);
+    expect(ids).toContain(createdTicketIds[1]);
+    expect(ids).not.toContain(assignedTicket.id);
+  });
+
+  it("?view=triage returns only new/processing tickets", async () => {
+    const newTicket = await prisma.ticket.create({
+      data: {
+        fromName: "Triage View",
+        fromEmail: "triageview@example.com",
+        subject: "Brand new",
+        body: "",
+        status: TicketStatus.new,
+      },
+    });
+    const processingTicket = await prisma.ticket.create({
+      data: {
+        fromName: "Triage View",
+        fromEmail: "triageview@example.com",
+        subject: "AI processing",
+        body: "",
+        status: TicketStatus.processing,
+      },
+    });
+    createdTicketIds.push(newTicket.id, processingTicket.id);
+
+    const res = await request(app)
+      .get("/api/tickets?view=triage&pageSize=100")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
+    expect(ids).toEqual(expect.arrayContaining([newTicket.id, processingTicket.id]));
+    // Default-seeded tickets are status=open — they should NOT match the
+    // triage view.
+    expect(ids).not.toContain(createdTicketIds[0]);
+    expect(ids).not.toContain(createdTicketIds[1]);
+  });
+
+  it("?view=awaiting_customer returns only open tickets we replied to last", async () => {
+    const awaitingCustomer = await prisma.ticket.create({
+      data: {
+        fromName: "Awaiting Customer",
+        fromEmail: "awaiting@example.com",
+        subject: "Agent replied last",
+        body: "",
+        status: TicketStatus.open,
+        lastReplySenderType: SenderType.agent,
+      },
+    });
+    const awaitingAgent = await prisma.ticket.create({
+      data: {
+        fromName: "Awaiting Agent",
+        fromEmail: "awaiting-agent@example.com",
+        subject: "Customer replied last",
+        body: "",
+        status: TicketStatus.open,
+        lastReplySenderType: SenderType.customer,
+      },
+    });
+    // Resolved tickets with agent-last shouldn't appear — closed is closed.
+    const resolvedAgentLast = await prisma.ticket.create({
+      data: {
+        fromName: "Resolved",
+        fromEmail: "resolved@example.com",
+        subject: "Already resolved",
+        body: "",
+        status: TicketStatus.resolved,
+        lastReplySenderType: SenderType.agent,
+      },
+    });
+    createdTicketIds.push(awaitingCustomer.id, awaitingAgent.id, resolvedAgentLast.id);
+
+    const res = await request(app)
+      .get("/api/tickets?view=awaiting_customer&pageSize=100")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
+    expect(ids).toContain(awaitingCustomer.id);
+    expect(ids).not.toContain(awaitingAgent.id);
+    expect(ids).not.toContain(resolvedAgentLast.id);
+  });
+
+  it("returns 400 for an invalid view value", async () => {
+    const res = await request(app)
+      .get("/api/tickets?view=garbage")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeTypeOf("string");
+  });
+
+  it("view is exclusive: per-field filters are ignored when view is set", async () => {
+    // Seed a resolved unassigned ticket. With ?status=resolved this would
+    // be the only match; with view=unassigned + status=resolved, the view
+    // wins so the open unassigned tickets from beforeEach also appear.
+    const resolvedUnassigned = await prisma.ticket.create({
+      data: {
+        fromName: "Resolved Unassigned",
+        fromEmail: "resolved-unassigned@example.com",
+        subject: "Resolved + unassigned",
+        body: "",
+        status: TicketStatus.resolved,
+      },
+    });
+    createdTicketIds.push(resolvedUnassigned.id);
+
+    const res = await request(app)
+      .get("/api/tickets?view=unassigned&status=resolved&pageSize=100")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
+    // View wins — both open and resolved unassigned tickets appear.
+    expect(ids).toContain(createdTicketIds[0]);
+    expect(ids).toContain(resolvedUnassigned.id);
   });
 });
 
@@ -1576,6 +1710,38 @@ describe("POST /api/tickets/:id/replies", () => {
       select: { firstAgentReplyAt: true },
     });
     expect(after!.firstAgentReplyAt).toBeNull();
+  });
+
+  it("sets lastReplySenderType=agent on an agent reply", async () => {
+    await request(app)
+      .post(`/api/tickets/${ticketId}/replies`)
+      .set("Cookie", authCookie)
+      .send({ body: "Agent reply.", isInternal: false });
+
+    const after = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+      select: { lastReplySenderType: true },
+    });
+    expect(after!.lastReplySenderType).toBe(SenderType.agent);
+  });
+
+  it("does not change lastReplySenderType for an internal note", async () => {
+    // Pre-seed lastReplySenderType=customer so we can detect any overwrite.
+    await prisma.ticket.update({
+      where: { id: ticketId },
+      data: { lastReplySenderType: SenderType.customer },
+    });
+
+    await request(app)
+      .post(`/api/tickets/${ticketId}/replies`)
+      .set("Cookie", authCookie)
+      .send({ body: "Internal note only.", isInternal: true });
+
+    const after = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+      select: { lastReplySenderType: true },
+    });
+    expect(after!.lastReplySenderType).toBe(SenderType.customer);
   });
 
   it("records a reply_added audit event for a public reply", async () => {

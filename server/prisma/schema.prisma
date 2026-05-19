@@ -123,6 +123,7 @@ model Ticket {
   resolvedAt         DateTime?
   closedAt           DateTime?
   firstAgentReplyAt  DateTime?
+  lastReplySenderType SenderType?
   resendEmailId      String?  @unique
   replies            Reply[]
   notifications      Notification[]
@@ -133,6 +134,7 @@ model Ticket {
   @@index([assignedToId, status])
   @@index([fromEmail, subject, status])
   @@index([status, resolvedAt])
+  @@index([status, lastReplySenderType])
   @@map("ticket")
 }
 

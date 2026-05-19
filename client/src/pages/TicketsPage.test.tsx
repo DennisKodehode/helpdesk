@@ -3,6 +3,7 @@ import {
   TicketCategory,
   TicketPriority,
   TicketStatus,
+  TicketView,
 } from "@helpdesk/core";
 import userEvent from "@testing-library/user-event";
 import axios from "axios";
@@ -182,6 +183,84 @@ describe("TicketsPage", () => {
       expect(axios.get).toHaveBeenLastCalledWith("/api/tickets", {
         params: expect.objectContaining({ page: 2, pageSize: 10 }),
       });
+    });
+  });
+
+  it("sends ?view=<key> when a view chip is clicked", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<TicketsPage />);
+    await screen.findAllByText("Test ticket");
+
+    await user.click(screen.getByRole("button", { name: /unassigned/i }));
+
+    await waitFor(() => {
+      expect(axios.get).toHaveBeenLastCalledWith("/api/tickets", {
+        params: expect.objectContaining({
+          view: TicketView.unassigned,
+          page: 1,
+          pageSize: 10,
+        }),
+      });
+    });
+  });
+
+  it("clicking a chip clears existing per-field filter params from the request", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<TicketsPage />, {
+      initialEntries: [
+        `/tickets?status=${TicketStatus.open}&priority=${TicketPriority.urgent}`,
+      ],
+    });
+    await screen.findAllByText("Test ticket");
+
+    await user.click(
+      screen.getByRole("button", { name: /awaiting a customer response/i }),
+    );
+
+    await waitFor(() => {
+      const lastCall = vi.mocked(axios.get).mock.lastCall;
+      const params = (lastCall?.[1] as { params: Record<string, unknown> }).params;
+      expect(params.view).toBe(TicketView.awaiting_customer);
+      expect(params).not.toHaveProperty("status");
+      expect(params).not.toHaveProperty("priority");
+    });
+  });
+
+  it("clicking the active chip clears ?view from the request", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<TicketsPage />, {
+      initialEntries: [`/tickets?view=${TicketView.triage}`],
+    });
+    await screen.findAllByText("Test ticket");
+
+    // Chip should be pressed initially.
+    const triageChip = screen.getByRole("button", { name: /triage/i });
+    expect(triageChip).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(triageChip);
+
+    await waitFor(() => {
+      const lastCall = vi.mocked(axios.get).mock.lastCall;
+      const params = (lastCall?.[1] as { params: Record<string, unknown> }).params;
+      expect(params).not.toHaveProperty("view");
+    });
+  });
+
+  it("changing the status select clears the active view chip", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<TicketsPage />, {
+      initialEntries: [`/tickets?view=${TicketView.unassigned}`],
+    });
+    await screen.findAllByText("Test ticket");
+
+    await user.click(screen.getByRole("combobox", { name: /status/i }));
+    await user.click(await screen.findByRole("option", { name: /^open$/i }));
+
+    await waitFor(() => {
+      const lastCall = vi.mocked(axios.get).mock.lastCall;
+      const params = (lastCall?.[1] as { params: Record<string, unknown> }).params;
+      expect(params.status).toBe(TicketStatus.open);
+      expect(params).not.toHaveProperty("view");
     });
   });
 });

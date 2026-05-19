@@ -10,6 +10,7 @@ import {
   Role,
   SenderType,
   TicketStatus,
+  TicketView,
   TRIAGING_FILTER_VALUE,
   TRIAGING_STATUSES,
   ticketSortSchema,
@@ -49,6 +50,7 @@ router.get("/", requireAuth, async (req, res) => {
     assignee,
     search,
     breachedOnly,
+    view,
     page,
     pageSize,
   } = result.data;
@@ -67,15 +69,35 @@ router.get("/", requireAuth, async (req, res) => {
         ? status
         : undefined;
 
+  // `view` is an exclusive preset: when set, it composes the base WHERE
+  // and the per-field filters (status/category/priority/assignee/
+  // breachedOnly) are ignored. The client also clears them on chip click,
+  // but the server-side gate is the source of truth.
+  const viewWhere: Prisma.TicketWhereInput | null =
+    view === TicketView.unassigned
+      ? { assignedToId: null }
+      : view === TicketView.triage
+        ? { status: { in: TRIAGING_STATUSES } }
+        : view === TicketView.awaiting_customer
+          ? { status: TicketStatus.open, lastReplySenderType: SenderType.agent }
+          : null;
+
+  const baseWhere: Prisma.TicketWhereInput =
+    viewWhere !== null
+      ? viewWhere
+      : {
+          ...(statusFilter !== undefined && { status: statusFilter }),
+          ...(category && { category }),
+          ...(priority && { priority }),
+          ...(assignee === "unassigned" && { assignedToId: null }),
+          ...(assignee === "me" && { assignedToId: req.user!.id }),
+          ...(breachedOnly && {
+            notifications: { some: { type: NotificationType.sla_breach_warning } },
+          }),
+        };
+
   const where: Prisma.TicketWhereInput = {
-    ...(statusFilter !== undefined && { status: statusFilter }),
-    ...(category && { category }),
-    ...(priority && { priority }),
-    ...(assignee === "unassigned" && { assignedToId: null }),
-    ...(assignee === "me" && { assignedToId: req.user!.id }),
-    ...(breachedOnly && {
-      notifications: { some: { type: NotificationType.sla_breach_warning } },
-    }),
+    ...baseWhere,
     ...(trimmed && {
       OR: [
         { subject: { contains: trimmed, mode: "insensitive" } },
@@ -488,6 +510,7 @@ router.post(
         data: {
           updatedAt: now,
           ...(!isInternal && !ticket.firstAgentReplyAt && { firstAgentReplyAt: now }),
+          ...(!isInternal && { lastReplySenderType: SenderType.agent }),
         },
       });
       for (const file of files) {

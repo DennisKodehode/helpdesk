@@ -349,6 +349,7 @@ router.post("/", webhookLimiter, async (req, res) => {
           where: { id: existingTicket.id },
           data: {
             updatedAt: now,
+            lastReplySenderType: SenderType.customer,
             ...(wasResolved && { status: TicketStatus.open, resolvedAt: null }),
             ...(shouldUnassignAi && { assignedToId: null }),
           },
