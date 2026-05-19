@@ -41,17 +41,14 @@ interface TicketsTableProps {
   emptyDescription?: string;
 }
 
-const columns: ColumnDef<Ticket>[] = [
-  {
-    id: "id",
-    accessorKey: "id",
-    header: "ID",
-    cell: ({ row }) => (
-      <span className="font-mono tabular text-[12px] text-muted-foreground">
-        #{String(row.original.id).padStart(4, "0")}
-      </span>
-    ),
-  },
+// Responsive column visibility. The table only shows at lg+ — below that we
+// render the mobile card list. Within the table, secondary columns hide on
+// narrower breakpoints so the essentials (Subject, Status, Priority, Received)
+// always fit without horizontal clipping. ColumnMeta carries the per-column
+// breakpoint class so headers + cells stay in sync.
+type ColumnMeta = { cellClass?: string };
+
+const columns: ColumnDef<Ticket, unknown>[] = [
   {
     id: "subject",
     accessorKey: "subject",
@@ -59,7 +56,7 @@ const columns: ColumnDef<Ticket>[] = [
     cell: ({ row }) => (
       <Link
         to={`/tickets/${row.original.id}`}
-        className="block max-w-md truncate text-[13.5px] font-medium text-foreground underline-offset-4 hover:underline xl:max-w-xl 2xl:max-w-2xl"
+        className="block max-w-[20rem] truncate text-[13.5px] font-medium text-foreground underline-offset-4 hover:underline"
       >
         {row.original.subject}
       </Link>
@@ -69,8 +66,9 @@ const columns: ColumnDef<Ticket>[] = [
     id: "fromName",
     accessorKey: "fromName",
     header: "From",
+    meta: { cellClass: "hidden 2xl:table-cell" } as ColumnMeta,
     cell: ({ row }) => (
-      <div className="min-w-0 lg:max-w-[18rem] xl:max-w-[22rem]">
+      <div className="min-w-0 2xl:max-w-[12rem]">
         <p className="truncate text-[13px] text-foreground">{row.original.fromName}</p>
         <div className="flex items-center gap-2">
           <p className="truncate font-mono text-[11px] text-muted-foreground">
@@ -91,6 +89,7 @@ const columns: ColumnDef<Ticket>[] = [
     id: "category",
     accessorKey: "category",
     header: "Category",
+    meta: { cellClass: "hidden 2xl:table-cell" } as ColumnMeta,
     cell: ({ row }) =>
       row.original.category ? (
         <span className={`${BADGE_BASE} ${CATEGORY_BADGE}`}>
@@ -118,6 +117,7 @@ const columns: ColumnDef<Ticket>[] = [
     id: "sla",
     header: "SLA",
     enableSorting: false,
+    meta: { cellClass: "hidden xl:table-cell" } as ColumnMeta,
     cell: ({ row }) => <SlaBadge ticket={row.original} />,
   },
   {
@@ -144,25 +144,25 @@ function SkeletonRows() {
       {Array.from({ length: 6 }).map((_, i) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholder; never reorders
         <tr key={`skeleton-${i}`} className="hairline-b">
-          <td className="px-5 py-3.5">
-            <Skeleton className="h-3.5 w-12" />
-          </td>
-          <td className="px-5 py-3.5">
+          <td className="px-4 py-3.5">
             <Skeleton className="h-3.5 w-56" />
           </td>
-          <td className="px-5 py-3.5">
+          <td className="hidden 2xl:table-cell px-4 py-3.5">
             <Skeleton className="h-3.5 w-36" />
           </td>
-          <td className="px-5 py-3.5">
+          <td className="px-4 py-3.5">
             <Skeleton className="h-5 w-20 rounded-full" />
           </td>
-          <td className="px-5 py-3.5">
+          <td className="hidden 2xl:table-cell px-4 py-3.5">
             <Skeleton className="h-5 w-20 rounded-full" />
           </td>
-          <td className="px-5 py-3.5">
+          <td className="px-4 py-3.5">
             <Skeleton className="h-5 w-20 rounded-full" />
           </td>
-          <td className="px-5 py-3.5">
+          <td className="hidden xl:table-cell px-4 py-3.5">
+            <Skeleton className="h-5 w-20 rounded-full" />
+          </td>
+          <td className="px-4 py-3.5">
             <Skeleton className="h-3.5 w-20" />
           </td>
         </tr>
@@ -236,22 +236,28 @@ export default function TicketsTable({
 
   return (
     <>
-      {/* Desktop: full table */}
-      <div className="hidden overflow-hidden rounded-lg border border-border bg-card md:block">
+      {/* Desktop table — lg+ only. Below lg the mobile card list takes over.
+          Subject is capped at 22rem and From at 14rem so the table always
+          fits its content area at every breakpoint — overflow-hidden keeps
+          the rounded card aesthetic clean (no inner scrollbar). */}
+      <div className="hidden overflow-hidden rounded-lg border border-border bg-card lg:block">
         <table className="min-w-full">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id} className="hairline-b">
-                {headerGroup.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    className="cursor-pointer select-none px-5 py-3 text-left font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground"
-                    onClick={header.column.getToggleSortingHandler()}
-                  >
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                    <SortIcon isSorted={header.column.getIsSorted()} />
-                  </th>
-                ))}
+                {headerGroup.headers.map((header) => {
+                  const meta = header.column.columnDef.meta as ColumnMeta | undefined;
+                  return (
+                    <th
+                      key={header.id}
+                      className={`cursor-pointer select-none px-4 py-3 text-left font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground ${meta?.cellClass ?? ""}`}
+                      onClick={header.column.getToggleSortingHandler()}
+                    >
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                      <SortIcon isSorted={header.column.getIsSorted()} />
+                    </th>
+                  );
+                })}
               </tr>
             ))}
           </thead>
@@ -260,7 +266,7 @@ export default function TicketsTable({
               <SkeletonRows />
             ) : tickets.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-5 py-16 text-center">
+                <td colSpan={columns.length} className="px-4 py-16 text-center">
                   <p className="display-serif text-2xl text-muted-foreground">
                     {emptyTitle}
                   </p>
@@ -277,11 +283,17 @@ export default function TicketsTable({
                     idx < arr.length - 1 ? "hairline-b" : ""
                   }`}
                 >
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-5 py-3.5 align-middle">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
+                  {row.getVisibleCells().map((cell) => {
+                    const meta = cell.column.columnDef.meta as ColumnMeta | undefined;
+                    return (
+                      <td
+                        key={cell.id}
+                        className={`px-4 py-3.5 align-middle ${meta?.cellClass ?? ""}`}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))
             )}
@@ -289,8 +301,10 @@ export default function TicketsTable({
         </table>
       </div>
 
-      {/* Mobile: sort + card list */}
-      <div className="md:hidden">
+      {/* Mobile + tablet card list — anything below lg. The cards already
+          include status, subject, priority, category, received and the
+          suppression pill — they read better than a cramped table here. */}
+      <div className="lg:hidden">
         <div className="mb-3 flex items-center justify-between">
           <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
             Sort
@@ -352,6 +366,9 @@ export default function TicketsTable({
                         aria-hidden
                       />
                       {PRIORITY_LABELS[t.priority as TicketPriority]}
+                    </span>
+                    <span className="relative z-10">
+                      <SlaBadge ticket={t} />
                     </span>
                     {t.category && (
                       <span className={`${BADGE_BASE} ${CATEGORY_BADGE} relative z-10`}>

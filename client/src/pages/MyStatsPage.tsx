@@ -10,6 +10,11 @@ import { cn } from "@/lib/utils";
 
 const RESOLVED_DRILL = "/my-tickets?active=resolved";
 
+// All hairline dividers in the stats grids share this color + width. Using
+// Tailwind border classes (instead of the custom .hairline-* utilities) so
+// responsive prefixes work — we need different borders at mobile vs md+.
+const HAIRLINE = "border-[var(--hairline)]";
+
 const STAT_LINK_BASE =
   "group relative block bg-card transition-colors duration-150 " +
   "hover:bg-accent/40 " +
@@ -64,12 +69,15 @@ export default function MyStatsPage() {
         <LoadingShell />
       ) : (
         <div className="space-y-6">
-          {/* Hero — Open queue, with resolved counters on the side */}
+          {/* Hero card — one shared 4-col grid so dividers in the hero line
+              up with the supporting row below. The hero spans 2 cols × 2 rows
+              on the left; the other four stats fill the 2×2 grid on the
+              right. Every right-side cell uses the same StatCard rhythm. */}
           <div className="overflow-hidden rounded-lg border border-border bg-card">
-            <div className="grid items-stretch md:grid-cols-[1.4fr_1fr]">
+            <div className="grid grid-cols-1 md:grid-cols-4 md:grid-rows-[1fr_1fr]">
               <Link
                 to="/my-tickets"
-                className="group relative block p-8 transition-colors duration-150 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring xl:p-12 2xl:p-16"
+                className="group relative block px-5 pt-6 pb-7 transition-colors duration-150 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring md:col-span-2 md:row-span-2 md:px-7 md:py-8 xl:px-9 xl:py-10 2xl:px-11 2xl:py-12"
                 aria-label={`Open on your plate: ${stats.openOnMyPlate} — go to my tickets`}
               >
                 <div className="flex items-center gap-2">
@@ -77,11 +85,11 @@ export default function MyStatsPage() {
                   <p className="label-meta">Open on my plate</p>
                 </div>
 
-                <div className="mt-5 flex items-baseline gap-4">
-                  <span className="display-serif tabular text-[96px] leading-[0.85] tracking-[-0.02em] text-foreground xl:text-[128px] 2xl:text-[160px]">
+                <div className="mt-6 flex items-baseline gap-4">
+                  <span className="display-serif tabular text-[88px] leading-[0.85] tracking-[-0.02em] text-foreground xl:text-[112px] 2xl:text-[136px]">
                     {stats.openOnMyPlate.toLocaleString()}
                   </span>
-                  <span className="display-serif text-3xl text-muted-foreground/60">
+                  <span className="display-serif text-2xl text-muted-foreground/60 xl:text-3xl">
                     {stats.openOnMyPlate === 1 ? "ticket" : "tickets"}
                   </span>
                 </div>
@@ -90,13 +98,14 @@ export default function MyStatsPage() {
                   Unresolved tickets currently assigned to you.
                 </p>
 
-                <span className="mt-5 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-primary transition-colors group-hover:text-foreground">
+                <span className="mt-6 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-primary transition-colors group-hover:text-foreground">
                   Open my queue
                   <ArrowUpRight className="size-3 transition-transform group-hover:-translate-y-px group-hover:translate-x-px" />
                 </span>
               </Link>
 
-              <div className="hairline-l grid grid-rows-2 divide-y divide-[var(--hairline)]">
+              {/* Row 1 right — Resolved · 30 days (col 3), Resolved · lifetime (col 4) */}
+              <div className={cn("border-t md:border-t-0 md:border-l", HAIRLINE)}>
                 <StatCardLink
                   to={RESOLVED_DRILL}
                   label="Resolved · last 30 days"
@@ -104,6 +113,8 @@ export default function MyStatsPage() {
                   hint="tickets you closed"
                   ariaSuffix="view your resolved tickets"
                 />
+              </div>
+              <div className={cn("border-t md:border-t-0 md:border-l", HAIRLINE)}>
                 <StatCardLink
                   to={RESOLVED_DRILL}
                   label="Resolved · lifetime"
@@ -112,33 +123,35 @@ export default function MyStatsPage() {
                   ariaSuffix="view your resolved tickets"
                 />
               </div>
+
+              {/* Row 2 right — Avg. resolution (col 3), Avg. first reply (col 4) */}
+              <div className={cn("border-t md:border-l", HAIRLINE)}>
+                <StatCard
+                  label="Avg. resolution"
+                  value={formatMinutes(stats.avgResolutionMinutes)}
+                  hint="arrival → resolved"
+                />
+              </div>
+              <div className={cn("border-t md:border-l", HAIRLINE)}>
+                <StatCard
+                  label="Avg. first reply"
+                  value={formatMinutes(stats.avgFirstResponseMinutes)}
+                  hint="when you reply first"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Supporting row — speed + activity, plain cards (no drill-downs) */}
-          <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
-            <div className="bg-card">
-              <StatCard
-                label="Avg. resolution"
-                value={formatMinutes(stats.avgResolutionMinutes)}
-                hint="arrival → resolved"
-              />
-            </div>
-            <div className="bg-card">
-              <StatCard
-                label="Avg. first reply"
-                value={formatMinutes(stats.avgFirstResponseMinutes)}
-                hint="when you reply first"
-              />
-            </div>
-            <div className="bg-card">
-              <StatCard
-                label="Replies · last 30 days"
-                value={stats.replies30d.toLocaleString()}
-                hint="messages you sent"
-              />
-            </div>
-            <div className="bg-card">
+          {/* Supporting row — replies activity in two equal cells. Sized to
+              span the right half (cols 3+4) of the hero's 4-col grid, so the
+              center divider at 50% aligns with the divider above. */}
+          <div className="grid grid-cols-1 overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-2">
+            <StatCard
+              label="Replies · last 30 days"
+              value={stats.replies30d.toLocaleString()}
+              hint="messages you sent"
+            />
+            <div className={cn("border-t sm:border-t-0 sm:border-l", HAIRLINE)}>
               <StatCard
                 label="Replies · lifetime"
                 value={stats.repliesLifetime.toLocaleString()}
@@ -167,24 +180,22 @@ export default function MyStatsPage() {
 function LoadingShell() {
   return (
     <div className="space-y-6" role="status" aria-label="Loading stats">
-      <div className="rounded-lg border border-border bg-card">
-        <div className="grid items-stretch md:grid-cols-[1.4fr_1fr]">
-          <div className="p-8 xl:p-12 2xl:p-16">
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <div className="grid grid-cols-1 md:grid-cols-4 md:grid-rows-[1fr_1fr]">
+          <div className="px-5 pt-6 pb-7 md:col-span-2 md:row-span-2 md:px-7 md:py-8 xl:px-9 xl:py-10 2xl:px-11 2xl:py-12">
             <Skeleton className="h-3 w-32" />
-            <Skeleton className="mt-5 h-24 w-32 xl:h-32 xl:w-40" />
+            <Skeleton className="mt-6 h-24 w-32 xl:h-32 xl:w-40" />
             <Skeleton className="mt-5 h-3 w-56" />
           </div>
-          <div className="hairline-l grid grid-rows-2 divide-y divide-[var(--hairline)]">
-            <LoadingCell />
-            <LoadingCell />
-          </div>
+          <LoadingCell className={cn("border-t md:border-t-0 md:border-l", HAIRLINE)} />
+          <LoadingCell className={cn("border-t md:border-t-0 md:border-l", HAIRLINE)} />
+          <LoadingCell className={cn("border-t md:border-l", HAIRLINE)} />
+          <LoadingCell className={cn("border-t md:border-l", HAIRLINE)} />
         </div>
       </div>
-      <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-2">
         <LoadingCell />
-        <LoadingCell />
-        <LoadingCell />
-        <LoadingCell />
+        <LoadingCell className={cn("border-t sm:border-t-0 sm:border-l", HAIRLINE)} />
       </div>
     </div>
   );

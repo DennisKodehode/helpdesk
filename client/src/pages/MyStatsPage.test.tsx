@@ -35,7 +35,10 @@ describe("MyStatsPage", () => {
   it("fetches /api/stats/me on mount", async () => {
     renderWithProviders(<MyStatsPage />);
     await waitFor(() => {
-      expect(axios.get).toHaveBeenCalledWith("/api/stats/me");
+      expect(axios.get).toHaveBeenCalledWith(
+        "/api/stats/me",
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      );
     });
   });
 
