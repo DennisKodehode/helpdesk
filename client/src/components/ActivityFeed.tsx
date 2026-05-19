@@ -34,13 +34,19 @@ interface Props {
   ticketId: string;
 }
 
-async function fetchAuditEvents(ticketId: string): Promise<AuditEvent[]> {
-  const { data } = await axios.get<AuditEvent[]>(`/api/tickets/${ticketId}/audit-events`);
+async function fetchAuditEvents(
+  ticketId: string,
+  signal?: AbortSignal,
+): Promise<AuditEvent[]> {
+  const { data } = await axios.get<AuditEvent[]>(
+    `/api/tickets/${ticketId}/audit-events`,
+    { signal },
+  );
   return data;
 }
 
-async function fetchAgents(): Promise<Agent[]> {
-  const { data } = await axios.get<Agent[]>("/api/agents");
+async function fetchAgents(signal?: AbortSignal): Promise<Agent[]> {
+  const { data } = await axios.get<Agent[]>("/api/agents", { signal });
   return data;
 }
 
@@ -246,11 +252,11 @@ function renderEvent(
 export default function ActivityFeed({ ticketId }: Props) {
   const { data: events = [], isPending } = useQuery({
     queryKey: ["ticket-audit-events", ticketId],
-    queryFn: () => fetchAuditEvents(ticketId),
+    queryFn: ({ signal }) => fetchAuditEvents(ticketId, signal),
   });
   const { data: agents = [] } = useQuery({
     queryKey: ["agents"],
-    queryFn: fetchAgents,
+    queryFn: ({ signal }) => fetchAgents(signal),
   });
 
   const agentsById = new Map(agents.map((a) => [a.id, a.name]));

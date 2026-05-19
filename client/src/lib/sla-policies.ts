@@ -13,8 +13,8 @@ const QUERY_KEY = ["sla-policies"] as const;
 // 5 minutes so the badge in every ticket row doesn't trigger refetches.
 const STALE_TIME_MS = 5 * 60_000;
 
-async function fetchSlaPolicies(): Promise<SlaPolicy[]> {
-  const { data } = await axios.get("/api/sla-policies");
+async function fetchSlaPolicies(signal?: AbortSignal): Promise<SlaPolicy[]> {
+  const { data } = await axios.get("/api/sla-policies", { signal });
   return slaPoliciesResponseSchema.parse(data);
 }
 
@@ -29,7 +29,7 @@ function toMap(policies: SlaPolicy[]): SlaPolicyMap {
 export function useSlaPolicies() {
   return useQuery({
     queryKey: QUERY_KEY,
-    queryFn: fetchSlaPolicies,
+    queryFn: ({ signal }) => fetchSlaPolicies(signal),
     staleTime: STALE_TIME_MS,
     select: toMap,
   });

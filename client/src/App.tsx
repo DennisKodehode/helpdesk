@@ -4,6 +4,7 @@ import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
 import MobileTopbar from "./components/MobileTopbar";
 import Sidebar from "./components/Sidebar";
 import { useSession } from "./lib/auth-client";
+import { useUnauthorizedRedirect } from "./lib/auth-redirect";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import MyStatsPage from "./pages/MyStatsPage";
@@ -54,6 +55,8 @@ function AdminLayout() {
 }
 
 export default function App() {
+  useUnauthorizedRedirect();
+
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />

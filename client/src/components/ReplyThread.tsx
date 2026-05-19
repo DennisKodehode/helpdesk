@@ -14,8 +14,10 @@ interface Props {
   ticket: TicketDetail;
 }
 
-async function fetchReplies(ticketId: number): Promise<Reply[]> {
-  const { data } = await axios.get<Reply[]>(`/api/tickets/${ticketId}/replies`);
+async function fetchReplies(ticketId: number, signal?: AbortSignal): Promise<Reply[]> {
+  const { data } = await axios.get<Reply[]>(`/api/tickets/${ticketId}/replies`, {
+    signal,
+  });
   return data;
 }
 
@@ -50,7 +52,7 @@ type Message = {
 export default function ReplyThread({ ticket }: Props) {
   const { data: replies = [] } = useQuery({
     queryKey: ["ticket-replies", String(ticket.id)],
-    queryFn: () => fetchReplies(ticket.id),
+    queryFn: ({ signal }) => fetchReplies(ticket.id, signal),
   });
 
   const summarizeMutation = useMutation({

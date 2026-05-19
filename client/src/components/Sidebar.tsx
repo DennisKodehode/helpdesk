@@ -119,18 +119,20 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
 
   async function handleSignOut() {
     setMenuOpen(false);
-    // Abort in-flight authenticated requests BEFORE the session is
-    // invalidated. cancelQueries() triggers AbortSignal.abort() on each
-    // query's queryFn — every authenticated queryFn forwards that signal
-    // into axios so the underlying HTTP fetch actually closes. Without
-    // this, a polling tick mid-flight (or a pending dashboard fetch) lands
-    // on the server after signOut deletes the session row and returns
-    // 401, visible in DevTools' Network tab even though the UI no longer
-    // shows the error. This is the deferred follow-up the #25.7 commit
-    // body called out.
+    // Abort any genuinely in-flight authenticated request before the session
+    // is invalidated, so a polling tick mid-flight doesn't land on the server
+    // after signOut() deletes the session row. cancelQueries() fires
+    // AbortSignal.abort() on each query; every authenticated queryFn forwards
+    // that signal into axios so the underlying fetch actually closes.
     await queryClient.cancelQueries();
     await signOut();
-    queryClient.clear();
+    // Navigate FIRST — this unmounts every authenticated query's observer, so
+    // none of them can refetch. Do NOT call queryClient.clear() here: clearing
+    // the cache while the dashboard is still mounted makes its (currently 6)
+    // active observers immediately refetch to repopulate, and those refetches
+    // land *after* signOut() killed the session — the exact 401 burst this is
+    // meant to prevent. Cache hygiene is handled by LoginPage.onSubmit, which
+    // clears on the next successful sign-in.
     navigate("/login", { replace: true });
   }
 

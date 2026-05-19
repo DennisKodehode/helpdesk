@@ -9,8 +9,8 @@ import UsersTable from "@/components/UsersTable";
 import { Button } from "@/components/ui/button";
 import PageHeader from "@/components/ui/PageHeader";
 
-async function fetchUsers(): Promise<User[]> {
-  const { data } = await axios.get<User[]>("/api/users");
+async function fetchUsers(signal?: AbortSignal): Promise<User[]> {
+  const { data } = await axios.get<User[]>("/api/users", { signal });
   return data;
 }
 
@@ -25,7 +25,7 @@ export default function UsersPage() {
     isError,
   } = useQuery({
     queryKey: ["users"],
-    queryFn: fetchUsers,
+    queryFn: ({ signal }) => fetchUsers(signal),
   });
 
   const deleteMutation = useMutation({

@@ -99,7 +99,12 @@ describe("TicketMeta", () => {
     renderWithProviders(
       <TicketMeta ticket={{ ...mockTicket, status: TicketStatus.closed }} />,
     );
-    await waitFor(() => expect(axios.get).toHaveBeenCalledWith("/api/agents"));
+    await waitFor(() =>
+      expect(axios.get).toHaveBeenCalledWith(
+        "/api/agents",
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      ),
+    );
     expect(
       screen.queryByRole("combobox", { name: /change ticket status/i }),
     ).not.toBeInTheDocument();
@@ -120,7 +125,12 @@ describe("TicketMeta", () => {
     renderWithProviders(
       <TicketMeta ticket={{ ...mockTicket, status: TicketStatus.resolved }} />,
     );
-    await waitFor(() => expect(axios.get).toHaveBeenCalledWith("/api/agents"));
+    await waitFor(() =>
+      expect(axios.get).toHaveBeenCalledWith(
+        "/api/agents",
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      ),
+    );
     expect(
       screen.queryByRole("combobox", { name: /change ticket status/i }),
     ).not.toBeInTheDocument();
@@ -166,7 +176,10 @@ describe("TicketMeta", () => {
   it("fetches the agents list", async () => {
     renderWithProviders(<TicketMeta ticket={mockTicket} />);
     await waitFor(() => {
-      expect(axios.get).toHaveBeenCalledWith("/api/agents");
+      expect(axios.get).toHaveBeenCalledWith(
+        "/api/agents",
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      );
     });
   });
 });

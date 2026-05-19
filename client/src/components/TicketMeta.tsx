@@ -28,8 +28,8 @@ interface Props {
   ticket: TicketDetail;
 }
 
-async function fetchAgents(): Promise<Agent[]> {
-  const { data } = await axios.get<Agent[]>("/api/agents");
+async function fetchAgents(signal?: AbortSignal): Promise<Agent[]> {
+  const { data } = await axios.get<Agent[]>("/api/agents", { signal });
   return data;
 }
 
@@ -50,7 +50,7 @@ export default function TicketMeta({ ticket }: Props) {
 
   const { data: agents = [] } = useQuery({
     queryKey: ["agents"],
-    queryFn: fetchAgents,
+    queryFn: ({ signal }) => fetchAgents(signal),
   });
 
   const updateCache = (response: { data: TicketDetail }) => {

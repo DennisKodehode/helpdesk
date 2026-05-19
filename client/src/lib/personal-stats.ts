@@ -4,15 +4,15 @@ import axios from "axios";
 
 export const PERSONAL_STATS_QUERY_KEY = ["personal-stats"] as const;
 
-async function fetchPersonalStats(): Promise<PersonalStatsResponse> {
-  const { data } = await axios.get<PersonalStatsResponse>("/api/stats/me");
+async function fetchPersonalStats(signal?: AbortSignal): Promise<PersonalStatsResponse> {
+  const { data } = await axios.get<PersonalStatsResponse>("/api/stats/me", { signal });
   return data;
 }
 
 export function usePersonalStats(enabled: boolean) {
   return useQuery({
     queryKey: PERSONAL_STATS_QUERY_KEY,
-    queryFn: fetchPersonalStats,
+    queryFn: ({ signal }) => fetchPersonalStats(signal),
     enabled,
     refetchOnWindowFocus: true,
   });

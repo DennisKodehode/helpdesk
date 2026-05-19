@@ -96,22 +96,28 @@ describe("MyTicketsPage", () => {
     ).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(axios.get).toHaveBeenCalledWith("/api/tickets", {
-        params: expect.objectContaining({
-          assignee: "me",
-          status: TicketStatus.open,
-          page: 1,
-          pageSize: 10,
+      expect(axios.get).toHaveBeenCalledWith(
+        "/api/tickets",
+        expect.objectContaining({
+          params: expect.objectContaining({
+            assignee: "me",
+            status: TicketStatus.open,
+            page: 1,
+            pageSize: 10,
+          }),
         }),
-      });
-      expect(axios.get).toHaveBeenCalledWith("/api/tickets", {
-        params: expect.objectContaining({
-          assignee: "me",
-          status: TicketStatus.closed,
-          page: 1,
-          pageSize: 10,
+      );
+      expect(axios.get).toHaveBeenCalledWith(
+        "/api/tickets",
+        expect.objectContaining({
+          params: expect.objectContaining({
+            assignee: "me",
+            status: TicketStatus.closed,
+            page: 1,
+            pageSize: 10,
+          }),
         }),
-      });
+      );
     });
 
     expect(await screen.findAllByText("My active ticket")).not.toHaveLength(0);
@@ -133,14 +139,17 @@ describe("MyTicketsPage", () => {
     await user.click(within(activeSection).getByRole("button", { name: /resolved/i }));
 
     await waitFor(() => {
-      expect(axios.get).toHaveBeenCalledWith("/api/tickets", {
-        params: expect.objectContaining({
-          assignee: "me",
-          status: TicketStatus.resolved,
-          page: 1,
-          pageSize: 10,
+      expect(axios.get).toHaveBeenCalledWith(
+        "/api/tickets",
+        expect.objectContaining({
+          params: expect.objectContaining({
+            assignee: "me",
+            status: TicketStatus.resolved,
+            page: 1,
+            pageSize: 10,
+          }),
         }),
-      });
+      );
     });
 
     expect(
@@ -159,12 +168,15 @@ describe("MyTicketsPage", () => {
     });
 
     await waitFor(() => {
-      expect(axios.get).toHaveBeenCalledWith("/api/tickets", {
-        params: expect.objectContaining({
-          assignee: "me",
-          status: TicketStatus.resolved,
+      expect(axios.get).toHaveBeenCalledWith(
+        "/api/tickets",
+        expect.objectContaining({
+          params: expect.objectContaining({
+            assignee: "me",
+            status: TicketStatus.resolved,
+          }),
         }),
-      });
+      );
     });
   });
 

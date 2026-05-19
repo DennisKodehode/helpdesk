@@ -54,6 +54,7 @@ function mockGetResponses(ticket = mockTicket) {
   vi.mocked(axios.get).mockImplementation((url: string) => {
     if (url === "/api/agents") return Promise.resolve({ data: [] });
     if (url === "/api/tickets/42/replies") return Promise.resolve({ data: [] });
+    if (url === "/api/tickets/42/audit-events") return Promise.resolve({ data: [] });
     return Promise.resolve({ data: ticket });
   });
 }
@@ -86,7 +87,10 @@ describe("loaded state", () => {
   it("fetches from the correct ticket endpoint", async () => {
     renderWithProviders(<TicketDetailPage />);
     await waitFor(() => {
-      expect(axios.get).toHaveBeenCalledWith("/api/tickets/42");
+      expect(axios.get).toHaveBeenCalledWith(
+        "/api/tickets/42",
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      );
     });
   });
 });

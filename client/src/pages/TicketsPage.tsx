@@ -54,6 +54,7 @@ async function fetchTickets(
   slaState: SlaStateFilterValue,
   view: TicketView | null,
   page: number,
+  signal?: AbortSignal,
 ): Promise<PaginatedTickets> {
   const { data } = await axios.get<PaginatedTickets>("/api/tickets", {
     params: {
@@ -73,6 +74,7 @@ async function fetchTickets(
       page,
       pageSize: PAGE_SIZE,
     },
+    signal,
   });
   return data;
 }
@@ -139,7 +141,7 @@ export default function TicketsPage() {
       view,
       page,
     ],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       fetchTickets(
         sortBy,
         sortOrder,
@@ -152,6 +154,7 @@ export default function TicketsPage() {
         slaState,
         view,
         page,
+        signal,
       ),
     placeholderData: keepPreviousData,
   });

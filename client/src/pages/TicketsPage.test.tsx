@@ -49,9 +49,12 @@ describe("TicketsPage", () => {
   it("fetches with default sort params on initial render", async () => {
     renderWithProviders(<TicketsPage />);
     await waitFor(() => {
-      expect(axios.get).toHaveBeenCalledWith("/api/tickets", {
-        params: { sortBy: "createdAt", sortOrder: "desc", page: 1, pageSize: 10 },
-      });
+      expect(axios.get).toHaveBeenCalledWith(
+        "/api/tickets",
+        expect.objectContaining({
+          params: { sortBy: "createdAt", sortOrder: "desc", page: 1, pageSize: 10 },
+        }),
+      );
     });
   });
 
@@ -61,13 +64,16 @@ describe("TicketsPage", () => {
     });
 
     await waitFor(() => {
-      expect(axios.get).toHaveBeenLastCalledWith("/api/tickets", {
-        params: expect.objectContaining({
-          status: TicketStatus.open,
-          page: 1,
-          pageSize: 10,
+      expect(axios.get).toHaveBeenLastCalledWith(
+        "/api/tickets",
+        expect.objectContaining({
+          params: expect.objectContaining({
+            status: TicketStatus.open,
+            page: 1,
+            pageSize: 10,
+          }),
         }),
-      });
+      );
     });
   });
 
@@ -99,9 +105,12 @@ describe("TicketsPage", () => {
     await user.click(screen.getByRole("columnheader", { name: /subject/i }));
 
     await waitFor(() => {
-      expect(axios.get).toHaveBeenLastCalledWith("/api/tickets", {
-        params: { sortBy: "subject", sortOrder: "asc", page: 1, pageSize: 10 },
-      });
+      expect(axios.get).toHaveBeenLastCalledWith(
+        "/api/tickets",
+        expect.objectContaining({
+          params: { sortBy: "subject", sortOrder: "asc", page: 1, pageSize: 10 },
+        }),
+      );
     });
   });
 
@@ -117,13 +126,16 @@ describe("TicketsPage", () => {
     expect(screen.getByRole("combobox", { name: /status/i })).toHaveTextContent("Open");
 
     await waitFor(() => {
-      expect(axios.get).toHaveBeenLastCalledWith("/api/tickets", {
-        params: expect.objectContaining({
-          status: TicketStatus.open,
-          page: 1,
-          pageSize: 10,
+      expect(axios.get).toHaveBeenLastCalledWith(
+        "/api/tickets",
+        expect.objectContaining({
+          params: expect.objectContaining({
+            status: TicketStatus.open,
+            page: 1,
+            pageSize: 10,
+          }),
         }),
-      });
+      );
     });
   });
 
@@ -137,9 +149,12 @@ describe("TicketsPage", () => {
 
     await waitFor(
       () => {
-        expect(axios.get).toHaveBeenLastCalledWith("/api/tickets", {
-          params: expect.objectContaining({ search: "Alice", page: 1, pageSize: 10 }),
-        });
+        expect(axios.get).toHaveBeenLastCalledWith(
+          "/api/tickets",
+          expect.objectContaining({
+            params: expect.objectContaining({ search: "Alice", page: 1, pageSize: 10 }),
+          }),
+        );
       },
       { timeout: 1000 },
     );
@@ -159,13 +174,16 @@ describe("TicketsPage", () => {
     );
 
     await waitFor(() => {
-      expect(axios.get).toHaveBeenLastCalledWith("/api/tickets", {
-        params: expect.objectContaining({
-          category: TicketCategory.technical_question,
-          page: 1,
-          pageSize: 10,
+      expect(axios.get).toHaveBeenLastCalledWith(
+        "/api/tickets",
+        expect.objectContaining({
+          params: expect.objectContaining({
+            category: TicketCategory.technical_question,
+            page: 1,
+            pageSize: 10,
+          }),
         }),
-      });
+      );
     });
   });
 
@@ -180,9 +198,12 @@ describe("TicketsPage", () => {
     await user.click(screen.getByRole("button", { name: /next page/i }));
 
     await waitFor(() => {
-      expect(axios.get).toHaveBeenLastCalledWith("/api/tickets", {
-        params: expect.objectContaining({ page: 2, pageSize: 10 }),
-      });
+      expect(axios.get).toHaveBeenLastCalledWith(
+        "/api/tickets",
+        expect.objectContaining({
+          params: expect.objectContaining({ page: 2, pageSize: 10 }),
+        }),
+      );
     });
   });
 
@@ -194,13 +215,16 @@ describe("TicketsPage", () => {
     await user.click(screen.getByRole("button", { name: /unassigned/i }));
 
     await waitFor(() => {
-      expect(axios.get).toHaveBeenLastCalledWith("/api/tickets", {
-        params: expect.objectContaining({
-          view: TicketView.unassigned,
-          page: 1,
-          pageSize: 10,
+      expect(axios.get).toHaveBeenLastCalledWith(
+        "/api/tickets",
+        expect.objectContaining({
+          params: expect.objectContaining({
+            view: TicketView.unassigned,
+            page: 1,
+            pageSize: 10,
+          }),
         }),
-      });
+      );
     });
   });
 

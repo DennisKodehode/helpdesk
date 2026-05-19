@@ -19,9 +19,11 @@ async function fetchMyTickets(
   sortBy: TicketSortField,
   sortOrder: "asc" | "desc",
   page: number,
+  signal?: AbortSignal,
 ): Promise<PaginatedTickets> {
   const { data } = await axios.get<PaginatedTickets>("/api/tickets", {
     params: { assignee: "me", status, sortBy, sortOrder, page, pageSize: PAGE_SIZE },
+    signal,
   });
   return data;
 }
@@ -62,7 +64,7 @@ export default function MyTicketsSection(props: Props) {
 
   const { data, isPending, isError } = useQuery({
     queryKey: ["tickets", "me", scope, status, sortBy, sortOrder, page],
-    queryFn: () => fetchMyTickets(status, sortBy, sortOrder, page),
+    queryFn: ({ signal }) => fetchMyTickets(status, sortBy, sortOrder, page, signal),
     placeholderData: keepPreviousData,
   });
 

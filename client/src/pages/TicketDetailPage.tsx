@@ -12,8 +12,8 @@ import ErrorAlert from "@/components/ui/ErrorAlert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isTriagingStatus } from "@/lib/ticket-ui";
 
-async function fetchTicket(id: string): Promise<TicketDetail> {
-  const { data } = await axios.get<TicketDetail>(`/api/tickets/${id}`);
+async function fetchTicket(id: string, signal?: AbortSignal): Promise<TicketDetail> {
+  const { data } = await axios.get<TicketDetail>(`/api/tickets/${id}`, { signal });
   return data;
 }
 
@@ -37,7 +37,7 @@ export default function TicketDetailPage() {
     isError,
   } = useQuery({
     queryKey: ["ticket", id],
-    queryFn: () => fetchTicket(id!),
+    queryFn: ({ signal }) => fetchTicket(id!, signal),
     enabled: !!id,
   });
 
