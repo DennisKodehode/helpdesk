@@ -31,8 +31,12 @@ jobs:
       - run: bun install --frozen-lockfile
       # Generate the Prisma client (output: server/src/generated/prisma).
       # tsc needs it on disk to type-check imports from `../generated/prisma/client`.
+      # Prisma 7's config loader requires DATABASE_URL even though `generate`
+      # doesn't connect — placeholder mirrors the Dockerfile.
       - run: bunx prisma generate
         working-directory: server
+        env:
+          DATABASE_URL: postgres://build@build/build
       - run: bun run typecheck
 
   audit:
