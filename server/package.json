@@ -23,7 +23,7 @@
     "@prisma/client": "^7.0.0",
     "@sentry/node": "^10.52.0",
     "ai": "^6.0.176",
-    "better-auth": "~1.2.9",
+    "better-auth": "^1.6.11",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "email-reply-parser": "^2.3.5",

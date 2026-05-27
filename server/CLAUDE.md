@@ -4,8 +4,6 @@
 
 ### `server/src/lib/auth.ts`
 
-> **Version pin**: `better-auth` is pinned to `~1.2.9` in `package.json`. Do not upgrade to 1.6.x — the published package omits `package.json` from the hoisted install, which breaks `better-auth/node` resolution in Vitest/Vite.
-
 Better Auth is configured with:
 - **Prisma adapter** — sessions stored in the database, not JWTs
 - **Email + password only** — `disableSignUp: true` (no self-registration; agents are created by admins only)

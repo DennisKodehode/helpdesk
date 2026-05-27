@@ -24,7 +24,7 @@
     "@tanstack/react-query": "^5.100.9",
     "@tanstack/react-table": "^8.21.3",
     "axios": "^1.16.0",
-    "better-auth": "^1.2.9",
+    "better-auth": "^1.6.11",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dompurify": "^3.4.2",
@@ -52,7 +52,7 @@
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "4.4.1",
     "jsdom": "^29.1.1",
-    "vite": "6.3.3",
-    "vitest": "^3.2.2"
+    "vite": "^6.4.2",
+    "vitest": "^3.2.4"
   }
 }

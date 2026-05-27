@@ -29,6 +29,10 @@ jobs:
         with:
           bun-version-file: .bun-version
       - run: bun install --frozen-lockfile
+      # Generate the Prisma client (output: server/src/generated/prisma).
+      # tsc needs it on disk to type-check imports from `../generated/prisma/client`.
+      - run: bunx prisma generate
+        working-directory: server
       - run: bun run typecheck
 
   audit:
@@ -84,6 +88,10 @@ jobs:
         with:
           bun-version-file: .bun-version
       - run: bun install --frozen-lockfile
+      # Generate the Prisma client before tests — vitest imports from
+      # `../generated/prisma/client` which only exists after `prisma generate`.
+      - run: bunx prisma generate
+        working-directory: server
       - run: bunx prisma migrate deploy
         working-directory: server
       - run: bun run test
