@@ -14,7 +14,7 @@ import {
   Users,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router";
+import { useLocation } from "react-router";
 import { Link } from "@/components/ui/link";
 import { useMyOpenCount } from "@/lib/my-tickets";
 import { useTheme } from "@/lib/theme";
@@ -86,7 +86,6 @@ function SidebarLink({
 
 function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
   const { data: session, isPending } = useSession();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { pathname } = useLocation();
   const { theme, toggleTheme } = useTheme();
@@ -126,14 +125,16 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
     // that signal into axios so the underlying fetch actually closes.
     await queryClient.cancelQueries();
     await signOut();
-    // Navigate FIRST — this unmounts every authenticated query's observer, so
-    // none of them can refetch. Do NOT call queryClient.clear() here: clearing
-    // the cache while the dashboard is still mounted makes its (currently 6)
-    // active observers immediately refetch to repopulate, and those refetches
-    // land *after* signOut() killed the session — the exact 401 burst this is
-    // meant to prevent. Cache hygiene is handled by LoginPage.onSubmit, which
-    // clears on the next successful sign-in.
-    navigate("/login", { replace: true });
+    // Do NOT call navigate("/login") here, and do NOT call queryClient.clear().
+    // Better Auth's useSession transitions to null on its own get-session
+    // revalidation after signOut, at which point ProtectedLayout returns
+    // <Navigate to="/login" /> and the dashboard subtree unmounts cleanly.
+    // Imperatively navigating before useSession is null caused a / → /login →
+    // / → /login bounce: LoginPage's already-logged-in redirect saw the still-
+    // stale session and sent us back to the dashboard, which remounted, and
+    // its 5 useQuery observers refetched (twice each under StrictMode) with a
+    // now-cleared cookie — the 10-request, 6-visible 401 burst this is meant
+    // to prevent. Cache hygiene happens in LoginPage.onSubmit on next sign-in.
   }
 
   const primaryNav: NavItem[] = [

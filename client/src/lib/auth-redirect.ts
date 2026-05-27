@@ -45,10 +45,15 @@ export function useUnauthorizedRedirect() {
           if (!handlingUnauthorized && window.location.pathname !== "/login") {
             handlingUnauthorized = true;
             // Abort the rest of the in-flight burst so siblings don't 401
-            // too, drop cached state, clear Better Auth's session store,
-            // then redirect once.
+            // too, clear Better Auth's session store, then redirect once.
+            // Do NOT call queryClient.clear() here — removing a query while
+            // observers are still mounted makes TanStack Query immediately
+            // refetch to repopulate the cache, which fires brand-new requests
+            // with the now-cleared cookie (a 5-deep cascade of 401s). The
+            // navigate("/login") below unmounts the authenticated tree, so
+            // observers detach cleanly; LoginPage clears the cache on the
+            // next successful sign-in.
             queryClient.cancelQueries().catch(() => {});
-            queryClient.clear();
             signOut()
               .catch(() => {})
               .finally(() => navigate("/login", { replace: true }));
