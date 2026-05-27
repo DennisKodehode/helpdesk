@@ -41,6 +41,10 @@ export default function LoginForm({ onSubmit, serverError }: Props) {
         <Input
           id="email"
           type="email"
+          autoComplete="email"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           placeholder="you@example.com"
           aria-invalid={!!errors.email}
           className="h-10 bg-transparent"
@@ -57,6 +61,8 @@ export default function LoginForm({ onSubmit, serverError }: Props) {
           <Input
             id="password"
             type={showPassword ? "text" : "password"}
+            autoComplete="current-password"
+            spellCheck={false}
             placeholder="••••••••"
             aria-invalid={!!errors.password}
             className="h-10 bg-transparent pr-10"
