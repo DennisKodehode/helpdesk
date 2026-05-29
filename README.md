@@ -2,7 +2,7 @@
 
 > **AI-powered ticket management.** Tickets are auto-classified on arrival, AI polishes draft replies before you send them, and the obvious questions resolve themselves. Your team handles what needs a human.
 
-**Live demo:** _coming soon_ — [helpdesk.tjemsland.dev](https://helpdesk.tjemsland.dev) (work in progress)
+**Live demo:** [helpdesk.tjemsland.dev](https://helpdesk.tjemsland.dev) — agent credentials available on request
 
 Built with React 19, Bun, TypeScript, Prisma, Better Auth, and Google Gemini.
 

@@ -117,10 +117,10 @@ Better Auth handles all `/api/auth/*` routes via `toNodeHandler(auth)`. Sessions
 
 ## Production
 
-The app is deployed to Railway. **Live URL + demo credentials are intentionally kept out of this committed file** until the portfolio demo is publicly launched — they live in a local-only project memory file outside the repo.
+The app is deployed to Railway at **https://helpdesk.tjemsland.dev**. Demo agent credentials live in a local-only project memory file outside the repo — shared on request, not in the public README.
 
 - **Railway CLI** is already linked locally; `railway ssh` works for one-shot prod operations (e.g. `railway ssh bun server/prisma/seed.ts`). An ed25519 SSH key is registered with Railway and `ssh.railway.com` is in `known_hosts` — no SSH bootstrap needed in future sessions.
-- **Resend**: sending domain (DKIM/SPF) + receiving (MX) verified on the project's custom domain. Webhook subscribed to `email.received` + `email.bounced` + `email.complained`, pointing at the Railway URL. `RESEND_WEBHOOK_SECRET` synced into Railway env.
+- **Resend**: sending domain (DKIM/SPF) + receiving (MX) verified on `tjemsland.dev` (apex). Webhook subscribed to `email.received` + `email.bounced` + `email.complained`, pointing at `https://helpdesk.tjemsland.dev/api/inbound-email`. `RESEND_WEBHOOK_SECRET` synced into Railway env.
 - **Smoke-tested in prod**: real email → Resend webhook → ticket created → Gemini classify + auto-resolve → reply email delivered. Full pipeline working.
 - **Known UX bugs** (not blocking, filed in plan as #25.7 + #25.8): auth-state / query-cache race causing 401 flicker on login/logout, and `@fontsource/*` files not being bundled (fonts fall back to system).
 

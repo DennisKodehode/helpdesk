@@ -56,7 +56,7 @@ const makeEvent = (
     email_id: overrides.email_id ?? uniqueEmailId(),
     from: overrides.from ?? "Alice <alice@example.com>",
     subject: overrides.subject ?? "Hello",
-    to: ["support@contact.tjemsland.dev"],
+    to: ["support@tjemsland.dev"],
     ...(overrides.attachments ? { attachments: overrides.attachments } : {}),
   },
 });
