@@ -13,7 +13,12 @@ export const auth = betterAuth({
   rateLimit: {
     enabled: env.NODE_ENV === "production",
     window: 60,
-    max: 10,
+    // 30 is comfortably above the worst-case first-load burst (~12) while still
+    // throttling brute-force on /sign-in/email. Better Auth's framework default
+    // is 100; we're keeping it tight but not so tight that the client's auth
+    // hydration trips it. See client/src/main.tsx for the matching client-side
+    // hygiene (no retries on 401/429).
+    max: 30,
   },
   emailAndPassword: {
     enabled: true,
