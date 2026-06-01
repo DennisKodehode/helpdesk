@@ -14,6 +14,7 @@ import inboundEmailRouter from "./routes/inbound-email";
 import notificationsRouter from "./routes/notifications";
 import slaPoliciesRouter from "./routes/sla-policies";
 import statsRouter from "./routes/stats";
+import testSeedRouter from "./routes/test-seed";
 import ticketsRouter from "./routes/tickets";
 import usersRouter from "./routes/users";
 
@@ -42,6 +43,11 @@ app.use("/api/notifications", notificationsRouter);
 app.use("/api/sla-policies", slaPoliciesRouter);
 app.use("/api/replies/:id/attachments", uploadRouter);
 app.use("/api/attachments", attachmentsRouter);
+
+// E2E-only deterministic ticket seeding — never mounted outside test.
+if (env.NODE_ENV === "test") {
+  app.use("/api/test", testSeedRouter);
+}
 
 // Serve the built SPA when it exists on disk. In the prod Docker image the
 // Vite build always produces client/dist; in dev Vite serves the client on
