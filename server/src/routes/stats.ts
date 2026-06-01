@@ -1,11 +1,16 @@
 import {
+  type AiActivityResponse,
+  AuditEventType,
   type CategoryBreakdownResponse,
   computeSlaState,
+  type NeedsAttentionResponse,
+  type RecentActivityResponse,
   SenderType,
+  type SlaComplianceResponse,
   type SlaHealthResponse,
   SlaMetric,
   type TicketCategory,
-  type TicketPriority,
+  TicketPriority,
   TicketStatus,
 } from "@helpdesk/core";
 import { Router } from "express";
@@ -14,6 +19,24 @@ import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth-middleware";
 
 const ACTIVE_STATUSES = [TicketStatus.new, TicketStatus.processing, TicketStatus.open];
+const TRIAGING_STATUSES = [TicketStatus.new, TicketStatus.processing];
+const COMPLETED_STATUSES = [TicketStatus.resolved, TicketStatus.closed];
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const PRIORITY_ORDER: Record<TicketPriority, number> = {
+  [TicketPriority.urgent]: 0,
+  [TicketPriority.high]: 1,
+  [TicketPriority.normal]: 2,
+  [TicketPriority.low]: 3,
+};
+
+// Clamp a `?days=`/`?limit=` query param to a sane range, falling back when
+// absent or unparseable.
+function clampParam(raw: unknown, fallback: number, min: number, max: number): number {
+  const n = typeof raw === "string" ? Number.parseInt(raw, 10) : NaN;
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
 
 type TicketStatsRow = {
   total_tickets: bigint;
@@ -33,10 +56,17 @@ const router = Router();
 
 router.get("/", requireAuth, async (_req, res) => {
   const aiUserId = getAiUserId();
+  const sevenDaysAgo = new Date(Date.now() - 7 * DAY_MS);
 
-  const [row] = await prisma.$queryRaw<
-    [TicketStatsRow]
-  >`SELECT * FROM get_ticket_stats(${aiUserId})`;
+  // The SQL function carries the bulk of the headline numbers; triaging and
+  // resolved-7d are cheap counts that feed the dashboard stat cards.
+  const [[row], triagingTickets, resolvedLast7d] = await Promise.all([
+    prisma.$queryRaw<[TicketStatsRow]>`SELECT * FROM get_ticket_stats(${aiUserId})`,
+    prisma.ticket.count({ where: { status: { in: TRIAGING_STATUSES } } }),
+    prisma.ticket.count({
+      where: { status: { in: COMPLETED_STATUSES }, resolvedAt: { gte: sevenDaysAgo } },
+    }),
+  ]);
 
   res.json({
     totalTickets: Number(row.total_tickets),
@@ -48,6 +78,8 @@ router.get("/", requireAuth, async (_req, res) => {
     percentResolvedByAILast30d: Number(row.percent_resolved_by_ai_30d ?? 0),
     avgResolutionMinutes:
       row.avg_resolution_minutes != null ? Number(row.avg_resolution_minutes) : null,
+    triagingTickets,
+    resolvedLast7d,
   });
 });
 
@@ -233,6 +265,205 @@ router.get("/categories", requireAuth, async (_req, res) => {
     count: r._count._all,
   }));
   res.json(response);
+});
+
+// "AI this week" — machine-driven activity counts over a trailing window.
+router.get("/ai-activity", requireAuth, async (req, res) => {
+  const days = clampParam(req.query.days, 7, 1, 365);
+  const since = new Date(Date.now() - days * DAY_MS);
+  const aiUserId = getAiUserId();
+
+  const [autoResolved, autoClassified, escalated, repliesSent] = await Promise.all([
+    prisma.auditEvent.count({
+      where: { type: AuditEventType.auto_resolved, createdAt: { gte: since } },
+    }),
+    // Auto-classification records a `category_changed` event actored by the AI
+    // user; without a known AI user there's nothing to attribute, so report 0.
+    aiUserId
+      ? prisma.auditEvent.count({
+          where: {
+            type: AuditEventType.category_changed,
+            actorId: aiUserId,
+            createdAt: { gte: since },
+          },
+        })
+      : Promise.resolve(0),
+    prisma.auditEvent.count({
+      where: { type: AuditEventType.ai_escalated, createdAt: { gte: since } },
+    }),
+    prisma.reply.count({
+      where: { senderType: SenderType.agent, createdAt: { gte: since } },
+    }),
+  ]);
+
+  const response: AiActivityResponse = {
+    autoResolved,
+    autoClassified,
+    escalated,
+    repliesSent,
+  };
+  res.json(response);
+});
+
+// SLA compliance % over a trailing window — fraction of tickets whose outcome
+// is decided (responded/resolved, or definitively late) that met their target.
+router.get("/sla-compliance", requireAuth, async (req, res) => {
+  const days = clampParam(req.query.days, 30, 1, 365);
+  const since = new Date(Date.now() - days * DAY_MS);
+  const now = Date.now();
+
+  const [tickets, policies] = await Promise.all([
+    prisma.ticket.findMany({
+      where: { createdAt: { gte: since } },
+      select: {
+        priority: true,
+        createdAt: true,
+        firstAgentReplyAt: true,
+        resolvedAt: true,
+      },
+    }),
+    prisma.slaPolicy.findMany(),
+  ]);
+
+  const policyMap = new Map(
+    policies.map((p) => [
+      p.priority,
+      {
+        firstResponseMinutes: p.firstResponseMinutes,
+        resolutionMinutes: p.resolutionMinutes,
+      },
+    ]),
+  );
+
+  let frMet = 0;
+  let frDecided = 0;
+  let resMet = 0;
+  let resDecided = 0;
+
+  for (const t of tickets) {
+    const policy = policyMap.get(t.priority);
+    const created = t.createdAt.getTime();
+
+    const frTarget = policy?.firstResponseMinutes;
+    if (frTarget != null) {
+      if (t.firstAgentReplyAt) {
+        frDecided++;
+        if ((t.firstAgentReplyAt.getTime() - created) / 60_000 <= frTarget) frMet++;
+      } else if ((now - created) / 60_000 > frTarget) {
+        frDecided++; // definitively late, never responded
+      }
+    }
+
+    const resTarget = policy?.resolutionMinutes;
+    if (resTarget != null) {
+      if (t.resolvedAt) {
+        resDecided++;
+        if ((t.resolvedAt.getTime() - created) / 60_000 <= resTarget) resMet++;
+      } else if ((now - created) / 60_000 > resTarget) {
+        resDecided++;
+      }
+    }
+  }
+
+  const pct = (met: number, decided: number) =>
+    decided === 0 ? null : Math.round((met / decided) * 100);
+
+  const response: SlaComplianceResponse = {
+    firstResponse: pct(frMet, frDecided),
+    resolution: pct(resMet, resDecided),
+  };
+  res.json(response);
+});
+
+// Global recent-activity timeline — newest audit events across all tickets.
+router.get("/recent-activity", requireAuth, async (req, res) => {
+  const limit = clampParam(req.query.limit, 10, 1, 50);
+
+  const events = await prisma.auditEvent.findMany({
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    select: {
+      id: true,
+      type: true,
+      ticketId: true,
+      data: true,
+      createdAt: true,
+      actor: { select: { name: true } },
+      ticket: { select: { subject: true } },
+    },
+  });
+
+  const response: RecentActivityResponse = events.map((e) => ({
+    id: e.id,
+    type: e.type as AuditEventType,
+    ticketId: e.ticketId,
+    ticketSubject: e.ticket.subject,
+    actorName: e.actor?.name ?? null,
+    data: e.data,
+    createdAt: e.createdAt.toISOString(),
+  }));
+  res.json(response);
+});
+
+// Active tickets at risk of, or past, an SLA target — breached first, then by
+// priority. Reuses the same per-ticket computeSlaState as /sla-health.
+router.get("/needs-attention", requireAuth, async (req, res) => {
+  const limit = clampParam(req.query.limit, 5, 1, 20);
+
+  const [tickets, policies] = await Promise.all([
+    prisma.ticket.findMany({
+      where: { status: { in: ACTIVE_STATUSES } },
+      select: {
+        id: true,
+        subject: true,
+        priority: true,
+        status: true,
+        createdAt: true,
+        firstAgentReplyAt: true,
+        resolvedAt: true,
+      },
+    }),
+    prisma.slaPolicy.findMany(),
+  ]);
+
+  const policyMap = new Map(
+    policies.map((p) => [
+      p.priority,
+      {
+        firstResponseMinutes: p.firstResponseMinutes,
+        resolutionMinutes: p.resolutionMinutes,
+      },
+    ]),
+  );
+
+  const rows: NeedsAttentionResponse = [];
+  for (const t of tickets) {
+    const state = computeSlaState(
+      {
+        createdAt: t.createdAt.toISOString(),
+        firstAgentReplyAt: t.firstAgentReplyAt?.toISOString() ?? null,
+        resolvedAt: t.resolvedAt?.toISOString() ?? null,
+        priority: t.priority as TicketPriority,
+        status: t.status as TicketStatus,
+      },
+      policyMap.get(t.priority),
+    );
+    if (state.state === "ok") continue;
+    rows.push({
+      id: t.id,
+      subject: t.subject,
+      priority: t.priority as TicketPriority,
+      slaState: state.state,
+      slaMetric: state.metric,
+    });
+  }
+
+  rows.sort((a, b) => {
+    if (a.slaState !== b.slaState) return a.slaState === "breached" ? -1 : 1;
+    return PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
+  });
+
+  res.json(rows.slice(0, limit));
 });
 
 export default router;

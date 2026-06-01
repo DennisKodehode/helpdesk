@@ -1,6 +1,7 @@
 import { ArrowUpRight, Inbox } from "lucide-react";
 import ErrorAlert from "@/components/ui/ErrorAlert";
 import { Link } from "@/components/ui/link";
+import PageContainer from "@/components/ui/PageContainer";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,7 +18,7 @@ const HAIRLINE = "border-[var(--hairline)]";
 
 const STAT_LINK_BASE =
   "group relative block bg-card transition-colors duration-150 " +
-  "hover:bg-accent/40 " +
+  "hover:bg-panel-2 " +
   "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring";
 
 function StatCardLink({
@@ -52,7 +53,7 @@ export default function MyStatsPage() {
   const { data: stats, isPending, isError } = usePersonalStats(true);
 
   return (
-    <main className="mx-auto max-w-6xl px-4 pt-6 pb-12 sm:px-6 md:px-8 md:pt-12 md:pb-16 lg:px-10 xl:px-12 xl:pt-16 2xl:px-16 2xl:pt-20">
+    <PageContainer width="content">
       <PageHeader
         eyebrow="Personal"
         title="My stats"
@@ -73,11 +74,11 @@ export default function MyStatsPage() {
               up with the supporting row below. The hero spans 2 cols × 2 rows
               on the left; the other four stats fill the 2×2 grid on the
               right. Every right-side cell uses the same StatCard rhythm. */}
-          <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <div className="overflow-hidden rounded-[var(--r-lg)] border border-border bg-card">
             <div className="grid grid-cols-1 md:grid-cols-4 md:grid-rows-[1fr_1fr]">
               <Link
                 to="/my-tickets"
-                className="group relative block px-5 pt-6 pb-7 transition-colors duration-150 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring md:col-span-2 md:row-span-2 md:px-7 md:py-8 xl:px-9 xl:py-10 2xl:px-11 2xl:py-12"
+                className="group relative block px-5 pt-6 pb-7 transition-colors duration-150 hover:bg-panel-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring md:col-span-2 md:row-span-2 md:px-7 md:py-8 xl:px-9 xl:py-10 2xl:px-11 2xl:py-12"
                 aria-label={`Open on your plate: ${stats.openOnMyPlate} — go to my tickets`}
               >
                 <div className="flex items-center gap-2">
@@ -86,15 +87,15 @@ export default function MyStatsPage() {
                 </div>
 
                 <div className="mt-6 flex items-baseline gap-4">
-                  <span className="display-serif tabular text-[88px] leading-[0.85] tracking-[-0.02em] text-foreground xl:text-[112px] 2xl:text-[136px]">
+                  <span className="display-serif tabular text-[88px] leading-[0.85] text-foreground md:text-[132px]">
                     {stats.openOnMyPlate.toLocaleString()}
                   </span>
-                  <span className="display-serif text-2xl text-muted-foreground/60 xl:text-3xl">
+                  <span className="display-serif text-[24px] text-muted-foreground/60 md:text-[30px]">
                     {stats.openOnMyPlate === 1 ? "ticket" : "tickets"}
                   </span>
                 </div>
 
-                <p className="mt-5 max-w-sm text-[13px] leading-relaxed text-muted-foreground">
+                <p className="mt-5 max-w-sm text-[14px] leading-relaxed text-muted-foreground">
                   Unresolved tickets currently assigned to you.
                 </p>
 
@@ -108,7 +109,7 @@ export default function MyStatsPage() {
               <div className={cn("border-t md:border-t-0 md:border-l", HAIRLINE)}>
                 <StatCardLink
                   to={RESOLVED_DRILL}
-                  label="Resolved · last 30 days"
+                  label="Resolved · 30 days"
                   value={stats.resolved30d.toLocaleString()}
                   hint="tickets you closed"
                   ariaSuffix="view your resolved tickets"
@@ -145,9 +146,9 @@ export default function MyStatsPage() {
           {/* Supporting row — replies activity in two equal cells. Sized to
               span the right half (cols 3+4) of the hero's 4-col grid, so the
               center divider at 50% aligns with the divider above. */}
-          <div className="grid grid-cols-1 overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-2">
+          <div className="grid grid-cols-1 overflow-hidden rounded-[var(--r-lg)] border border-border bg-card sm:grid-cols-2">
             <StatCard
-              label="Replies · last 30 days"
+              label="Replies · 30 days"
               value={stats.replies30d.toLocaleString()}
               hint="messages you sent"
             />
@@ -171,7 +172,7 @@ export default function MyStatsPage() {
           </p>
         </div>
       )}
-    </main>
+    </PageContainer>
   );
 }
 
@@ -180,7 +181,7 @@ export default function MyStatsPage() {
 function LoadingShell() {
   return (
     <div className="space-y-6" role="status" aria-label="Loading stats">
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="overflow-hidden rounded-[var(--r-lg)] border border-border bg-card">
         <div className="grid grid-cols-1 md:grid-cols-4 md:grid-rows-[1fr_1fr]">
           <div className="px-5 pt-6 pb-7 md:col-span-2 md:row-span-2 md:px-7 md:py-8 xl:px-9 xl:py-10 2xl:px-11 2xl:py-12">
             <Skeleton className="h-3 w-32" />
@@ -193,7 +194,7 @@ function LoadingShell() {
           <LoadingCell className={cn("border-t md:border-l", HAIRLINE)} />
         </div>
       </div>
-      <div className="grid grid-cols-1 overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-2">
+      <div className="grid grid-cols-1 overflow-hidden rounded-[var(--r-lg)] border border-border bg-card sm:grid-cols-2">
         <LoadingCell />
         <LoadingCell className={cn("border-t sm:border-t-0 sm:border-l", HAIRLINE)} />
       </div>

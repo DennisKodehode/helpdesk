@@ -28,7 +28,7 @@ describe("CategoryBreakdownCard", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders rows in the order returned by the server, with labels + counts", async () => {
+  it("renders rows with labels and share percentages", async () => {
     vi.mocked(axios.get).mockResolvedValue({
       data: [
         { category: TicketCategory.refund_request, count: 7 },
@@ -37,13 +37,13 @@ describe("CategoryBreakdownCard", () => {
       ],
     });
     renderWithProviders(<CategoryBreakdownCard />);
-    expect(await screen.findByText(/13 open tickets/i)).toBeInTheDocument();
-    const refund = screen.getByRole("link", { name: /refund: 7/i });
-    const technical = screen.getByRole("link", { name: /technical: 4/i });
-    const general = screen.getByRole("link", { name: /general: 2/i });
+    // The accessible name carries the count + share; the visible value is the %.
+    const refund = await screen.findByRole("link", { name: /refund: 7/i });
     expect(refund).toBeInTheDocument();
-    expect(technical).toBeInTheDocument();
-    expect(general).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /technical: 4/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /general: 2/i })).toBeInTheDocument();
+    // 7 of 13 ≈ 54%.
+    expect(screen.getByText("54%")).toBeInTheDocument();
   });
 
   it("links non-null rows to /tickets?category=<value>", async () => {
@@ -73,8 +73,7 @@ describe("CategoryBreakdownCard", () => {
   it("renders the empty state when no rows are returned", async () => {
     vi.mocked(axios.get).mockResolvedValue({ data: [] });
     renderWithProviders(<CategoryBreakdownCard />);
-    expect(await screen.findByText(/no open tickets/i)).toBeInTheDocument();
-    expect(screen.getByText(/queue is clear/i)).toBeInTheDocument();
+    expect(await screen.findByText(/queue is clear/i)).toBeInTheDocument();
   });
 
   it("renders an error alert when the query fails", async () => {

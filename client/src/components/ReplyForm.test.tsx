@@ -176,7 +176,7 @@ describe("ReplyForm", () => {
     const user = userEvent.setup();
     renderWithProviders(<ReplyForm ticketId="42" />);
 
-    await user.click(screen.getByRole("button", { name: /internal note/i }));
+    await user.click(screen.getByRole("tab", { name: /internal note/i }));
 
     expect(screen.getByRole("button", { name: /add note/i })).toBeInTheDocument();
     expect(
@@ -190,7 +190,7 @@ describe("ReplyForm", () => {
     const user = userEvent.setup();
     renderWithProviders(<ReplyForm ticketId="42" />);
 
-    await user.click(screen.getByRole("button", { name: /internal note/i }));
+    await user.click(screen.getByRole("tab", { name: /internal note/i }));
     await user.type(
       screen.getByRole("textbox", { name: /internal note body/i }),
       "Called the customer yesterday.",
@@ -209,10 +209,10 @@ describe("ReplyForm", () => {
     const user = userEvent.setup();
     renderWithProviders(<ReplyForm ticketId="42" />);
 
-    await user.click(screen.getByRole("button", { name: /internal note/i }));
+    await user.click(screen.getByRole("tab", { name: /internal note/i }));
     expect(screen.getByRole("button", { name: /add note/i })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /reply to customer/i }));
+    await user.click(screen.getByRole("tab", { name: /reply to customer/i }));
 
     expect(screen.getByRole("button", { name: /send reply/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /polish with ai/i })).toBeInTheDocument();
@@ -345,5 +345,71 @@ describe("ReplyForm", () => {
     const list = await screen.findByRole("list", { name: /attached files/i });
     expect(list.querySelectorAll("li")).toHaveLength(5);
     expect(await screen.findByText(/5 max per reply/i)).toBeInTheDocument();
+  });
+});
+
+describe("ReplyForm — Suggest reply", () => {
+  it("fetches and displays an AI suggested draft with a confidence pill", async () => {
+    vi.mocked(axios.post).mockResolvedValue({
+      data: {
+        action: "resolve",
+        reply: "Try resetting via the link in your email.",
+        confidence: 90,
+        escalate: false,
+        rationale: "Covered by the knowledge base.",
+      },
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyForm ticketId="42" />);
+
+    await user.click(screen.getByRole("button", { name: /suggest reply/i }));
+
+    expect(
+      await screen.findByText("Try resetting via the link in your email."),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/High.*90%/)).toBeInTheDocument();
+    expect(screen.getByText("Covered by the knowledge base.")).toBeInTheDocument();
+    expect(axios.post).toHaveBeenCalledWith("/api/tickets/42/suggest-reply");
+  });
+
+  it("fills the reply textarea when Use draft is clicked", async () => {
+    vi.mocked(axios.post).mockResolvedValue({
+      data: {
+        action: "resolve",
+        reply: "Here is your reset link.",
+        confidence: 85,
+        escalate: false,
+        rationale: null,
+      },
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyForm ticketId="42" />);
+
+    await user.click(screen.getByRole("button", { name: /suggest reply/i }));
+    await user.click(await screen.findByRole("button", { name: /use draft/i }));
+
+    expect(screen.getByRole("textbox", { name: /reply body/i })).toHaveValue(
+      "Here is your reset link.",
+    );
+  });
+
+  it("shows an escalate recommendation with no Use draft button", async () => {
+    vi.mocked(axios.post).mockResolvedValue({
+      data: {
+        action: "escalate",
+        reply: null,
+        confidence: 30,
+        escalate: true,
+        rationale: "Possible chargeback.",
+      },
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyForm ticketId="42" />);
+
+    await user.click(screen.getByRole("button", { name: /suggest reply/i }));
+
+    expect(await screen.findByText(/recommends escalating/i)).toBeInTheDocument();
+    expect(screen.getByText("Escalate")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /use draft/i })).not.toBeInTheDocument();
   });
 });

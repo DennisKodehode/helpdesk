@@ -144,9 +144,7 @@ function renderEvent(
     const data = event.data as ReplyAddedData;
     if (data.senderType === SenderType.internal_note) {
       return {
-        icon: (
-          <Lock className="size-3.5 text-amber-600 dark:text-amber-400" aria-hidden />
-        ),
+        icon: <Lock className="size-3.5 text-amb-fg" aria-hidden />,
         content: (
           <a
             href={`#reply-${data.replyId}`}
@@ -217,12 +215,7 @@ function renderEvent(
   if (event.type === AuditEventType.ai_escalated) {
     const data = event.data as AiEscalatedData;
     return {
-      icon: (
-        <AlertTriangle
-          className="size-3.5 text-amber-600 dark:text-amber-400"
-          aria-hidden
-        />
-      ),
+      icon: <AlertTriangle className="size-3.5 text-amb-fg" aria-hidden />,
       content: (
         <span title={data.reason}>
           <span className="font-medium text-foreground">AI</span>
@@ -264,9 +257,9 @@ export default function ActivityFeed({ ticketId }: Props) {
   return (
     <section
       aria-label="Activity"
-      className="mt-5 overflow-hidden rounded-lg border border-border bg-card"
+      className="mt-5 overflow-hidden rounded-[var(--r-lg)] border border-border bg-card"
     >
-      <div className="hairline-b flex items-center justify-between bg-muted/30 px-5 py-3">
+      <div className="hairline-b flex items-center justify-between bg-panel-2 px-5 py-3">
         <h2 className="eyebrow">Activity</h2>
       </div>
 

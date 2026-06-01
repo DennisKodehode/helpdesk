@@ -143,7 +143,7 @@ describe("ReplyThread", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders internal notes with an Internal label", async () => {
+  it("renders internal notes with an Internal note label", async () => {
     const replies: Reply[] = [
       {
         id: 1,
@@ -165,7 +165,7 @@ describe("ReplyThread", () => {
         "FYI — called this customer earlier, they're frustrated.",
       ),
     ).toBeInTheDocument();
-    expect(within(thread).getByText("Internal")).toBeInTheDocument();
+    expect(within(thread).getByText("Internal note")).toBeInTheDocument();
     expect(within(thread).getByText("Bob Agent")).toBeInTheDocument();
     expect(within(thread).queryByText("Agent")).not.toBeInTheDocument();
   });

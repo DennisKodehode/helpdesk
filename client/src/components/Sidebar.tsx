@@ -51,31 +51,30 @@ function SidebarLink({
       to={item.to}
       onClick={onNavigate}
       className={cn(
-        "group relative flex items-center gap-3 rounded-md px-3 py-3 text-[15px] transition-colors",
+        "group relative flex items-center gap-3 rounded-md px-3 py-2.5 text-[14px] transition-colors",
         active
-          ? "bg-accent text-foreground"
-          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+          ? "bg-panel font-semibold text-foreground shadow-[var(--shadow-sm)]"
+          : "text-ink-3 hover:bg-panel-2 hover:text-foreground",
       )}
     >
+      {/* The 3px violet rail is the active indicator — it grows in from zero
+          height so a click lands with a small, quiet motion. */}
       <span
         aria-hidden
         className={cn(
-          "absolute -left-3 top-1/2 h-4 w-px -translate-y-1/2 transition-all",
-          active ? "bg-primary" : "bg-transparent",
+          "absolute -left-2.5 top-1/2 w-[3px] -translate-y-1/2 rounded-r-full bg-primary transition-all",
+          active ? "h-[18px] opacity-100" : "h-0 opacity-0",
         )}
       />
       <Icon
-        className={cn(
-          "size-5 shrink-0",
-          active ? "text-foreground" : "text-muted-foreground/70",
-        )}
+        className={cn("size-5 shrink-0", active ? "text-accent-ink" : "text-ink-3")}
       />
       <span className="leading-none">{item.label}</span>
       {showBadge && (
         <span
           role="status"
           aria-label={`${badge} open`}
-          className="ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-primary/10 px-1.5 font-mono text-[10px] font-medium text-primary tabular leading-5"
+          className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-accent-tint-2 px-1.5 font-mono text-[10px] font-medium text-accent-ink tabular leading-5"
         >
           {badge > 99 ? "99+" : badge}
         </span>
@@ -158,17 +157,20 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
 
   return (
     <>
-      <div className="flex h-16 items-center justify-between px-5">
-        <Link
-          to="/"
-          onClick={onNavigate}
-          className="group inline-flex items-baseline gap-1.5"
-        >
-          <span className="display-serif text-[26px] leading-none text-foreground">
+      <div className="flex h-[68px] items-center justify-between pr-[18px] pl-[22px]">
+        <Link to="/" onClick={onNavigate} className="group inline-flex items-baseline">
+          <span className="display-serif text-[26px] leading-none text-foreground transition-opacity duration-200 group-hover:opacity-85">
             Helpdesk
           </span>
-          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70 leading-none">
-            v1
+          {/* The italic period is the wordmark's voice — mirrors the
+              "AI-powered ticket management." italic accent on the login page.
+              Drops down a hair on hover so the logo has a tiny pulse without
+              being a full-blown animation. */}
+          <span
+            aria-hidden
+            className="display-serif italic text-[26px] leading-none text-primary transition-transform duration-200 group-hover:translate-y-px"
+          >
+            .
           </span>
         </Link>
         <NotificationBell align="start" />
@@ -233,13 +235,13 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
         {menuOpen && (
           <div
             role="menu"
-            className="absolute bottom-full left-2 right-2 mb-2 overflow-hidden rounded-md border border-border bg-popover shadow-[0_8px_30px_-12px_rgb(0_0_0_/_0.18)]"
+            className="absolute bottom-full left-2 right-2 mb-2 overflow-hidden rounded-md border border-border bg-popover shadow-[var(--shadow-lg)]"
           >
             <button
               type="button"
               role="menuitem"
               onClick={toggleTheme}
-              className="flex w-full items-center gap-2.5 px-3 py-3 text-[14px] text-foreground hover:bg-accent transition-colors"
+              className="flex w-full items-center gap-2.5 px-3 py-3 text-[14px] text-foreground hover:bg-panel-2 transition-colors"
             >
               {theme === "dark" ? (
                 <Sun className="size-4 text-muted-foreground" />
@@ -253,7 +255,7 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
               type="button"
               role="menuitem"
               onClick={handleSignOut}
-              className="flex w-full items-center gap-2.5 px-3 py-3 text-[14px] text-foreground hover:bg-accent transition-colors"
+              className="flex w-full items-center gap-2.5 px-3 py-3 text-[14px] text-foreground hover:bg-panel-2 transition-colors"
             >
               <LogOut className="size-4 text-muted-foreground" />
               Sign out
@@ -267,20 +269,20 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
           aria-expanded={menuOpen}
           aria-haspopup="menu"
           onClick={() => setMenuOpen((v) => !v)}
-          className="flex w-full items-center gap-2.5 rounded-md px-2 py-2.5 text-left transition-colors hover:bg-accent/60"
+          className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-panel-2"
         >
-          <div className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-[13px] font-medium text-primary">
+          <div className="grid size-9 shrink-0 place-items-center rounded-full border border-border bg-panel-2 text-[13px] font-semibold text-ink-2">
             {initial}
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[14px] font-medium text-foreground leading-tight">
               {name || "Account"}
             </p>
-            <p className="truncate font-mono text-[11px] text-muted-foreground leading-tight mt-0.5">
+            <p className="truncate font-mono text-[11px] text-ink-3 leading-tight mt-0.5">
               {role === Role.admin ? "Admin" : "Agent"}
             </p>
           </div>
-          <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground/60" />
+          <ChevronsUpDown className="size-4 shrink-0 text-ink-4" />
         </button>
       </div>
     </>
@@ -295,7 +297,7 @@ interface Props {
 export default function Sidebar({ mobileOpen, onMobileOpenChange }: Props) {
   return (
     <>
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-sidebar md:flex xl:w-64 2xl:w-72">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-sidebar md:flex">
         <SidebarContents />
       </aside>
 

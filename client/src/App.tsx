@@ -5,6 +5,7 @@ import MobileTopbar from "./components/MobileTopbar";
 import Sidebar from "./components/Sidebar";
 import { useSession } from "./lib/auth-client";
 import { useUnauthorizedRedirect } from "./lib/auth-redirect";
+import AcceptInvitePage from "./pages/AcceptInvitePage";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import MyStatsPage from "./pages/MyStatsPage";
@@ -35,7 +36,7 @@ function ProtectedLayout() {
     <div className="min-h-screen bg-background">
       <MobileTopbar onMenuClick={() => setMobileNavOpen(true)} />
       <Sidebar mobileOpen={mobileNavOpen} onMobileOpenChange={setMobileNavOpen} />
-      <div className="pt-14 md:pt-0 md:pl-60 xl:pl-64 2xl:pl-72">
+      <div className="pt-14 md:pt-0 md:pl-64">
         <Outlet />
       </div>
     </div>
@@ -60,6 +61,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/accept-invite" element={<AcceptInvitePage />} />
       <Route element={<ProtectedLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/tickets" element={<TicketsPage />} />

@@ -13,16 +13,19 @@ export default function MobileTopbar({ onMenuClick }: Props) {
         type="button"
         aria-label="Open navigation"
         onClick={onMenuClick}
-        className="-ml-1 grid size-11 place-items-center rounded-md text-foreground transition-colors hover:bg-accent/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className="-ml-1 grid size-11 place-items-center rounded-md text-foreground transition-colors hover:bg-panel-2"
       >
         <Menu className="size-5" />
       </button>
-      <Link to="/" className="inline-flex items-baseline gap-1.5">
-        <span className="display-serif text-[22px] leading-none text-foreground">
+      <Link to="/" className="group inline-flex items-baseline">
+        <span className="display-serif text-[22px] leading-none text-foreground transition-opacity duration-200 group-hover:opacity-85">
           Helpdesk
         </span>
-        <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70">
-          v1
+        <span
+          aria-hidden
+          className="display-serif italic text-[22px] leading-none text-primary transition-transform duration-200 group-hover:translate-y-px"
+        >
+          .
         </span>
       </Link>
       <NotificationBell />

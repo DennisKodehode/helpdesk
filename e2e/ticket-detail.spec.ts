@@ -12,12 +12,10 @@ import {
 // Helpers
 // ---------------------------------------------------------------------------
 
-// The inbound-email webhook is the simplest way to create a ticket without any
-// UI flow. It doesn't require auth — only the webhook secret header.
-// We call the server directly (port 3000) because the Vite proxy is not
-// involved in Playwright's `request` fixture when using a full URL.
-const WEBHOOK_URL = "http://localhost:3000/api/webhooks/inbound-email";
-const WEBHOOK_SECRET = "test-webhook-secret";
+// Use the test-only seed endpoint to create tickets directly in the DB with
+// status "open". This avoids the async AI triage pipeline (new/processing) that
+// disables all controls, and the Resend email-body fetch that fails in E2E.
+const SEED_TICKET_URL = "http://localhost:3000/api/test/seed-ticket";
 
 interface CreatedTicket {
   id: number;
@@ -34,38 +32,29 @@ async function createTestTicket(
     fromEmail: string;
     subject: string;
     body: string;
+    status: string;
+    priority: string;
   }> = {},
 ): Promise<CreatedTicket> {
-  const payload = {
-    fromName: overrides.fromName ?? "Alice Customer",
-    fromEmail: overrides.fromEmail ?? "alice@example.com",
-    subject: overrides.subject ?? "Test ticket subject",
-    body: overrides.body ?? "Hello, I need help with my order.",
-  };
-
-  const response = await request.post(WEBHOOK_URL, {
-    data: payload,
-    headers: { "x-webhook-secret": WEBHOOK_SECRET },
+  const response = await request.post(SEED_TICKET_URL, {
+    data: {
+      fromName: overrides.fromName ?? "Alice Customer",
+      fromEmail: overrides.fromEmail ?? "alice@example.com",
+      subject: overrides.subject ?? "Test ticket subject",
+      body: overrides.body ?? "",
+      ...(overrides.status ? { status: overrides.status } : {}),
+      ...(overrides.priority ? { priority: overrides.priority } : {}),
+    },
+    headers: { "content-type": "application/json" },
   });
 
   if (!response.ok()) {
     throw new Error(
-      `Failed to create test ticket: ${response.status()} ${await response.text()}`,
+      `Failed to seed test ticket: ${response.status()} ${await response.text()}`,
     );
   }
 
-  const json = await response.json();
-
-  // The webhook returns { type: "ticket", ticket: {...} } for a new ticket.
-  // If the email already had an open/resolved ticket it returns { type: "reply" }.
-  // Using unique fromEmail per test group avoids this collision.
-  if (json.type !== "ticket") {
-    throw new Error(
-      `Webhook returned type "${json.type}" — expected "ticket". Use a unique fromEmail per test group.`,
-    );
-  }
-
-  return json.ticket as CreatedTicket;
+  return (await response.json()) as CreatedTicket;
 }
 
 // ---------------------------------------------------------------------------
@@ -107,9 +96,11 @@ test.describe
         page.getByRole("heading", { level: 1, name: "My order is missing" }),
       ).toBeVisible();
 
-      // Sender details are rendered in a dl.
-      await expect(page.getByText("View Tester")).toBeVisible();
-      await expect(page.getByText("view-test@example.com")).toBeVisible();
+      // Sender details are rendered in the ticket header. The name also
+      // appears as the sender label in the ReplyThread bubble, so use .first()
+      // to pass strict mode.
+      await expect(page.getByText("View Tester").first()).toBeVisible();
+      await expect(page.getByText("view-test@example.com").first()).toBeVisible();
 
       // Message body is visible.
       await expect(
@@ -117,21 +108,32 @@ test.describe
       ).toBeVisible();
     });
 
-    test("ticket detail shows Replies section with 'No replies yet' when empty", async ({
+    test("ticket detail shows Conversation section with original customer message when no replies yet", async ({
       page,
     }) => {
       await loginAs(page, AGENT_EMAIL, AGENT_PASSWORD);
       await page.goto(`/tickets/${ticketId}`);
 
-      await expect(page.getByRole("heading", { name: "Replies" })).toBeVisible();
-      await expect(page.getByText("No replies yet")).toBeVisible();
+      // ReplyThread always renders the original customer message as the first
+      // bubble, so "Conversation · 1" is the heading when there are no replies.
+      await expect(page.getByRole("heading", { name: "Conversation · 1" })).toBeVisible();
+
+      // The original customer message body should be visible.
+      await expect(
+        page.getByText("Hi, I placed an order last week and it hasn't arrived."),
+      ).toBeVisible();
+
+      // There should be no agent reply items yet — only the original message.
+      const replyThread = page.getByRole("list", { name: "Reply thread" });
+      await expect(replyThread).toBeVisible();
+      await expect(replyThread.getByRole("listitem")).toHaveCount(1);
     });
 
     test("back link navigates to /tickets", async ({ page }) => {
       await loginAs(page, AGENT_EMAIL, AGENT_PASSWORD);
       await page.goto(`/tickets/${ticketId}`);
 
-      await page.getByRole("link", { name: "Back to tickets" }).click();
+      await page.getByRole("link", { name: "All tickets" }).click();
       await page.waitForURL("/tickets");
 
       await expect(page.getByRole("heading", { name: "Tickets" })).toBeVisible();
@@ -173,9 +175,10 @@ test.describe
       );
 
       // Submit the form.
-      await replyForm.getByRole("button", { name: "Send Reply" }).click();
+      await replyForm.getByRole("button", { name: "Send reply" }).click();
 
-      // The reply should appear in the thread.
+      // The reply should appear in the thread. After submit the thread has
+      // 2 items: the original customer message + the agent reply.
       const replyThread = page.getByRole("list", { name: "Reply thread" });
       await expect(replyThread).toBeVisible();
       await expect(
@@ -186,9 +189,6 @@ test.describe
 
       // The textarea should be cleared after a successful submit.
       await expect(replyBody).toHaveValue("");
-
-      // "No replies yet" should no longer be shown.
-      await expect(page.getByText("No replies yet")).not.toBeVisible();
     });
   });
 
@@ -210,27 +210,24 @@ test.describe
       ticketId = ticket.id;
     });
 
-    test("agent can change an open ticket to resolved via the status dropdown", async ({
-      page,
-    }) => {
+    test("agent can resolve an open ticket via the status action", async ({ page }) => {
       await loginAs(page, AGENT_EMAIL, AGENT_PASSWORD);
       await page.goto(`/tickets/${ticketId}`);
 
-      // The status select trigger should show "Open" initially.
-      const statusSelect = page.getByLabel("Change ticket status");
-      await expect(statusSelect).toBeVisible();
-      await expect(statusSelect).toContainText("Open");
+      // Status is a pill + a contextual action button — an open ticket shows
+      // a "Resolve" action (not a dropdown).
+      const resolveBtn = page.getByRole("button", { name: "Resolve" });
+      await expect(resolveBtn).toBeVisible();
+      await resolveBtn.click();
 
-      // Open the dropdown and select "Resolved".
-      await statusSelect.click();
-      await page.getByRole("option", { name: "Resolved" }).click();
-
-      // Resolved ticket: agent has no further transitions, so select is replaced by a static badge.
-      await expect(page.getByLabel("Change ticket status")).not.toBeVisible();
-      await expect(page.getByText("Resolved")).toBeVisible();
+      // Agent has no further transitions from Resolved, so the action button is
+      // gone and only the StatusPill remains. "Resolved" can appear elsewhere
+      // (e.g. the Activity feed), so use .first().
+      await expect(page.getByRole("button", { name: "Resolve" })).not.toBeVisible();
+      await expect(page.getByText("Resolved").first()).toBeVisible();
     });
 
-    test("admin can change a resolved ticket to closed via the status dropdown", async ({
+    test("admin can close a resolved ticket via the status action", async ({
       page,
       request,
     }) => {
@@ -248,30 +245,25 @@ test.describe
         body: "Resolve me first, then close.",
       });
 
-      // Step 1 — Agent resolves the ticket via the UI.
+      // Step 1 — Agent resolves the ticket via the "Resolve" action.
       await loginAs(page, AGENT_EMAIL, AGENT_PASSWORD);
       await page.goto(`/tickets/${resolvedTicket.id}`);
-      const agentStatusSelect = page.getByLabel("Change ticket status");
-      await expect(agentStatusSelect).toContainText("Open");
-      await agentStatusSelect.click();
-      await page.getByRole("option", { name: "Resolved" }).click();
-      // Agent has no further transitions from Resolved, so select is replaced by a static badge.
-      await expect(page.getByLabel("Change ticket status")).not.toBeVisible();
-      await expect(page.getByText("Resolved")).toBeVisible();
+      await page.getByRole("button", { name: "Resolve" }).click();
+      await expect(page.getByRole("button", { name: "Resolve" })).not.toBeVisible();
+      await expect(page.getByText("Resolved").first()).toBeVisible();
 
       // Step 2 — Sign out the agent, then log in as admin.
       await logout(page);
       await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
       await page.goto(`/tickets/${resolvedTicket.id}`);
 
-      const adminStatusSelect = page.getByLabel("Change ticket status");
-      await expect(adminStatusSelect).toContainText("Resolved");
+      // Admin on a resolved ticket gets "Reopen" (primary) + "Close" (overflow).
+      const closeBtn = page.getByRole("button", { name: "Close", exact: true });
+      await expect(closeBtn).toBeVisible();
+      await closeBtn.click();
 
-      await adminStatusSelect.click();
-      await page.getByRole("option", { name: "Closed" }).click();
-
-      // Admin can reopen closed tickets, so the select stays visible — it now shows "Closed".
-      await expect(adminStatusSelect).toContainText("Closed");
+      // Closed: the StatusPill now reads "Closed".
+      await expect(page.getByText("Closed").first()).toBeVisible();
     });
   });
 

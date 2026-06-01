@@ -9,6 +9,7 @@ import TicketDetails from "@/components/TicketDetails";
 import TicketMeta from "@/components/TicketMeta";
 import BackLink from "@/components/ui/BackLink";
 import ErrorAlert from "@/components/ui/ErrorAlert";
+import PageContainer from "@/components/ui/PageContainer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isTriagingStatus } from "@/lib/ticket-ui";
 
@@ -42,7 +43,7 @@ export default function TicketDetailPage() {
   });
 
   return (
-    <main className="mx-auto max-w-6xl px-4 pt-6 pb-12 sm:px-6 md:px-8 md:pt-10 md:pb-16 lg:px-10 xl:px-12 xl:pt-16 2xl:px-16 2xl:pt-20">
+    <PageContainer width="content">
       <div className="mb-8">
         <BackLink to="/tickets" label="All tickets" />
       </div>
@@ -55,13 +56,13 @@ export default function TicketDetailPage() {
         <div>
           <TicketDetails ticket={ticket} />
 
-          <div className="mt-10 grid grid-cols-1 gap-x-10 gap-y-8 lg:grid-cols-[1fr_300px] lg:items-start">
+          <div className="mt-10 grid grid-cols-1 gap-x-9 gap-y-8 lg:grid-cols-[1fr_312px] lg:items-start">
             <div className="min-w-0 space-y-8">
               <ReplyThread ticket={ticket} />
               {isTriagingStatus(ticket.status as TicketStatus) ? (
                 <div
                   role="status"
-                  className="rounded-lg border border-dashed border-border bg-card px-5 py-6 text-center text-[13px] text-muted-foreground"
+                  className="rounded-[var(--r-md)] border border-dashed border-border bg-card px-5 py-6 text-center text-[13px] text-muted-foreground"
                 >
                   AI is triaging this ticket — actions unlock once it has been opened or
                   auto-resolved.
@@ -71,13 +72,13 @@ export default function TicketDetailPage() {
               )}
             </div>
 
-            <aside className="lg:sticky lg:top-8">
+            <aside className="lg:sticky lg:top-6">
               <TicketMeta ticket={ticket} />
               <ActivityFeed ticketId={id!} />
             </aside>
           </div>
         </div>
       )}
-    </main>
+    </PageContainer>
   );
 }

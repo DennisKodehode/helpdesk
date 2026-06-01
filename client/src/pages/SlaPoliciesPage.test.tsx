@@ -1,8 +1,8 @@
-import { TicketPriority } from "@helpdesk/core";
+import { type SlaHealthResponse, type SlaPolicy, TicketPriority } from "@helpdesk/core";
 import userEvent from "@testing-library/user-event";
 import axios from "axios";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, renderWithProviders, screen, waitFor, within } from "../test/utils";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, renderWithProviders, screen, waitFor } from "../test/utils";
 import SlaPoliciesPage from "./SlaPoliciesPage";
 
 vi.mock("axios", () => ({
@@ -15,105 +15,116 @@ vi.mock("axios", () => ({
   },
 }));
 
-const FOUR_POLICIES = [
+const POLICIES: SlaPolicy[] = [
   {
     priority: TicketPriority.urgent,
-    firstResponseMinutes: 60,
+    firstResponseMinutes: 15,
     resolutionMinutes: 240,
-    updatedAt: new Date().toISOString(),
+    updatedAt: "2026-01-01T00:00:00Z",
   },
   {
     priority: TicketPriority.high,
-    firstResponseMinutes: 240,
-    resolutionMinutes: 1440,
-    updatedAt: new Date().toISOString(),
+    firstResponseMinutes: 60,
+    resolutionMinutes: 480,
+    updatedAt: "2026-01-01T00:00:00Z",
   },
   {
     priority: TicketPriority.normal,
-    firstResponseMinutes: 480,
-    resolutionMinutes: 4320,
-    updatedAt: new Date().toISOString(),
+    firstResponseMinutes: 240,
+    resolutionMinutes: 1440,
+    updatedAt: "2026-01-01T00:00:00Z",
   },
   {
     priority: TicketPriority.low,
-    firstResponseMinutes: 1440,
+    firstResponseMinutes: 480,
     resolutionMinutes: null,
-    updatedAt: new Date().toISOString(),
+    updatedAt: "2026-01-01T00:00:00Z",
   },
 ];
 
-beforeEach(() => {
+const HEALTH: SlaHealthResponse = {
+  total: 8,
+  breached: 1,
+  atRisk: 2,
+  ok: 5,
+  byMetric: {
+    firstResponse: { breached: 1, atRisk: 1 },
+    resolution: { breached: 0, atRisk: 1 },
+  },
+};
+
+function mockGet() {
+  vi.mocked(axios.get).mockImplementation((url: string) => {
+    if (url === "/api/sla-policies") return Promise.resolve({ data: POLICIES });
+    if (url === "/api/stats/sla-health") return Promise.resolve({ data: HEALTH });
+    return Promise.resolve({ data: [] });
+  });
+}
+
+afterEach(() => {
+  cleanup();
   vi.clearAllMocks();
-  vi.mocked(axios.get).mockResolvedValue({ data: FOUR_POLICIES });
 });
 
-afterEach(cleanup);
-
 describe("SlaPoliciesPage", () => {
-  it("renders one row per priority with formatted minutes", async () => {
+  it("renders a card per priority, urgent first", async () => {
+    mockGet();
     renderWithProviders(<SlaPoliciesPage />);
-    expect(await screen.findByText(/Urgent/)).toBeInTheDocument();
+    expect(await screen.findByText("Urgent")).toBeInTheDocument();
     expect(screen.getByText("High")).toBeInTheDocument();
     expect(screen.getByText("Normal")).toBeInTheDocument();
     expect(screen.getByText("Low")).toBeInTheDocument();
-
-    // Scope to the urgent row: first-response = 60min → "1h", resolution = 240min → "4h".
-    const urgentRow = screen.getByText("Urgent").closest("tr") as HTMLElement;
-    expect(within(urgentRow).getByText("1h")).toBeInTheDocument();
-    expect(within(urgentRow).getByText("4h")).toBeInTheDocument();
-
-    // low resolution = null → "—" (em dash)
-    const lowRow = screen.getByText("Low").closest("tr") as HTMLElement;
-    expect(within(lowRow).getByText("—")).toBeInTheDocument();
   });
 
-  it("opens the edit dialog when the Edit button on a row is clicked", async () => {
+  it("hides Save/Revert until an edit makes the form dirty", async () => {
+    mockGet();
     const user = userEvent.setup();
     renderWithProviders(<SlaPoliciesPage />);
-    const urgentRow = (await screen.findByText("Urgent")).closest("tr");
-    expect(urgentRow).not.toBeNull();
-    await user.click(
-      within(urgentRow as HTMLElement).getByRole("button", { name: /edit/i }),
-    );
+    await screen.findByText("Urgent");
     expect(
-      await screen.findByRole("heading", { name: /edit urgent priority sla/i }),
+      screen.queryByRole("button", { name: /save targets/i }),
+    ).not.toBeInTheDocument();
+
+    const input = screen.getByLabelText("Urgent First response value");
+    await user.clear(input);
+    await user.type(input, "30");
+
+    expect(
+      await screen.findByRole("button", { name: /save targets/i }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /revert/i })).toBeInTheDocument();
   });
 
-  it("closes the dialog after a successful save and refetches the list", async () => {
-    vi.mocked(axios.patch).mockResolvedValue({
-      data: { ...FOUR_POLICIES[0], firstResponseMinutes: 30 },
-    });
+  it("reverts edits back to the loaded values", async () => {
+    mockGet();
     const user = userEvent.setup();
     renderWithProviders(<SlaPoliciesPage />);
-    const urgentRow = (await screen.findByText("Urgent")).closest("tr");
-    await user.click(
-      within(urgentRow as HTMLElement).getByRole("button", { name: /edit/i }),
-    );
-
-    const frInput = await screen.findByLabelText(/first-response target/i);
-    await user.clear(frInput);
-    await user.type(frInput, "30");
-    await user.click(screen.getByRole("button", { name: /save changes/i }));
-
-    await waitFor(() => {
-      expect(axios.patch).toHaveBeenCalledWith("/api/sla-policies/urgent", {
-        firstResponseMinutes: 30,
-        resolutionMinutes: 240,
-      });
-    });
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("heading", { name: /edit urgent priority sla/i }),
-      ).not.toBeInTheDocument();
-    });
-    // Refetched (initial + post-mutation invalidation = 2 calls)
-    expect(axios.get).toHaveBeenCalledTimes(2);
+    await screen.findByText("Urgent");
+    const input = screen.getByLabelText("Urgent First response value");
+    await user.clear(input);
+    await user.type(input, "30");
+    await user.click(await screen.findByRole("button", { name: /revert/i }));
+    expect(
+      screen.queryByRole("button", { name: /save targets/i }),
+    ).not.toBeInTheDocument();
   });
 
-  it("shows the error alert when the policies query fails", async () => {
-    vi.mocked(axios.get).mockRejectedValue(new Error("nope"));
+  it("PATCHes the changed policy on save", async () => {
+    mockGet();
+    vi.mocked(axios.patch).mockResolvedValue({ data: {} });
+    const user = userEvent.setup();
     renderWithProviders(<SlaPoliciesPage />);
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    await screen.findByText("Urgent");
+    const input = screen.getByLabelText("Urgent First response value");
+    await user.clear(input);
+    await user.type(input, "30");
+    await user.click(await screen.findByRole("button", { name: /save targets/i }));
+
+    await waitFor(() => {
+      expect(axios.patch).toHaveBeenCalledWith(
+        "/api/sla-policies/urgent",
+        expect.objectContaining({ firstResponseMinutes: expect.any(Number) }),
+      );
+    });
   });
 });

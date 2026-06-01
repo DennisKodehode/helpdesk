@@ -1,78 +1,217 @@
-import type { User } from "@helpdesk/core";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Role, type RosterAgent, UserStatus } from "@helpdesk/core";
 import axios from "axios";
-import { Plus } from "lucide-react";
-import { useState } from "react";
+import { Search, UserPlus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import type { AgentRowAction } from "@/components/AgentRowMenu";
+import AgentToast from "@/components/AgentToast";
+import AiAutomationStrip from "@/components/AiAutomationStrip";
 import DeleteUserDialog from "@/components/DeleteUserDialog";
-import UserDialog from "@/components/UserDialog";
-import UsersTable from "@/components/UsersTable";
+import InviteAgentDialog from "@/components/InviteAgentDialog";
+import RosterSummaryCards from "@/components/RosterSummaryCards";
+import RosterTable from "@/components/RosterTable";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import PageContainer from "@/components/ui/PageContainer";
 import PageHeader from "@/components/ui/PageHeader";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
+import {
+  useRemoveAgent,
+  useResendInvite,
+  useRoster,
+  useUpdateAgentRole,
+  useUpdateAgentStatus,
+} from "@/lib/agents";
 
-async function fetchUsers(signal?: AbortSignal): Promise<User[]> {
-  const { data } = await axios.get<User[]>("/api/users", { signal });
-  return data;
+function errorMessage(err: unknown): string {
+  return axios.isAxiosError(err)
+    ? (err.response?.data?.error ?? "Something went wrong")
+    : "Something went wrong";
 }
 
 export default function UsersPage() {
-  const queryClient = useQueryClient();
-  const [dialogTarget, setDialogTarget] = useState<User | "create" | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const { data: roster = [], isPending, isError } = useRoster();
+  const updateRole = useUpdateAgentRole();
+  const updateStatus = useUpdateAgentStatus();
+  const resendInvite = useResendInvite();
+  const removeAgent = useRemoveAgent();
 
-  const {
-    data: users = [],
-    isPending,
-    isError,
-  } = useQuery({
-    queryKey: ["users"],
-    queryFn: ({ signal }) => fetchUsers(signal),
-  });
+  const [query, setQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<RosterAgent | null>(null);
+  const [flash, setFlash] = useState<string | null>(null);
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => axios.delete(`/api/users/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["users"] });
-      setDeleteTarget(null);
-    },
-  });
+  useEffect(() => {
+    if (!flash) return;
+    const t = setTimeout(() => setFlash(null), 2600);
+    return () => clearTimeout(t);
+  }, [flash]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return roster.filter((a) => {
+      if (roleFilter && a.role !== roleFilter) return false;
+      if (statusFilter && a.status !== statusFilter) return false;
+      if (q && !(a.name.toLowerCase().includes(q) || a.email.toLowerCase().includes(q)))
+        return false;
+      return true;
+    });
+  }, [roster, query, roleFilter, statusFilter]);
+
+  function handleRoleChange(id: string, role: Role) {
+    updateRole.mutate(
+      { id, role },
+      {
+        onSuccess: () =>
+          setFlash(`Role updated to ${role === Role.admin ? "Admin" : "Agent"}.`),
+        onError: (err) => setFlash(errorMessage(err)),
+      },
+    );
+  }
+
+  function handleAction(id: string, action: AgentRowAction) {
+    if (action === "remove") {
+      setRemoveTarget(roster.find((a) => a.id === id) ?? null);
+      return;
+    }
+    if (action === "resend") {
+      resendInvite.mutate(id, {
+        onSuccess: () => setFlash("Invitation resent."),
+        onError: (err) => setFlash(errorMessage(err)),
+      });
+    } else {
+      const status = action === "deactivate" ? UserStatus.inactive : UserStatus.active;
+      updateStatus.mutate(
+        { id, status },
+        {
+          onSuccess: () =>
+            setFlash(
+              action === "deactivate" ? "Agent deactivated." : "Agent reactivated.",
+            ),
+          onError: (err) => setFlash(errorMessage(err)),
+        },
+      );
+    }
+  }
+
+  function confirmRemove() {
+    if (!removeTarget) return;
+    removeAgent.mutate(removeTarget.id, {
+      onSuccess: () => {
+        setFlash("Agent removed from team.");
+        setRemoveTarget(null);
+      },
+      onError: (err) => {
+        setFlash(errorMessage(err));
+        setRemoveTarget(null);
+      },
+    });
+  }
 
   return (
-    <main className="mx-auto max-w-6xl px-4 pt-6 pb-12 sm:px-6 md:px-8 md:pt-12 md:pb-16 lg:px-10 xl:px-12 xl:pt-16 2xl:px-16 2xl:pt-20">
+    <PageContainer width="queue">
       <PageHeader
-        eyebrow="Team"
+        eyebrow="Administration"
         title="Agents"
-        description="Manage who can sign in to the console and reply on behalf of your support team."
+        description="Everyone with access to the workspace. Manage roles, throughput, and access."
         action={
-          <Button onClick={() => setDialogTarget("create")}>
-            <Plus />
-            Add agent
+          <Button onClick={() => setInviteOpen(true)}>
+            <UserPlus className="size-4" aria-hidden /> Invite agent
           </Button>
         }
       />
 
-      <UsersTable
-        users={users}
+      <RosterSummaryCards roster={roster} />
+
+      <div className="mt-4">
+        <AiAutomationStrip />
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2.5">
+        <div className="relative min-w-[220px] flex-1">
+          <Search
+            aria-hidden
+            className="absolute top-1/2 left-[13px] size-4 -translate-y-1/2 text-ink-4"
+          />
+          <Input
+            placeholder="Search by name or email…"
+            aria-label="Search agents"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="pl-[38px]"
+          />
+        </div>
+        <Select
+          value={roleFilter || "all"}
+          onValueChange={(v) => setRoleFilter(!v || v === "all" ? "" : v)}
+        >
+          <SelectTrigger
+            aria-label="Filter by role"
+            className="h-10 w-auto min-w-[130px] text-[13px]"
+          >
+            <span data-slot="select-value" className="flex flex-1 text-left">
+              {roleFilter === Role.admin
+                ? "Admins"
+                : roleFilter === Role.agent
+                  ? "Agents"
+                  : "All roles"}
+            </span>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All roles</SelectItem>
+            <SelectItem value={Role.admin}>Admins</SelectItem>
+            <SelectItem value={Role.agent}>Agents</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
+          value={statusFilter || "all"}
+          onValueChange={(v) => setStatusFilter(!v || v === "all" ? "" : v)}
+        >
+          <SelectTrigger
+            aria-label="Filter by status"
+            className="h-10 w-auto min-w-[130px] text-[13px]"
+          >
+            <span data-slot="select-value" className="flex flex-1 text-left capitalize">
+              {statusFilter || "All statuses"}
+            </span>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value={UserStatus.active}>Active</SelectItem>
+            <SelectItem value={UserStatus.invited}>Invited</SelectItem>
+            <SelectItem value={UserStatus.inactive}>Inactive</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <RosterTable
+        roster={filtered}
         isPending={isPending}
         isError={isError}
-        onDelete={setDeleteTarget}
-        onEdit={setDialogTarget}
+        onRoleChange={handleRoleChange}
+        onAction={handleAction}
       />
 
-      <UserDialog
-        key={dialogTarget === "create" ? "create" : (dialogTarget?.id ?? "closed")}
-        open={dialogTarget !== null}
-        user={dialogTarget === "create" ? null : dialogTarget}
-        onOpenChange={(open) => {
-          if (!open) setDialogTarget(null);
-        }}
-      />
+      {!isPending && !isError && (
+        <p className="mt-4 font-mono text-[11.5px] uppercase tracking-[0.1em] text-ink-4">
+          {filtered.length} {filtered.length === 1 ? "member" : "members"} shown · AI
+          Agent excluded from seats
+        </p>
+      )}
 
+      <InviteAgentDialog
+        open={inviteOpen}
+        onOpenChange={setInviteOpen}
+        onInvited={(email) => setFlash(`Invitation sent to ${email}.`)}
+      />
       <DeleteUserDialog
-        deleteTarget={deleteTarget}
-        isDeleting={deleteMutation.isPending}
-        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
-        onCancel={() => setDeleteTarget(null)}
+        deleteTarget={removeTarget ? { ...removeTarget, createdAt: "" } : null}
+        isDeleting={removeAgent.isPending}
+        onConfirm={confirmRemove}
+        onCancel={() => setRemoveTarget(null)}
       />
-    </main>
+      <AgentToast message={flash} />
+    </PageContainer>
   );
 }

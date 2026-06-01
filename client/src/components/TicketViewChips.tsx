@@ -1,5 +1,5 @@
 import { TicketView } from "@helpdesk/core";
-import { Hourglass, Sparkles, UserX } from "lucide-react";
+import { Hourglass, Inbox, Sparkles, UserX } from "lucide-react";
 import { Toggle } from "@/components/ui/toggle";
 
 const VIEWS: ReadonlyArray<{
@@ -28,6 +28,12 @@ const VIEWS: ReadonlyArray<{
   },
 ];
 
+// Active quick-view = ink fill / paper text (overrides the Toggle's default
+// muted pressed state, incl. while hovered). Both aria-pressed and data-state
+// are targeted since the headless Toggle drives the pressed look from them.
+const ACTIVE_INK =
+  "aria-pressed:bg-foreground aria-pressed:text-background aria-pressed:border-foreground aria-pressed:hover:bg-foreground/90 aria-pressed:hover:text-background data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:border-foreground";
+
 interface Props {
   activeView: TicketView | null;
   onChange: (next: TicketView | null) => void;
@@ -36,6 +42,18 @@ interface Props {
 export default function TicketViewChips({ activeView, onChange }: Props) {
   return (
     <div className="mb-3 flex flex-wrap items-center gap-2">
+      {/* "All" clears any active quick-view (no view filter == all tickets). */}
+      <Toggle
+        aria-label="Show all tickets"
+        variant="outline"
+        size="default"
+        pressed={activeView === null}
+        onPressedChange={() => onChange(null)}
+        className={`h-10 sm:h-9 ${ACTIVE_INK}`}
+      >
+        <Inbox className="size-3.5" aria-hidden />
+        All
+      </Toggle>
       {VIEWS.map(({ key, label, ariaLabel, icon: Icon }) => {
         const pressed = activeView === key;
         return (
@@ -46,7 +64,7 @@ export default function TicketViewChips({ activeView, onChange }: Props) {
             size="default"
             pressed={pressed}
             onPressedChange={(next) => onChange(next ? key : null)}
-            className="h-10 sm:h-9"
+            className={`h-10 sm:h-9 ${ACTIVE_INK}`}
           >
             <Icon className="size-3.5" aria-hidden />
             {label}

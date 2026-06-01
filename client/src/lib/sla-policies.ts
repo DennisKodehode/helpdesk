@@ -1,5 +1,7 @@
 import {
+  type SlaHealthResponse,
   type SlaPolicy,
+  slaHealthResponseSchema,
   slaPoliciesResponseSchema,
   type TicketPriority,
   type UpdateSlaPolicyData,
@@ -8,6 +10,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 
 const QUERY_KEY = ["sla-policies"] as const;
+const HEALTH_QUERY_KEY = ["stats", "sla-health"] as const;
 
 // Policies change rarely (admins tweak the four rows by hand). Cache for
 // 5 minutes so the badge in every ticket row doesn't trigger refetches.
@@ -32,6 +35,25 @@ export function useSlaPolicies() {
     queryFn: ({ signal }) => fetchSlaPolicies(signal),
     staleTime: STALE_TIME_MS,
     select: toMap,
+  });
+}
+
+// The editor screen needs the ordered array (not the badge-lookup map).
+export function useSlaPoliciesList() {
+  return useQuery({
+    queryKey: QUERY_KEY,
+    queryFn: ({ signal }) => fetchSlaPolicies(signal),
+    staleTime: STALE_TIME_MS,
+  });
+}
+
+export function useSlaHealth() {
+  return useQuery<SlaHealthResponse>({
+    queryKey: HEALTH_QUERY_KEY,
+    queryFn: ({ signal }) =>
+      axios
+        .get("/api/stats/sla-health", { signal })
+        .then((r) => slaHealthResponseSchema.parse(r.data)),
   });
 }
 

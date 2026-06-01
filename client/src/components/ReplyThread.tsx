@@ -41,6 +41,7 @@ async function openAttachment(id: string) {
 type Message = {
   id: string;
   isAgent: boolean;
+  isAI: boolean;
   isInternal: boolean;
   senderLabel: string;
   senderName: string;
@@ -67,6 +68,7 @@ export default function ReplyThread({ ticket }: Props) {
     {
       id: "original",
       isAgent: false,
+      isAI: false,
       isInternal: false,
       senderLabel: "Customer",
       senderName: ticket.fromName,
@@ -78,11 +80,20 @@ export default function ReplyThread({ ticket }: Props) {
       const isInternal = r.senderType === SenderType.internal_note;
       const isAgent = r.senderType === SenderType.agent;
       const isAgentSide = isAgent || isInternal;
+      // An agent reply with no author is machine-sent — the AI auto-responder.
+      const isAI = isAgent && !r.author;
       return {
         id: String(r.id),
         isAgent,
+        isAI,
         isInternal,
-        senderLabel: isInternal ? "Internal" : isAgent ? "Agent" : "Customer",
+        senderLabel: isInternal
+          ? "Internal note"
+          : isAI
+            ? "AI · auto"
+            : isAgent
+              ? "Agent"
+              : "Customer",
         senderName: isAgentSide ? (r.author?.name ?? "AI") : ticket.fromName,
         html: r.bodyHtml ?? r.body.replace(/\n/g, "<br>"),
         attachments: r.attachments ?? [],
@@ -111,11 +122,26 @@ export default function ReplyThread({ ticket }: Props) {
         <ErrorAlert message="Failed to generate summary. Please try again." />
       )}
 
-      {summarizeMutation.data && (
-        <blockquote className="hairline-l rounded-r-md bg-muted/40 px-5 py-4 text-[13.5px] leading-relaxed text-foreground">
-          <p className="eyebrow mb-2 text-primary">Summary</p>
+      {summarizeMutation.isPending && (
+        <div className="ai-surface rounded-[var(--r-md)] px-5 py-4">
+          <p className="ai-chip mb-3">
+            <Sparkles className="size-3" /> Summary
+          </p>
+          <div className="space-y-2" aria-hidden>
+            <div className="shimmer h-3 w-[92%] rounded" />
+            <div className="shimmer h-3 w-full rounded" />
+            <div className="shimmer h-3 w-[70%] rounded" />
+          </div>
+        </div>
+      )}
+
+      {summarizeMutation.data && !summarizeMutation.isPending && (
+        <div className="ai-surface rounded-[var(--r-md)] px-5 py-4 text-[13.5px] leading-relaxed text-foreground">
+          <p className="ai-chip mb-2">
+            <Sparkles className="size-3" /> Summary
+          </p>
           {summarizeMutation.data.data.summary}
-        </blockquote>
+        </div>
       )}
 
       <ol className="space-y-7" aria-label="Reply thread">
@@ -138,17 +164,20 @@ export default function ReplyThread({ ticket }: Props) {
               )}
 
               <div className="flex gap-3 sm:gap-4">
-                {/* Avatar */}
+                {/* Avatar — AI replies wear the violet sparkle so machine
+                    authorship reads at a glance. */}
                 <div
                   className={`relative z-[1] grid size-8 shrink-0 place-items-center rounded-full text-[11px] font-medium ${
                     msg.isInternal
-                      ? "bg-amber-100 text-amber-900 ring-1 ring-amber-300 dark:bg-amber-950/50 dark:text-amber-200 dark:ring-amber-900/70"
-                      : msg.isAgent
-                        ? "bg-primary/12 text-primary ring-1 ring-primary/25"
-                        : "bg-card text-muted-foreground ring-1 ring-border"
+                      ? "bg-amb-bg text-amb-fg ring-1 ring-amb-dot/40"
+                      : msg.isAI
+                        ? "bg-accent-tint-2 text-accent-ink ring-1 ring-primary/25"
+                        : msg.isAgent
+                          ? "bg-panel-2 text-ink-2 ring-1 ring-border"
+                          : "bg-card text-ink-3 ring-1 ring-border"
                   }`}
                 >
-                  {initial}
+                  {msg.isAI ? <Sparkles className="size-4" aria-hidden /> : initial}
                 </div>
 
                 <div className="min-w-0 flex-1 pt-1">
@@ -160,10 +189,12 @@ export default function ReplyThread({ ticket }: Props) {
                     <span
                       className={`font-mono text-[10px] uppercase tracking-[0.15em] ${
                         msg.isInternal
-                          ? "text-amber-700 dark:text-amber-300"
-                          : msg.isAgent
-                            ? "text-primary"
-                            : "text-muted-foreground/70"
+                          ? "text-amb-fg"
+                          : msg.isAI
+                            ? "text-accent-ink"
+                            : msg.isAgent
+                              ? "text-ink-3"
+                              : "text-ink-4"
                       }`}
                     >
                       {msg.senderLabel}
@@ -179,12 +210,14 @@ export default function ReplyThread({ ticket }: Props) {
                   {/* Body */}
                   {msg.html ? (
                     <div
-                      className={`prose-reply rounded-md px-4 py-3 text-[14px] leading-[1.65] text-foreground ${
+                      className={`prose-reply rounded-[var(--r-md)] px-4 py-3 text-[14px] leading-[1.65] text-foreground ${
                         msg.isInternal
-                          ? "bg-amber-50 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:ring-amber-900/50"
-                          : msg.isAgent
-                            ? "bg-primary/[0.04] ring-1 ring-primary/15 dark:bg-primary/[0.07] dark:ring-primary/20"
-                            : "bg-card ring-1 ring-border"
+                          ? "border border-dashed border-amb-dot/45 bg-amb-bg"
+                          : msg.isAI
+                            ? "bg-accent-tint ring-1 ring-primary/15"
+                            : msg.isAgent
+                              ? "bg-panel-2 ring-1 ring-border"
+                              : "bg-card ring-1 ring-border"
                       }`}
                       // biome-ignore lint/security/noDangerouslySetInnerHtml: rendered HTML is sanitized with DOMPurify
                       dangerouslySetInnerHTML={{

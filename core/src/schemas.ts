@@ -2,13 +2,16 @@ import { z } from "zod";
 import {
   AuditEventType,
   NotificationType,
+  Role,
   SenderType,
+  SlaMetric,
   TicketCategory,
   TicketPriority,
   TicketStatus,
   TicketView,
   TRIAGING_FILTER_VALUE,
   UNCATEGORIZED_FILTER_VALUE,
+  UserStatus,
 } from "./types";
 
 export const userSchema = z.object({
@@ -44,6 +47,57 @@ export const updateUserSchema = z.object({
 });
 
 export type UpdateUserData = z.infer<typeof updateUserSchema>;
+
+// --- Admin · Agents roster -------------------------------------------------
+// Parallel to userSchema (kept narrow for /api/users) — the roster carries the
+// status + per-agent throughput the Agents screen renders. Don't widen
+// userSchema/updateUserSchema for these; the create/edit dialog binds to those.
+
+export const rosterAgentSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  role: z.enum(Role),
+  status: z.enum(UserStatus),
+  openAssigned: z.number().int(),
+  resolved30d: z.number().int(),
+  avgResolutionMinutes: z.number().nullable(),
+  lastActiveAt: z.string().nullable(),
+});
+
+export type RosterAgent = z.infer<typeof rosterAgentSchema>;
+
+export const rosterResponseSchema = z.array(rosterAgentSchema);
+
+// Invite (no password — the invitee sets it on the accept page).
+export const inviteAgentSchema = z.object({
+  name: z.string().trim().min(3, "Name must be at least 3 characters"),
+  email: z.email("Invalid email address"),
+  role: z.enum(Role),
+});
+
+export type InviteAgentData = z.infer<typeof inviteAgentSchema>;
+
+// Public accept-invite payload (token from the email link + chosen password).
+export const acceptInviteSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().trim().min(8, "Password must be at least 8 characters"),
+});
+
+export type AcceptInviteData = z.infer<typeof acceptInviteSchema>;
+
+export const updateUserRoleSchema = z.object({
+  role: z.enum(Role),
+});
+
+export type UpdateUserRoleData = z.infer<typeof updateUserRoleSchema>;
+
+// Only active⇄inactive is an admin transition; `invited` resolves via accept.
+export const updateUserStatusSchema = z.object({
+  status: z.enum([UserStatus.active, UserStatus.inactive]),
+});
+
+export type UpdateUserStatusData = z.infer<typeof updateUserStatusSchema>;
 
 export const inboundEmailSchema = z.object({
   fromName: z.string().trim().min(1).max(255),
@@ -199,6 +253,18 @@ export const polishReplySchema = z.object({
   refinementNote: z.string().trim().max(500).optional(),
 });
 
+// AI "Suggest reply" — the knowledge-base draft + resolve/escalate decision
+// the auto-responder would have made, surfaced to the agent for review.
+export const suggestReplyResponseSchema = z.object({
+  action: z.enum(["resolve", "escalate"]),
+  reply: z.string().nullable(),
+  confidence: z.number().min(0).max(100),
+  escalate: z.boolean(),
+  rationale: z.string().nullable(),
+});
+
+export type SuggestReplyResponse = z.infer<typeof suggestReplyResponseSchema>;
+
 export const dailyTicketCountSchema = z.object({
   date: z.string(),
   count: z.number(),
@@ -269,6 +335,10 @@ export const statsResponseSchema = z.object({
   resolvedByAI: z.number(),
   percentResolvedByAILast30d: z.number(),
   avgResolutionMinutes: z.number().nullable(),
+  // Dashboard stat cards: tickets still being triaged (new + processing) and
+  // tickets resolved in the trailing 7 days.
+  triagingTickets: z.number(),
+  resolvedLast7d: z.number(),
 });
 
 export type StatsResponse = z.infer<typeof statsResponseSchema>;
@@ -326,3 +396,52 @@ export const categoryBreakdownResponseSchema = z.array(categoryBreakdownRowSchem
 
 export type CategoryBreakdownRow = z.infer<typeof categoryBreakdownRowSchema>;
 export type CategoryBreakdownResponse = z.infer<typeof categoryBreakdownResponseSchema>;
+
+// Dashboard "AI this week" — machine-driven activity over a trailing window.
+export const aiActivityResponseSchema = z.object({
+  autoResolved: z.number().int().nonnegative(),
+  autoClassified: z.number().int().nonnegative(),
+  escalated: z.number().int().nonnegative(),
+  repliesSent: z.number().int().nonnegative(),
+});
+
+export type AiActivityResponse = z.infer<typeof aiActivityResponseSchema>;
+
+// Dashboard SLA compliance rings — percent of in-window tickets that met each
+// target. Null when there were no tickets to measure for that metric.
+export const slaComplianceResponseSchema = z.object({
+  firstResponse: z.number().min(0).max(100).nullable(),
+  resolution: z.number().min(0).max(100).nullable(),
+});
+
+export type SlaComplianceResponse = z.infer<typeof slaComplianceResponseSchema>;
+
+// Dashboard recent-activity timeline — global audit events across all tickets.
+export const recentActivityRowSchema = z.object({
+  id: z.string(),
+  type: z.enum(AuditEventType),
+  ticketId: z.number().int(),
+  ticketSubject: z.string(),
+  actorName: z.string().nullable(),
+  data: z.unknown(),
+  createdAt: z.string(),
+});
+
+export const recentActivityResponseSchema = z.array(recentActivityRowSchema);
+
+export type RecentActivityRow = z.infer<typeof recentActivityRowSchema>;
+export type RecentActivityResponse = z.infer<typeof recentActivityResponseSchema>;
+
+// Dashboard needs-attention — active tickets at risk of or past an SLA target.
+export const needsAttentionRowSchema = z.object({
+  id: z.number().int(),
+  subject: z.string(),
+  priority: z.enum(TicketPriority),
+  slaState: z.enum(["at_risk", "breached"]),
+  slaMetric: z.enum(SlaMetric),
+});
+
+export const needsAttentionResponseSchema = z.array(needsAttentionRowSchema);
+
+export type NeedsAttentionRow = z.infer<typeof needsAttentionRowSchema>;
+export type NeedsAttentionResponse = z.infer<typeof needsAttentionResponseSchema>;

@@ -87,7 +87,13 @@ export default function LoginForm({ onSubmit, serverError }: Props) {
 
       {serverError && <ErrorAlert message={serverError} />}
 
-      <Button type="submit" disabled={isSubmitting} className="w-full" size="lg">
+      <Button
+        type="submit"
+        variant="accent"
+        disabled={isSubmitting}
+        className="w-full"
+        size="lg"
+      >
         {isSubmitting ? "Signing in…" : "Sign in"}
       </Button>
     </form>

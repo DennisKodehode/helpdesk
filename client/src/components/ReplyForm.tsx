@@ -4,6 +4,7 @@ import {
   createReplySchema,
   MAX_ATTACHMENT_SIZE_BYTES,
   type Reply,
+  type SuggestReplyResponse,
 } from "@helpdesk/core";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -15,8 +16,14 @@ import { Button } from "@/components/ui/button";
 import ErrorAlert from "@/components/ui/ErrorAlert";
 import FieldError from "@/components/ui/FieldError";
 import { Textarea } from "@/components/ui/textarea";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { PERSONAL_STATS_QUERY_KEY } from "@/lib/personal-stats";
+import { BADGE_BASE } from "@/lib/ticket-ui";
+import { cn } from "@/lib/utils";
+
+const COMPOSER_TABS = [
+  { internal: false, label: "Reply to customer" },
+  { internal: true, label: "Internal note" },
+] as const;
 
 interface Props {
   ticketId: string;
@@ -28,6 +35,15 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+// Confidence pill on the AI draft card: High (emerald) / Moderate (amber) /
+// Low (rose), mirroring the SLA/priority tone language.
+function confidenceTone(pct: number): { label: string; cls: string } {
+  if (pct >= 80) return { label: "High", cls: "bg-eme-bg text-eme-fg border-eme-dot/30" };
+  if (pct >= 65)
+    return { label: "Moderate", cls: "bg-amb-bg text-amb-fg border-amb-dot/30" };
+  return { label: "Low", cls: "bg-ros-bg text-ros-fg border-ros-dot/35" };
 }
 
 export default function ReplyForm({ ticketId }: Props) {
@@ -107,6 +123,24 @@ export default function ReplyForm({ ticketId }: Props) {
     },
   });
 
+  // "Suggest reply" surfaces the AI's knowledge-base draft + resolve/escalate
+  // decision for the agent to review, use, or edit.
+  const suggestMutation = useMutation({
+    mutationFn: () =>
+      axios
+        .post<SuggestReplyResponse>(`/api/tickets/${ticketId}/suggest-reply`)
+        .then((r) => r.data),
+  });
+
+  function applySuggestedDraft(focus: boolean) {
+    const draft = suggestMutation.data?.reply;
+    if (!draft) return;
+    setValue("body", draft, { shouldValidate: true, shouldDirty: true });
+    setIsPolished(false);
+    suggestMutation.reset();
+    if (focus) document.getElementById("reply-body")?.focus();
+  }
+
   function addFiles(incoming: File[]) {
     setAttachmentError(null);
     const accepted: { id: string; file: File }[] = [];
@@ -160,41 +194,52 @@ export default function ReplyForm({ ticketId }: Props) {
       }}
       onDragLeave={() => setIsDragOver(false)}
       onDrop={handleDrop}
-      className={`overflow-hidden rounded-lg border transition-colors ${
+      className={`overflow-hidden rounded-[var(--r-lg)] border transition-colors ${
         isDragOver
           ? "border-primary/60 ring-2 ring-primary/20"
           : isInternal
-            ? "border-amber-300/70 bg-amber-50/40 dark:border-amber-900/60 dark:bg-amber-950/20"
+            ? "border-amb-dot/45 bg-amb-bg/50"
             : "border-border bg-card"
       }`}
     >
       <div
-        className={`hairline-b flex items-center justify-between px-4 py-2.5 ${
-          isInternal ? "bg-amber-100/40 dark:bg-amber-950/30" : "bg-muted/30"
-        }`}
+        className={cn(
+          "flex items-center justify-between border-b border-border px-4",
+          isInternal ? "bg-amb-bg" : "bg-panel-2",
+        )}
       >
+        {/* Underlined tabs — active tab gets a violet bottom border that
+            overlaps the row's hairline (the prototype's composer style). */}
         <Controller
           name="isInternal"
           control={control}
           render={({ field }) => (
-            <ToggleGroup
-              variant="outline"
-              size="sm"
-              spacing={0}
-              value={field.value ? ["internal"] : ["customer"]}
-              onValueChange={(values: string[]) => {
-                const next = values[0];
-                if (next) field.onChange(next === "internal");
-              }}
-              aria-label="Reply visibility"
-            >
-              <ToggleGroupItem value="customer">Reply to customer</ToggleGroupItem>
-              <ToggleGroupItem value="internal">Internal note</ToggleGroupItem>
-            </ToggleGroup>
+            <div role="tablist" aria-label="Reply visibility" className="flex gap-4">
+              {COMPOSER_TABS.map((tab) => {
+                const active = field.value === tab.internal;
+                return (
+                  <button
+                    key={tab.label}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => field.onChange(tab.internal)}
+                    className={cn(
+                      "-mb-px border-b-2 py-2.5 text-[13px] transition-colors",
+                      active
+                        ? "border-primary font-semibold text-foreground"
+                        : "border-transparent text-ink-3 hover:text-foreground",
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
           )}
         />
         {isPolished && !isInternal && (
-          <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-primary">
+          <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-accent-ink">
             <Sparkles className="size-2.5" />
             Polished
           </span>
@@ -207,10 +252,105 @@ export default function ReplyForm({ ticketId }: Props) {
           aria-label={isInternal ? "Internal note body" : "Reply body"}
           placeholder={isInternal ? "Visible to other agents only…" : "Write your reply…"}
           rows={5}
-          className="resize-y border-border/60 bg-background text-[14px] leading-relaxed"
+          className={cn(
+            "resize-y text-[14px] leading-relaxed",
+            isInternal
+              ? "border-amb-dot/40 bg-amb-bg/50"
+              : "border-border/60 bg-background",
+          )}
           {...register("body")}
         />
         <FieldError message={errors.body?.message} />
+
+        {!isInternal && (suggestMutation.isPending || suggestMutation.data) && (
+          <div className="ai-surface rounded-[var(--r-md)] p-4">
+            <div className="flex items-center justify-between gap-2">
+              <p className="ai-chip">
+                <Sparkles className="size-3" aria-hidden /> Suggested reply
+              </p>
+              <div className="flex items-center gap-2">
+                {suggestMutation.data && (
+                  <span
+                    className={`${BADGE_BASE} ${confidenceTone(suggestMutation.data.confidence).cls}`}
+                  >
+                    {confidenceTone(suggestMutation.data.confidence).label} ·{" "}
+                    {Math.round(suggestMutation.data.confidence)}%
+                  </span>
+                )}
+                {suggestMutation.data?.escalate && (
+                  <span
+                    className={`${BADGE_BASE} bg-ros-bg text-ros-fg border-ros-dot/35`}
+                  >
+                    Escalate
+                  </span>
+                )}
+                {suggestMutation.data && (
+                  <button
+                    type="button"
+                    aria-label="Dismiss suggestion"
+                    onClick={() => suggestMutation.reset()}
+                    className="rounded-full p-0.5 text-ink-3 hover:bg-panel-2 hover:text-foreground"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {suggestMutation.isPending ? (
+              <div
+                className="mt-3 space-y-2"
+                role="status"
+                aria-label="Drafting a suggested reply"
+              >
+                <div className="shimmer h-3 w-[92%] rounded" />
+                <div className="shimmer h-3 w-full rounded" />
+                <div className="shimmer h-3 w-[70%] rounded" />
+              </div>
+            ) : suggestMutation.data ? (
+              <div className="mt-3">
+                {suggestMutation.data.reply ? (
+                  <p className="whitespace-pre-wrap text-[14px] leading-[1.6] text-foreground">
+                    {suggestMutation.data.reply}
+                  </p>
+                ) : (
+                  <p className="text-[14px] text-foreground">
+                    The AI recommends escalating this ticket to a human.
+                  </p>
+                )}
+                {suggestMutation.data.rationale && (
+                  <p className="mt-2.5 text-[12.5px] text-accent-ink">
+                    {suggestMutation.data.rationale}
+                  </p>
+                )}
+                {suggestMutation.data.reply && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="accent"
+                      size="sm"
+                      onClick={() => applySuggestedDraft(false)}
+                    >
+                      Use draft
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => applySuggestedDraft(true)}
+                    >
+                      Use &amp; edit
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {suggestMutation.isError && (
+          <ErrorAlert message="Failed to suggest a reply. Please try again." />
+        )}
 
         {polishMutation.isError && (
           <ErrorAlert message="Failed to polish reply. Please try again." />
@@ -223,7 +363,7 @@ export default function ReplyForm({ ticketId }: Props) {
             {pickedFiles.map(({ id, file }) => (
               <li
                 key={id}
-                className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-[12px]"
+                className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-panel-2 px-3 py-1 text-[12px]"
               >
                 <Paperclip className="size-3 text-muted-foreground" aria-hidden />
                 <span className="max-w-[180px] truncate font-medium text-foreground">
@@ -283,12 +423,35 @@ export default function ReplyForm({ ticketId }: Props) {
               <Paperclip />
               Attach
             </Button>
+            {/* Suggest reply drafts from the knowledge base; Polish refines the
+                agent's own draft. Both are AI → violet, distinct from ink Send. */}
+            {!isInternal && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-primary/30 text-accent-ink hover:bg-accent-tint hover:text-accent-ink"
+                disabled={suggestMutation.isPending}
+                onClick={() => suggestMutation.mutate()}
+              >
+                <Sparkles />
+                {suggestMutation.isPending ? "Suggesting…" : "Suggest reply"}
+              </Button>
+            )}
+            {/* Polish/Refine are AI moments → violet. Refine goes solid accent
+                once there's a note to act on; otherwise a quiet accent-tinted
+                outline keeps the machine action distinct from the ink Send. */}
             {!isInternal &&
               (isPolished ? (
                 <Button
                   type="button"
-                  variant={refinementNote.trim() ? "default" : "outline"}
+                  variant={refinementNote.trim() ? "accent" : "outline"}
                   size="sm"
+                  className={
+                    refinementNote.trim()
+                      ? undefined
+                      : "border-primary/30 text-accent-ink hover:bg-accent-tint hover:text-accent-ink"
+                  }
                   disabled={!refinementNote.trim() || polishMutation.isPending}
                   onClick={() =>
                     polishMutation.mutate({ body: bodyValue, refinementNote })
@@ -302,6 +465,7 @@ export default function ReplyForm({ ticketId }: Props) {
                   type="button"
                   variant="outline"
                   size="sm"
+                  className="border-primary/30 text-accent-ink hover:bg-accent-tint hover:text-accent-ink"
                   disabled={!bodyValue?.trim() || polishMutation.isPending}
                   onClick={() => polishMutation.mutate({ body: bodyValue })}
                 >

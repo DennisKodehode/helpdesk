@@ -11,9 +11,11 @@ import { requestLogger, sentryRequestTag } from "./middleware/request-logger";
 import agentsRouter from "./routes/agents";
 import { attachmentsRouter, uploadRouter } from "./routes/attachments";
 import inboundEmailRouter from "./routes/inbound-email";
+import invitesRouter from "./routes/invites";
 import notificationsRouter from "./routes/notifications";
 import slaPoliciesRouter from "./routes/sla-policies";
 import statsRouter from "./routes/stats";
+import testSeedRouter from "./routes/test-seed";
 import ticketsRouter from "./routes/tickets";
 import usersRouter from "./routes/users";
 
@@ -35,6 +37,7 @@ app.all("/api/auth/*splat", toNodeHandler(auth));
 // /api/health is handled by @godaddy/terminus on the http.Server (see index.ts).
 app.use("/api/agents", agentsRouter);
 app.use("/api/users", usersRouter);
+app.use("/api/invites", invitesRouter);
 app.use("/api/tickets", ticketsRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/inbound-email", inboundEmailRouter);
@@ -42,6 +45,11 @@ app.use("/api/notifications", notificationsRouter);
 app.use("/api/sla-policies", slaPoliciesRouter);
 app.use("/api/replies/:id/attachments", uploadRouter);
 app.use("/api/attachments", attachmentsRouter);
+
+// E2E-only deterministic ticket seeding — never mounted outside test.
+if (env.NODE_ENV === "test") {
+  app.use("/api/test", testSeedRouter);
+}
 
 // Serve the built SPA when it exists on disk. In the prod Docker image the
 // Vite build always produces client/dist; in dev Vite serves the client on

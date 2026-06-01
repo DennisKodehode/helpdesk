@@ -1,9 +1,10 @@
 import MyTicketsSection from "@/components/MyTicketsSection";
+import PageContainer from "@/components/ui/PageContainer";
 import PageHeader from "@/components/ui/PageHeader";
 
 export default function MyTicketsPage() {
   return (
-    <main className="mx-auto max-w-7xl px-4 pt-6 pb-12 sm:px-6 md:px-8 md:pt-12 md:pb-16 lg:px-10 xl:px-12 xl:pt-16 2xl:px-16 2xl:pt-20">
+    <PageContainer width="list">
       <PageHeader
         eyebrow="Personal"
         title="My tickets"
@@ -12,6 +13,6 @@ export default function MyTicketsPage() {
 
       <MyTicketsSection title="Active" scope="active" />
       <MyTicketsSection title="Closed" scope="closed" />
-    </main>
+    </PageContainer>
   );
 }

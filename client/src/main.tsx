@@ -8,10 +8,12 @@ import { BrowserRouter } from "react-router";
 // those at @import time without rebasing the url() paths, so the woff2
 // files never reach Rollup and `dist/` ships without them (system fonts
 // fall back). Importing them as JS lets Vite trace each url() correctly.
-import "@fontsource-variable/geist/index.css";
+import "@fontsource-variable/hanken-grotesk/wght.css";
 import "@fontsource-variable/jetbrains-mono/index.css";
-import "@fontsource/instrument-serif/400.css";
-import "@fontsource/instrument-serif/400-italic.css";
+// Newsreader's optical-size axis (opsz 6..72) keeps display headlines crisp at
+// large sizes; the italic face carries the wordmark "." and the login hero.
+import "@fontsource-variable/newsreader/opsz.css";
+import "@fontsource-variable/newsreader/opsz-italic.css";
 import "./lib/sentry";
 import "./index.css";
 import App from "./App";

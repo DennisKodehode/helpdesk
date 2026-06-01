@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    /* The wordmark is too small to read at favicon scale, so the mark is
+       just "H." — capital H gets us legibility, the italic primary-blue
+       period gets us identity. Adapts to OS light/dark for visibility
+       against either browser-chrome theme. */
+    text {
+      font-family: "Instrument Serif", "Source Serif Pro", Georgia, serif;
+      font-size: 28px;
+      font-weight: 400;
+    }
+    .wordmark { fill: #0a0a0a; }
+    .dot { fill: oklch(0.42 0.18 262); font-style: italic; }
+    @media (prefers-color-scheme: dark) {
+      .wordmark { fill: #fafafa; }
+      .dot { fill: oklch(0.72 0.16 262); }
+    }
+  </style>
+  <text x="5" y="25" class="wordmark">H</text>
+  <text x="22" y="25" class="dot">.</text>
+</svg>
