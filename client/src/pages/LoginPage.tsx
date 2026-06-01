@@ -32,16 +32,27 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="grid min-h-screen md:grid-cols-2">
-        {/* Editorial left panel */}
-        <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-border bg-sidebar p-12 md:flex xl:p-16 2xl:p-20">
+        {/* Editorial left panel — always dark regardless of theme. Scoping it
+            with `dark` resolves every token to its dark value, so the hero
+            reads the same in light mode as in dark. */}
+        <aside className="dark relative hidden flex-col justify-between overflow-hidden border-r border-border bg-background p-12 text-foreground md:flex xl:p-16 2xl:p-20">
           {/* Subtle grid texture */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 opacity-[0.04]"
+            className="pointer-events-none absolute inset-0 opacity-[0.05]"
             style={{
               backgroundImage:
                 "linear-gradient(var(--foreground) 1px, transparent 1px), linear-gradient(90deg, var(--foreground) 1px, transparent 1px)",
-              backgroundSize: "56px 56px",
+              backgroundSize: "64px 64px",
+            }}
+          />
+          {/* Violet glow, top-left */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -left-32 -top-32 size-[460px] rounded-full opacity-70 blur-3xl"
+            style={{
+              background:
+                "radial-gradient(circle, color-mix(in oklch, var(--primary) 32%, transparent), transparent 70%)",
             }}
           />
 

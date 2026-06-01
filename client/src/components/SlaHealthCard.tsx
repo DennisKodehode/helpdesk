@@ -47,7 +47,7 @@ function StatColumn({
 function SlaHealthCardSkeleton() {
   return (
     <section
-      className="rounded-lg border border-border bg-card"
+      className="rounded-[var(--r-lg)] border border-border bg-card"
       role="status"
       aria-label="Loading SLA health"
     >
@@ -97,7 +97,7 @@ export default function SlaHealthCard() {
 
   return (
     <section
-      className="rounded-lg border border-border bg-card"
+      className="rounded-[var(--r-lg)] border border-border bg-card"
       aria-labelledby="sla-health-heading"
     >
       <div className="flex items-center justify-between border-b border-[var(--hairline)] px-6 py-4">
@@ -121,7 +121,7 @@ export default function SlaHealthCard() {
         <div className="grid gap-px overflow-hidden bg-border sm:grid-cols-3">
           <Link
             to="/tickets?breachedOnly=true"
-            className="group relative block bg-card transition-colors duration-150 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+            className="group relative block bg-card transition-colors duration-150 hover:bg-panel-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
             aria-label={`Breached: ${data.breached} — view breached tickets`}
           >
             <ArrowUpRight
@@ -131,16 +131,14 @@ export default function SlaHealthCard() {
             <StatColumn
               label="Breached"
               value={data.breached}
-              dotClass="bg-rose-500"
-              valueClass={
-                data.breached > 0 ? "text-rose-600 dark:text-rose-400" : "text-foreground"
-              }
+              dotClass="bg-ros-dot"
+              valueClass={data.breached > 0 ? "text-ros-fg" : "text-foreground"}
               title={metricBreakdownTitle("Breached", data.byMetric, "breached")}
             />
           </Link>
           <Link
             to="/tickets?slaState=at_risk"
-            className="group relative block bg-card transition-colors duration-150 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+            className="group relative block bg-card transition-colors duration-150 hover:bg-panel-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
             aria-label={`At risk: ${data.atRisk} — view at-risk tickets`}
           >
             <ArrowUpRight
@@ -150,16 +148,14 @@ export default function SlaHealthCard() {
             <StatColumn
               label="At risk"
               value={data.atRisk}
-              dotClass="bg-amber-500"
-              valueClass={
-                data.atRisk > 0 ? "text-amber-600 dark:text-amber-400" : "text-foreground"
-              }
+              dotClass="bg-amb-dot"
+              valueClass={data.atRisk > 0 ? "text-amb-fg" : "text-foreground"}
               title={metricBreakdownTitle("At risk", data.byMetric, "atRisk")}
             />
           </Link>
           <Link
             to="/tickets?slaState=ok"
-            className="group relative block bg-card transition-colors duration-150 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+            className="group relative block bg-card transition-colors duration-150 hover:bg-panel-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
             aria-label={`On track: ${data.ok} — view on-track tickets`}
           >
             <ArrowUpRight
@@ -169,7 +165,7 @@ export default function SlaHealthCard() {
             <StatColumn
               label="On track"
               value={data.ok}
-              dotClass="bg-emerald-500"
+              dotClass="bg-eme-dot"
               valueClass="text-foreground"
             />
           </Link>

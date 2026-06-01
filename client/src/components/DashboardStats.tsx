@@ -6,7 +6,7 @@ import { formatMinutes } from "@/lib/format";
 
 const STAT_LINK_BASE =
   "group relative block bg-card transition-colors duration-150 " +
-  "hover:bg-accent/40 " +
+  "hover:bg-panel-2 " +
   "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring";
 
 function StatCardLink({
@@ -39,7 +39,7 @@ export default function DashboardStats({ stats }: { stats: StatsResponse }) {
   return (
     <div className="space-y-6">
       {/* Hero: AI resolution rate — the headline number */}
-      <div className="rounded-lg border border-border bg-card">
+      <div className="rounded-[var(--r-lg)] border border-border bg-card">
         <div className="grid items-stretch md:grid-cols-[1.4fr_1fr]">
           <div className="relative overflow-hidden p-8 xl:p-12 2xl:p-16">
             {/* Faint serif glyph as backdrop */}
@@ -90,7 +90,7 @@ export default function DashboardStats({ stats }: { stats: StatsResponse }) {
       </div>
 
       {/* Supporting row — quiet stats, each a drill-down to filtered tickets */}
-      <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+      <div className="grid gap-px overflow-hidden rounded-[var(--r-lg)] border border-border bg-border sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
         <StatCardLink
           to="/tickets"
           label="Total tickets"

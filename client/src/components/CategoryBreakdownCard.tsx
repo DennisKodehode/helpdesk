@@ -26,7 +26,7 @@ function hrefFor(category: TicketCategory | null): string {
 function CategoryBreakdownSkeleton() {
   return (
     <section
-      className="rounded-lg border border-border bg-card"
+      className="rounded-[var(--r-lg)] border border-border bg-card"
       role="status"
       aria-label="Loading category breakdown"
     >
@@ -69,7 +69,7 @@ function CategoryRow({
           {count}
         </span>
       </div>
-      <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted" aria-hidden>
+      <div className="mt-2 h-1 overflow-hidden rounded-full bg-panel-inset" aria-hidden>
         <div
           className="h-full rounded-full bg-foreground/60 transition-[width] duration-300"
           style={{ width: `${pct}%` }}
@@ -106,7 +106,7 @@ export default function CategoryBreakdownCard() {
 
   if (query.isError) {
     return (
-      <section className="rounded-lg border border-border bg-card p-6">
+      <section className="rounded-[var(--r-lg)] border border-border bg-card p-6">
         <ErrorAlert
           message={
             query.error instanceof Error
@@ -124,7 +124,7 @@ export default function CategoryBreakdownCard() {
 
   return (
     <section
-      className="rounded-lg border border-border bg-card"
+      className="rounded-[var(--r-lg)] border border-border bg-card"
       aria-labelledby="category-breakdown-heading"
     >
       <div className="flex items-center justify-between border-b border-[var(--hairline)] px-6 py-4">

@@ -12,11 +12,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 function DashboardSkeleton() {
   return (
     <div className="space-y-6" role="status" aria-label="Loading dashboard">
-      <div className="rounded-lg border border-border bg-card p-8">
+      <div className="rounded-[var(--r-lg)] border border-border bg-card p-8">
         <Skeleton className="h-4 w-32 mb-4" />
         <Skeleton className="h-24 w-48" />
       </div>
-      <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
+      <div className="grid gap-px overflow-hidden rounded-[var(--r-lg)] border border-border bg-border sm:grid-cols-3">
         {Array.from({ length: 3 }).map((_, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholder; never reorders
           <div key={i} className="bg-card p-5">
@@ -71,7 +71,7 @@ export default function HomePage() {
       ) : null}
 
       {/* Trend section */}
-      <section className="mt-10 rounded-lg border border-border bg-card p-6">
+      <section className="mt-10 rounded-[var(--r-lg)] border border-border bg-card p-6">
         {chartQuery.isLoading ? (
           <Skeleton className="h-72 w-full" />
         ) : chartQuery.isError ? (
