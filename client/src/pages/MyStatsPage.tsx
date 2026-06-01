@@ -1,6 +1,7 @@
 import { ArrowUpRight, Inbox } from "lucide-react";
 import ErrorAlert from "@/components/ui/ErrorAlert";
 import { Link } from "@/components/ui/link";
+import PageContainer from "@/components/ui/PageContainer";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -52,7 +53,7 @@ export default function MyStatsPage() {
   const { data: stats, isPending, isError } = usePersonalStats(true);
 
   return (
-    <main className="mx-auto max-w-6xl px-4 pt-11 pb-10 sm:px-6 md:px-8 md:pb-12 lg:px-12 xl:px-14">
+    <PageContainer width="content">
       <PageHeader
         eyebrow="Personal"
         title="My stats"
@@ -171,7 +172,7 @@ export default function MyStatsPage() {
           </p>
         </div>
       )}
-    </main>
+    </PageContainer>
   );
 }
 

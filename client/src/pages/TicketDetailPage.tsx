@@ -9,6 +9,7 @@ import TicketDetails from "@/components/TicketDetails";
 import TicketMeta from "@/components/TicketMeta";
 import BackLink from "@/components/ui/BackLink";
 import ErrorAlert from "@/components/ui/ErrorAlert";
+import PageContainer from "@/components/ui/PageContainer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isTriagingStatus } from "@/lib/ticket-ui";
 
@@ -42,7 +43,7 @@ export default function TicketDetailPage() {
   });
 
   return (
-    <main className="mx-auto max-w-6xl px-4 pt-11 pb-10 sm:px-6 md:px-8 md:pb-12 lg:px-12 xl:px-14">
+    <PageContainer width="content">
       <div className="mb-8">
         <BackLink to="/tickets" label="All tickets" />
       </div>
@@ -78,6 +79,6 @@ export default function TicketDetailPage() {
           </div>
         </div>
       )}
-    </main>
+    </PageContainer>
   );
 }

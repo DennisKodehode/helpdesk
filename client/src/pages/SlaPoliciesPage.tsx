@@ -3,6 +3,7 @@ import { useState } from "react";
 import SlaPolicyDialog from "@/components/SlaPolicyDialog";
 import { Button } from "@/components/ui/button";
 import ErrorAlert from "@/components/ui/ErrorAlert";
+import PageContainer from "@/components/ui/PageContainer";
 import PageHeader from "@/components/ui/PageHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSlaPolicies } from "@/lib/sla-policies";
@@ -42,7 +43,7 @@ export default function SlaPoliciesPage() {
   const { data: policies, isPending, isError } = useSlaPolicies();
 
   return (
-    <main className="mx-auto max-w-4xl px-4 pt-11 pb-10 sm:px-6 md:px-8 md:pb-12 lg:px-12 xl:px-14">
+    <PageContainer width="form">
       <PageHeader
         eyebrow="Policies"
         title="SLA targets"
@@ -126,6 +127,6 @@ export default function SlaPoliciesPage() {
           if (!open) setEditTarget(null);
         }}
       />
-    </main>
+    </PageContainer>
   );
 }

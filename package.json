@@ -14,7 +14,9 @@
     "format": "biome format --write",
     "format:check": "biome format",
     "test:e2e": "bun --env-file server/.env.test playwright test --pass-with-no-tests",
-    "test:e2e:ui": "bun --env-file server/.env.test playwright test --ui"
+    "test:e2e:ui": "bun --env-file server/.env.test playwright test --ui",
+    "fidelity:serve": "bun tools/fidelity/serve-prototype.mjs",
+    "fidelity:shots": "playwright test --config=tools/fidelity/fidelity.config.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",

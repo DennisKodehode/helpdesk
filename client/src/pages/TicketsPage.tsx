@@ -18,6 +18,7 @@ import TicketFilters, {
 import TicketPagination from "@/components/TicketPagination";
 import TicketsTable from "@/components/TicketsTable";
 import TicketViewChips from "@/components/TicketViewChips";
+import PageContainer from "@/components/ui/PageContainer";
 import PageHeader from "@/components/ui/PageHeader";
 
 const PAGE_SIZE = 10;
@@ -220,7 +221,7 @@ export default function TicketsPage() {
   const end = Math.min(page * PAGE_SIZE, total);
 
   return (
-    <main className="mx-auto max-w-[1480px] px-4 pt-11 pb-10 sm:px-6 md:px-8 md:pb-12 lg:px-12 xl:px-14">
+    <PageContainer width="queue">
       <PageHeader
         eyebrow="Queue"
         title="Tickets"
@@ -259,6 +260,6 @@ export default function TicketsPage() {
         onPrevious={() => setPageParam(page - 1)}
         onNext={() => setPageParam(page + 1)}
       />
-    </main>
+    </PageContainer>
   );
 }

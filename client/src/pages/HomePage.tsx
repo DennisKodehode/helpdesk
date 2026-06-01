@@ -6,11 +6,12 @@ import RecentActivityCard from "@/components/dashboard/RecentActivityCard";
 import SlaRingsCard from "@/components/dashboard/SlaRingsCard";
 import StatCards from "@/components/dashboard/StatCards";
 import { Link } from "@/components/ui/link";
+import PageContainer from "@/components/ui/PageContainer";
 import PageHeader from "@/components/ui/PageHeader";
 
 export default function HomePage() {
   return (
-    <main className="mx-auto max-w-[1320px] px-4 pt-11 pb-10 sm:px-6 md:px-8 md:pb-12 lg:px-12 xl:px-14">
+    <PageContainer width="dashboard">
       <PageHeader
         eyebrow="Overview"
         title="Dashboard"
@@ -46,6 +47,6 @@ export default function HomePage() {
           <SlaRingsCard />
         </div>
       </div>
-    </main>
+    </PageContainer>
   );
 }

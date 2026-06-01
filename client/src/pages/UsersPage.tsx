@@ -7,6 +7,7 @@ import DeleteUserDialog from "@/components/DeleteUserDialog";
 import UserDialog from "@/components/UserDialog";
 import UsersTable from "@/components/UsersTable";
 import { Button } from "@/components/ui/button";
+import PageContainer from "@/components/ui/PageContainer";
 import PageHeader from "@/components/ui/PageHeader";
 
 async function fetchUsers(signal?: AbortSignal): Promise<User[]> {
@@ -37,7 +38,7 @@ export default function UsersPage() {
   });
 
   return (
-    <main className="mx-auto max-w-6xl px-4 pt-11 pb-10 sm:px-6 md:px-8 md:pb-12 lg:px-12 xl:px-14">
+    <PageContainer width="content">
       <PageHeader
         eyebrow="Team"
         title="Agents"
@@ -73,6 +74,6 @@ export default function UsersPage() {
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
         onCancel={() => setDeleteTarget(null)}
       />
-    </main>
+    </PageContainer>
   );
 }
