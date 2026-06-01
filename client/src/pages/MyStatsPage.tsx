@@ -52,7 +52,7 @@ export default function MyStatsPage() {
   const { data: stats, isPending, isError } = usePersonalStats(true);
 
   return (
-    <main className="mx-auto max-w-6xl px-4 pt-6 pb-12 sm:px-6 md:px-8 md:pt-12 md:pb-16 lg:px-10 xl:px-12 xl:pt-16 2xl:px-16 2xl:pt-20">
+    <main className="mx-auto max-w-6xl px-4 pt-11 pb-10 sm:px-6 md:px-8 md:pb-12 lg:px-12 xl:px-14">
       <PageHeader
         eyebrow="Personal"
         title="My stats"
@@ -86,15 +86,15 @@ export default function MyStatsPage() {
                 </div>
 
                 <div className="mt-6 flex items-baseline gap-4">
-                  <span className="display-serif tabular text-[88px] leading-[0.85] tracking-[-0.02em] text-foreground xl:text-[112px] 2xl:text-[136px]">
+                  <span className="display-serif tabular text-[88px] leading-[0.85] text-foreground md:text-[132px]">
                     {stats.openOnMyPlate.toLocaleString()}
                   </span>
-                  <span className="display-serif text-2xl text-muted-foreground/60 xl:text-3xl">
+                  <span className="display-serif text-[24px] text-muted-foreground/60 md:text-[30px]">
                     {stats.openOnMyPlate === 1 ? "ticket" : "tickets"}
                   </span>
                 </div>
 
-                <p className="mt-5 max-w-sm text-[13px] leading-relaxed text-muted-foreground">
+                <p className="mt-5 max-w-sm text-[14px] leading-relaxed text-muted-foreground">
                   Unresolved tickets currently assigned to you.
                 </p>
 
@@ -108,7 +108,7 @@ export default function MyStatsPage() {
               <div className={cn("border-t md:border-t-0 md:border-l", HAIRLINE)}>
                 <StatCardLink
                   to={RESOLVED_DRILL}
-                  label="Resolved · last 30 days"
+                  label="Resolved · 30 days"
                   value={stats.resolved30d.toLocaleString()}
                   hint="tickets you closed"
                   ariaSuffix="view your resolved tickets"
@@ -147,7 +147,7 @@ export default function MyStatsPage() {
               center divider at 50% aligns with the divider above. */}
           <div className="grid grid-cols-1 overflow-hidden rounded-[var(--r-lg)] border border-border bg-card sm:grid-cols-2">
             <StatCard
-              label="Replies · last 30 days"
+              label="Replies · 30 days"
               value={stats.replies30d.toLocaleString()}
               hint="messages you sent"
             />

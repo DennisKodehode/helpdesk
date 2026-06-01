@@ -132,7 +132,7 @@ export default function NotificationBell({ className, align = "end" }: Props) {
             </button>
           </div>
 
-          <div className="max-h-[60vh] overflow-y-auto">
+          <div className="max-h-[340px] overflow-y-auto">
             {items.length === 0 ? (
               <p className="px-3 py-6 text-center text-[12px] text-ink-3">
                 You're all caught up.
@@ -170,10 +170,10 @@ export default function NotificationBell({ className, align = "end" }: Props) {
                           <Icon className="size-3.5" />
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[12px] font-medium text-foreground">
+                          <span className="block truncate text-[13.5px] font-medium text-foreground">
                             {label}
                           </span>
-                          <span className="block truncate text-[12px] text-ink-3">
+                          <span className="block truncate text-[12.5px] text-ink-3">
                             #{n.ticketId} · {n.ticketSubject}
                           </span>
                           <span className="block font-mono text-[10.5px] text-ink-4">

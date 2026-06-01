@@ -176,7 +176,7 @@ describe("ReplyForm", () => {
     const user = userEvent.setup();
     renderWithProviders(<ReplyForm ticketId="42" />);
 
-    await user.click(screen.getByRole("button", { name: /internal note/i }));
+    await user.click(screen.getByRole("tab", { name: /internal note/i }));
 
     expect(screen.getByRole("button", { name: /add note/i })).toBeInTheDocument();
     expect(
@@ -190,7 +190,7 @@ describe("ReplyForm", () => {
     const user = userEvent.setup();
     renderWithProviders(<ReplyForm ticketId="42" />);
 
-    await user.click(screen.getByRole("button", { name: /internal note/i }));
+    await user.click(screen.getByRole("tab", { name: /internal note/i }));
     await user.type(
       screen.getByRole("textbox", { name: /internal note body/i }),
       "Called the customer yesterday.",
@@ -209,10 +209,10 @@ describe("ReplyForm", () => {
     const user = userEvent.setup();
     renderWithProviders(<ReplyForm ticketId="42" />);
 
-    await user.click(screen.getByRole("button", { name: /internal note/i }));
+    await user.click(screen.getByRole("tab", { name: /internal note/i }));
     expect(screen.getByRole("button", { name: /add note/i })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /reply to customer/i }));
+    await user.click(screen.getByRole("tab", { name: /reply to customer/i }));
 
     expect(screen.getByRole("button", { name: /send reply/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /polish with ai/i })).toBeInTheDocument();

@@ -58,7 +58,7 @@ describe("MyStatsPage", () => {
 
   it("renders the resolved counters", async () => {
     renderWithProviders(<MyStatsPage />);
-    expect(await screen.findByText("Resolved · last 30 days")).toBeInTheDocument();
+    expect(await screen.findByText("Resolved · 30 days")).toBeInTheDocument();
     expect(screen.getByText("17")).toBeInTheDocument();
     expect(screen.getByText("Resolved · lifetime")).toBeInTheDocument();
     expect(screen.getByText("123")).toBeInTheDocument();
@@ -74,7 +74,7 @@ describe("MyStatsPage", () => {
 
   it("renders the reply counters", async () => {
     renderWithProviders(<MyStatsPage />);
-    expect(await screen.findByText("Replies · last 30 days")).toBeInTheDocument();
+    expect(await screen.findByText("Replies · 30 days")).toBeInTheDocument();
     expect(screen.getByText("9")).toBeInTheDocument();
     expect(screen.getByText("Replies · lifetime")).toBeInTheDocument();
     expect(screen.getByText("42")).toBeInTheDocument();

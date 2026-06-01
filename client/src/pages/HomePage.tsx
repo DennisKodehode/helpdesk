@@ -10,7 +10,7 @@ import PageHeader from "@/components/ui/PageHeader";
 
 export default function HomePage() {
   return (
-    <main className="mx-auto max-w-6xl px-4 pt-6 pb-12 sm:px-6 md:px-8 md:pt-12 md:pb-16 lg:px-10 xl:px-12 xl:pt-16 2xl:px-16 2xl:pt-20">
+    <main className="mx-auto max-w-[1320px] px-4 pt-11 pb-10 sm:px-6 md:px-8 md:pb-12 lg:px-12 xl:px-14">
       <PageHeader
         eyebrow="Overview"
         title="Dashboard"
@@ -29,13 +29,18 @@ export default function HomePage() {
       {/* Row 1 — four stat cards */}
       <StatCards />
 
-      {/* Row 2 — AI + activity (left), attention + composition + SLA (right) */}
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1.55fr_1fr] lg:items-start">
-        <div className="space-y-6">
+      {/* Row 2 — AI + activity (left), attention + composition + SLA (right).
+          Prototype uses a tight 16px rhythm throughout the dashboard. The
+          two-column split holds from `md` up (matching the prototype's fixed,
+          non-collapsing grid) so the dashboard stays compact on the ~900–1024px
+          effective widths common on scaled Windows displays — collapsing to a
+          single column only on true mobile/tablet-portrait below 768px. */}
+      <div className="mt-4 grid gap-4 md:grid-cols-[1.55fr_1fr] md:items-start">
+        <div className="space-y-4">
           <AiThisWeekCard />
           <RecentActivityCard />
         </div>
-        <div className="space-y-6">
+        <div className="space-y-4">
           <NeedsAttentionCard />
           <CategoryBreakdownCard />
           <SlaRingsCard />

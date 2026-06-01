@@ -1,5 +1,5 @@
 import { TicketView } from "@helpdesk/core";
-import { Hourglass, Sparkles, UserX } from "lucide-react";
+import { Hourglass, Inbox, Sparkles, UserX } from "lucide-react";
 import { Toggle } from "@/components/ui/toggle";
 
 const VIEWS: ReadonlyArray<{
@@ -42,6 +42,18 @@ interface Props {
 export default function TicketViewChips({ activeView, onChange }: Props) {
   return (
     <div className="mb-3 flex flex-wrap items-center gap-2">
+      {/* "All" clears any active quick-view (no view filter == all tickets). */}
+      <Toggle
+        aria-label="Show all tickets"
+        variant="outline"
+        size="default"
+        pressed={activeView === null}
+        onPressedChange={() => onChange(null)}
+        className={`h-10 sm:h-9 ${ACTIVE_INK}`}
+      >
+        <Inbox className="size-3.5" aria-hidden />
+        All
+      </Toggle>
       {VIEWS.map(({ key, label, ariaLabel, icon: Icon }) => {
         const pressed = activeView === key;
         return (

@@ -14,7 +14,7 @@ export default function TicketDetails({ ticket }: Props) {
     <header className="hairline-b pb-8">
       {/* Eyebrow rail */}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary">
+        <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent-ink">
           Case · <span className="tabular text-foreground">#{caseId}</span>
         </span>
         <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground tabular">
@@ -26,8 +26,8 @@ export default function TicketDetails({ ticket }: Props) {
         </span>
       </div>
 
-      {/* Subject — editorial serif */}
-      <h1 className="display-serif text-[28px] leading-[1.06] tracking-[-0.015em] text-foreground sm:text-[36px] md:text-[44px] xl:text-[56px] 2xl:text-[64px]">
+      {/* Subject — editorial serif, fixed 40px (prototype) + mobile fallback */}
+      <h1 className="display-serif text-[30px] text-foreground md:text-[40px]">
         {ticket.subject}
       </h1>
 

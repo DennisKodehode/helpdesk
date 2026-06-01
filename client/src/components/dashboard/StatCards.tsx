@@ -32,30 +32,32 @@ function DashboardStatCard({
     <Link
       to={to}
       aria-label={`${label}: ${value} — view tickets`}
-      className="group relative block rounded-[var(--r-lg)] border border-border bg-card px-5 py-5 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring xl:px-6 xl:py-6"
+      className="group relative block rounded-[var(--r-lg)] border border-border bg-card px-[22px] py-5 transition-all duration-150 hover:-translate-y-[2px] hover:shadow-[var(--shadow-md)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
     >
       <ArrowUpRight
         aria-hidden
-        className="pointer-events-none absolute right-4 top-4 size-3 text-ink-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+        className="pointer-events-none absolute right-4 top-4 size-3 text-ink-4 opacity-40 transition-opacity duration-150 group-hover:opacity-100"
       />
       <div className="flex items-center gap-2">
         <span aria-hidden className={cn("size-1.5 rounded-full", DOT[tone])} />
         <p className="label-meta">{label}</p>
       </div>
-      <p className="display-serif tabular mt-3 text-[46px] leading-none text-foreground">
+      <p className="display-serif tabular mt-[14px] mb-2 text-[46px] leading-none text-foreground">
         {value.toLocaleString()}
       </p>
-      <p className="mt-2 font-mono text-[11px] text-ink-4">{caption}</p>
+      <p className="font-mono text-[11px] uppercase tracking-[0.06em] text-ink-4">
+        {caption}
+      </p>
     </Link>
   );
 }
 
 function CardSkeleton() {
   return (
-    <div className="rounded-[var(--r-lg)] border border-border bg-card px-5 py-5 xl:px-6 xl:py-6">
+    <div className="rounded-[var(--r-lg)] border border-border bg-card px-[22px] py-5">
       <Skeleton className="h-3 w-24" />
-      <Skeleton className="mt-3 h-10 w-16" />
-      <Skeleton className="mt-3 h-3 w-20" />
+      <Skeleton className="mt-[14px] h-10 w-16" />
+      <Skeleton className="mt-2 h-3 w-20" />
     </div>
   );
 }
@@ -77,7 +79,7 @@ export default function StatCards() {
   if (statsQuery.isLoading || slaQuery.isLoading) {
     return (
       <div
-        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        className="grid gap-4 sm:grid-cols-2 md:grid-cols-4"
         role="status"
         aria-label="Loading stats"
       >
@@ -94,7 +96,7 @@ export default function StatCards() {
   if (!stats || !sla) return null;
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
       <DashboardStatCard
         to="/tickets?status=open"
         label="Open"

@@ -25,15 +25,13 @@ export default function RecentActivityCard() {
   return (
     <section
       aria-labelledby="recent-activity-heading"
-      className="overflow-hidden rounded-[var(--r-lg)] border border-border bg-card"
+      className="rounded-[var(--r-lg)] border border-border bg-card px-6 py-[22px]"
     >
-      <div className="hairline-b bg-panel-2 px-5 py-3">
-        <h2 id="recent-activity-heading" className="eyebrow">
-          Recent activity
-        </h2>
-      </div>
+      <h2 id="recent-activity-heading" className="eyebrow mb-[18px]">
+        Recent activity
+      </h2>
 
-      <div className="px-5 py-4">
+      <div>
         {query.isLoading ? (
           <ul className="space-y-4" aria-label="Loading activity">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -50,6 +48,11 @@ export default function RecentActivityCard() {
           </p>
         ) : query.data && query.data.length > 0 ? (
           <ol className="relative space-y-4" aria-label="Recent activity">
+            {/* Vertical timeline rule behind the round type-icons. */}
+            <span
+              aria-hidden
+              className="absolute left-[13px] top-4 bottom-4 w-px bg-border"
+            />
             {query.data.map((row) => {
               const { Icon, tone } = auditVisual(row.type);
               return (

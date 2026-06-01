@@ -16,9 +16,14 @@ import { Button } from "@/components/ui/button";
 import ErrorAlert from "@/components/ui/ErrorAlert";
 import FieldError from "@/components/ui/FieldError";
 import { Textarea } from "@/components/ui/textarea";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { PERSONAL_STATS_QUERY_KEY } from "@/lib/personal-stats";
 import { BADGE_BASE } from "@/lib/ticket-ui";
+import { cn } from "@/lib/utils";
+
+const COMPOSER_TABS = [
+  { internal: false, label: "Reply to customer" },
+  { internal: true, label: "Internal note" },
+] as const;
 
 interface Props {
   ticketId: string;
@@ -198,28 +203,39 @@ export default function ReplyForm({ ticketId }: Props) {
       }`}
     >
       <div
-        className={`hairline-b flex items-center justify-between px-4 py-2.5 ${
-          isInternal ? "bg-amb-bg" : "bg-panel-2"
-        }`}
+        className={cn(
+          "flex items-center justify-between border-b border-border px-4",
+          isInternal ? "bg-amb-bg" : "bg-panel-2",
+        )}
       >
+        {/* Underlined tabs — active tab gets a violet bottom border that
+            overlaps the row's hairline (the prototype's composer style). */}
         <Controller
           name="isInternal"
           control={control}
           render={({ field }) => (
-            <ToggleGroup
-              variant="outline"
-              size="sm"
-              spacing={0}
-              value={field.value ? ["internal"] : ["customer"]}
-              onValueChange={(values: string[]) => {
-                const next = values[0];
-                if (next) field.onChange(next === "internal");
-              }}
-              aria-label="Reply visibility"
-            >
-              <ToggleGroupItem value="customer">Reply to customer</ToggleGroupItem>
-              <ToggleGroupItem value="internal">Internal note</ToggleGroupItem>
-            </ToggleGroup>
+            <div role="tablist" aria-label="Reply visibility" className="flex gap-4">
+              {COMPOSER_TABS.map((tab) => {
+                const active = field.value === tab.internal;
+                return (
+                  <button
+                    key={tab.label}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => field.onChange(tab.internal)}
+                    className={cn(
+                      "-mb-px border-b-2 py-2.5 text-[13px] transition-colors",
+                      active
+                        ? "border-primary font-semibold text-foreground"
+                        : "border-transparent text-ink-3 hover:text-foreground",
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
           )}
         />
         {isPolished && !isInternal && (
@@ -236,7 +252,12 @@ export default function ReplyForm({ ticketId }: Props) {
           aria-label={isInternal ? "Internal note body" : "Reply body"}
           placeholder={isInternal ? "Visible to other agents only…" : "Write your reply…"}
           rows={5}
-          className="resize-y border-border/60 bg-background text-[14px] leading-relaxed"
+          className={cn(
+            "resize-y text-[14px] leading-relaxed",
+            isInternal
+              ? "border-amb-dot/40 bg-amb-bg/50"
+              : "border-border/60 bg-background",
+          )}
           {...register("body")}
         />
         <FieldError message={errors.body?.message} />

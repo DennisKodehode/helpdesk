@@ -62,7 +62,7 @@ function SidebarLink({
       <span
         aria-hidden
         className={cn(
-          "absolute -left-3 top-1/2 w-[3px] -translate-y-1/2 rounded-r-full bg-primary transition-all",
+          "absolute -left-2.5 top-1/2 w-[3px] -translate-y-1/2 rounded-r-full bg-primary transition-all",
           active ? "h-[18px] opacity-100" : "h-0 opacity-0",
         )}
       />
@@ -269,7 +269,7 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
           aria-expanded={menuOpen}
           aria-haspopup="menu"
           onClick={() => setMenuOpen((v) => !v)}
-          className="flex w-full items-center gap-2.5 rounded-md px-2 py-2.5 text-left transition-colors hover:bg-panel-2"
+          className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-panel-2"
         >
           <div className="grid size-9 shrink-0 place-items-center rounded-full border border-border bg-panel-2 text-[13px] font-semibold text-ink-2">
             {initial}

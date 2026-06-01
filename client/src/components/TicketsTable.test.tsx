@@ -102,8 +102,11 @@ describe("loaded state", () => {
   it("renders a dash for a ticket with no category", () => {
     const ticket: Ticket = { ...mockTickets[0], category: null };
     renderWithProviders(<TicketsTable {...defaultProps} tickets={[ticket]} />);
-    // The dash only renders in the desktop table cell; mobile card omits the badge entirely.
-    expect(screen.getByText("—")).toBeInTheDocument();
+    // Em-dashes now render for both a null category and a healthy SLA (and the
+    // mobile card mirrors the desktop cell), so several may be present — assert
+    // the no-category ticket shows a dash and no category label.
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Technical")).not.toBeInTheDocument();
   });
 });
 

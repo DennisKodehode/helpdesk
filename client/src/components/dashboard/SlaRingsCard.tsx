@@ -20,7 +20,7 @@ function Ring({ label, pct }: { label: string; pct: number | null }) {
   const offset = CIRC * (1 - value / 100);
   return (
     <div className="flex flex-col items-center gap-2.5">
-      <div className="relative size-[88px]">
+      <div className="relative size-[78px]">
         {/* -rotate-90 starts the arc at 12 o'clock */}
         {/* Decorative — the percentage is announced via the adjacent text. */}
         <svg viewBox="0 0 80 80" className="size-full -rotate-90" aria-hidden="true">
@@ -49,7 +49,7 @@ function Ring({ label, pct }: { label: string; pct: number | null }) {
           )}
         </svg>
         <span className="absolute inset-0 grid place-items-center">
-          <span className="display-serif tabular text-[24px] leading-none text-foreground">
+          <span className="display-serif tabular text-[21px] leading-none text-foreground">
             {pct == null ? "—" : pct}
           </span>
         </span>
@@ -71,28 +71,24 @@ export default function SlaRingsCard() {
   return (
     <section
       aria-labelledby="sla-compliance-heading"
-      className="overflow-hidden rounded-[var(--r-lg)] border border-border bg-card"
+      className="rounded-[var(--r-lg)] border border-border bg-card p-[22px]"
     >
-      <div className="hairline-b bg-panel-2 px-5 py-3">
-        <h2 id="sla-compliance-heading" className="eyebrow">
-          SLA compliance · 30d
-        </h2>
-      </div>
-      <div className="px-5 py-6">
-        {query.isLoading ? (
-          <div className="flex justify-around" role="status" aria-label="Loading">
-            <Skeleton className="size-[88px] rounded-full" />
-            <Skeleton className="size-[88px] rounded-full" />
-          </div>
-        ) : query.isError ? (
-          <ErrorAlert message="Failed to load SLA compliance" />
-        ) : (
-          <div className="flex justify-around">
-            <Ring label="First response" pct={query.data?.firstResponse ?? null} />
-            <Ring label="Resolution" pct={query.data?.resolution ?? null} />
-          </div>
-        )}
-      </div>
+      <h2 id="sla-compliance-heading" className="eyebrow mb-[18px]">
+        SLA compliance · 30d
+      </h2>
+      {query.isLoading ? (
+        <div className="flex justify-around" role="status" aria-label="Loading">
+          <Skeleton className="size-[78px] rounded-full" />
+          <Skeleton className="size-[78px] rounded-full" />
+        </div>
+      ) : query.isError ? (
+        <ErrorAlert message="Failed to load SLA compliance" />
+      ) : (
+        <div className="flex justify-around">
+          <Ring label="First response" pct={query.data?.firstResponse ?? null} />
+          <Ring label="Resolution" pct={query.data?.resolution ?? null} />
+        </div>
+      )}
     </section>
   );
 }

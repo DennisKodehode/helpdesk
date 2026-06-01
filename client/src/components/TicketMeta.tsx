@@ -1,6 +1,8 @@
 import {
   ADMIN_VALID_TRANSITIONS,
   type Agent,
+  type AuditEvent,
+  AuditEventType,
   Role,
   type TicketCategory,
   type TicketDetail,
@@ -10,26 +12,55 @@ import {
 } from "@helpdesk/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import { Sparkles } from "lucide-react";
+import { Check, type LucideIcon, RotateCcw, Sparkles } from "lucide-react";
 import { SlaBadge } from "@/components/SlaBadge";
 import StatusPill from "@/components/StatusPill";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { useSession } from "@/lib/auth-client";
 import { MY_OPEN_COUNT_QUERY_KEY } from "@/lib/my-tickets";
 import { PERSONAL_STATS_QUERY_KEY } from "@/lib/personal-stats";
-import {
-  CATEGORY_LABELS,
-  isTriagingStatus,
-  PRIORITY_LABELS,
-  STATUS_LABELS,
-} from "@/lib/ticket-ui";
+import { CATEGORY_LABELS, isTriagingStatus, PRIORITY_LABELS } from "@/lib/ticket-ui";
 
 interface Props {
   ticket: TicketDetail;
 }
 
+// Status is shown as a pill + a contextual action button (matching the
+// prototype): the primary forward transition for the current status, with any
+// remaining valid transitions (e.g. an admin force-close) as quiet overflow
+// buttons so nothing the transition matrix allows is lost. Keyed by the TARGET
+// status the action moves the ticket to.
+const STATUS_ACTION: Record<TicketStatus, { label: string; Icon?: LucideIcon }> = {
+  [TicketStatus.resolved]: { label: "Resolve", Icon: Check },
+  [TicketStatus.open]: { label: "Reopen", Icon: RotateCcw },
+  [TicketStatus.closed]: { label: "Close" },
+  [TicketStatus.new]: { label: "New" },
+  [TicketStatus.processing]: { label: "Processing" },
+};
+
+// The single most common forward transition per status — rendered as the
+// prominent action; everything else falls to overflow.
+const PRIMARY_NEXT: Partial<Record<TicketStatus, TicketStatus>> = {
+  [TicketStatus.open]: TicketStatus.resolved,
+  [TicketStatus.resolved]: TicketStatus.open,
+  [TicketStatus.closed]: TicketStatus.open,
+  [TicketStatus.processing]: TicketStatus.open,
+};
+
 async function fetchAgents(signal?: AbortSignal): Promise<Agent[]> {
   const { data } = await axios.get<Agent[]>("/api/agents", { signal });
+  return data;
+}
+
+async function fetchAuditEvents(
+  ticketId: string,
+  signal?: AbortSignal,
+): Promise<AuditEvent[]> {
+  const { data } = await axios.get<AuditEvent[]>(
+    `/api/tickets/${ticketId}/audit-events`,
+    { signal },
+  );
   return data;
 }
 
@@ -51,6 +82,13 @@ export default function TicketMeta({ ticket }: Props) {
   const { data: agents = [] } = useQuery({
     queryKey: ["agents"],
     queryFn: ({ signal }) => fetchAgents(signal),
+  });
+
+  // Deduped with ActivityFeed's identical query — no extra request. Used only
+  // to tell whether an agent has overridden the AI's on-arrival classification.
+  const { data: auditEvents = [] } = useQuery({
+    queryKey: ["ticket-audit-events", ticketId],
+    queryFn: ({ signal }) => fetchAuditEvents(ticketId, signal),
   });
 
   const updateCache = (response: { data: TicketDetail }) => {
@@ -126,6 +164,19 @@ export default function TicketMeta({ ticket }: Props) {
 
   const isTriaging = isTriagingStatus(ticket.status as TicketStatus);
 
+  const primaryNext = PRIMARY_NEXT[currentStatus];
+  const primaryAction =
+    primaryNext && validNextStatuses.includes(primaryNext) ? primaryNext : undefined;
+  const overflowActions = validNextStatuses.filter((s) => s !== primaryAction);
+  const PrimaryIcon = primaryAction ? STATUS_ACTION[primaryAction].Icon : undefined;
+
+  // Every inbound ticket is auto-categorised by Gemini on arrival; a human
+  // override is recorded as a `category_changed` audit event. So a category
+  // with no such event still reflects the AI's classification.
+  const aiClassified =
+    currentCategory !== null &&
+    !auditEvents.some((e) => e.type === AuditEventType.category_changed);
+
   return (
     <div className="overflow-hidden rounded-[var(--r-lg)] border border-border bg-card">
       <div className="hairline-b flex items-center justify-between bg-panel-2 px-5 py-3">
@@ -133,32 +184,40 @@ export default function TicketMeta({ ticket }: Props) {
       </div>
 
       <MetaField label="Status">
-        {validNextStatuses.length > 0 && !isTriaging ? (
-          <Select
-            value={currentStatus}
-            onValueChange={(value) => statusMutation.mutate(value as TicketStatus)}
-          >
-            <SelectTrigger
-              className="h-9 w-full text-[13px]"
-              aria-label="Change ticket status"
-            >
-              <span data-slot="select-value" className="flex flex-1 text-left">
-                {STATUS_LABELS[currentStatus]}
-              </span>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ticket.status as string}>
-                {STATUS_LABELS[ticket.status as TicketStatus]}
-              </SelectItem>
-              {validNextStatuses.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {STATUS_LABELS[s]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {isTriaging ? (
+          <div className="flex flex-wrap items-center gap-2.5">
+            <StatusPill status={currentStatus} />
+            <span className="ai-chip">
+              <Sparkles className="size-2.5" aria-hidden /> AI classifying
+            </span>
+          </div>
         ) : (
-          <StatusPill status={currentStatus} />
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusPill status={currentStatus} />
+            {primaryAction && (
+              <Button
+                size="xs"
+                variant={primaryAction === TicketStatus.resolved ? "outline" : "ghost"}
+                onClick={() => statusMutation.mutate(primaryAction)}
+                disabled={statusMutation.isPending}
+              >
+                {PrimaryIcon && <PrimaryIcon aria-hidden />}
+                {STATUS_ACTION[primaryAction].label}
+              </Button>
+            )}
+            {overflowActions.map((s) => (
+              <Button
+                key={s}
+                size="xs"
+                variant="ghost"
+                className="text-muted-foreground"
+                onClick={() => statusMutation.mutate(s)}
+                disabled={statusMutation.isPending}
+              >
+                {STATUS_ACTION[s].label}
+              </Button>
+            ))}
+          </div>
         )}
       </MetaField>
 
@@ -191,6 +250,11 @@ export default function TicketMeta({ ticket }: Props) {
             ))}
           </SelectContent>
         </Select>
+        {aiClassified && (
+          <p className="ai-chip mt-1.5">
+            <Sparkles className="size-2.5" aria-hidden /> Auto-classified by AI
+          </p>
+        )}
       </MetaField>
 
       <MetaField label="Priority">
@@ -248,6 +312,11 @@ export default function TicketMeta({ ticket }: Props) {
             ))}
           </SelectContent>
         </Select>
+        {ticket.assigneeType === "ai" && (
+          <p className="ai-chip mt-1.5">
+            <Sparkles className="size-2.5" aria-hidden /> Handled by automation
+          </p>
+        )}
         {isTerminal && (
           <p className="mt-1.5 text-[11px] text-muted-foreground">
             Reopen the ticket to reassign.

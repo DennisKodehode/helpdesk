@@ -74,11 +74,11 @@ beforeEach(() => {
 });
 
 describe("TicketMeta", () => {
-  it("shows the current status in the status select", async () => {
+  it("shows the current status as a pill with its primary action", async () => {
     renderWithProviders(<TicketMeta ticket={mockTicket} />);
-    expect(
-      await screen.findByRole("combobox", { name: /change ticket status/i }),
-    ).toHaveTextContent("Open");
+    // Agent on an open ticket: status pill + a single "Resolve" action.
+    expect(await screen.findByText("Open")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Resolve" })).toBeInTheDocument();
   });
 
   it("shows the current category in the category select", async () => {
@@ -111,14 +111,12 @@ describe("TicketMeta", () => {
     expect(screen.getByText("Closed")).toBeInTheDocument();
   });
 
-  it("shows status select for closed ticket when user is admin", async () => {
+  it("shows a Reopen action for closed ticket when user is admin", async () => {
     mockSession("admin");
     renderWithProviders(
       <TicketMeta ticket={{ ...mockTicket, status: TicketStatus.closed }} />,
     );
-    expect(
-      await screen.findByRole("combobox", { name: /change ticket status/i }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Reopen" })).toBeInTheDocument();
   });
 
   it("shows a static status badge for resolved ticket when user is not admin", async () => {
@@ -137,24 +135,22 @@ describe("TicketMeta", () => {
     expect(screen.getByText("Resolved")).toBeInTheDocument();
   });
 
-  it("shows status select for resolved ticket when user is admin", async () => {
+  it("shows Reopen and Close actions for resolved ticket when user is admin", async () => {
     mockSession("admin");
     renderWithProviders(
       <TicketMeta ticket={{ ...mockTicket, status: TicketStatus.resolved }} />,
     );
-    expect(
-      await screen.findByRole("combobox", { name: /change ticket status/i }),
-    ).toBeInTheDocument();
+    // Admin on resolved: primary Reopen (→ open) + Close (→ closed) overflow.
+    expect(await screen.findByRole("button", { name: "Reopen" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
   });
 
-  it("shows Closed as an option for admin on an open ticket", async () => {
+  it("shows a Close overflow action for admin on an open ticket", async () => {
     mockSession("admin");
-    const user = userEvent.setup();
     renderWithProviders(<TicketMeta ticket={mockTicket} />);
-    await user.click(
-      await screen.findByRole("combobox", { name: /change ticket status/i }),
-    );
-    expect(await screen.findByRole("option", { name: "Closed" })).toBeInTheDocument();
+    // Admin on open: primary Resolve (→ resolved) + Close (→ closed) overflow.
+    expect(await screen.findByRole("button", { name: "Resolve" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
   });
 
   it("shows the current assignee name in the assign select trigger", async () => {
@@ -185,21 +181,35 @@ describe("TicketMeta", () => {
 });
 
 describe("status interaction", () => {
-  it("calls PATCH with the new status when status is changed", async () => {
+  it("calls PATCH with the new status when the primary action is clicked", async () => {
     vi.mocked(axios.patch).mockResolvedValue({
       data: { ...mockTicket, status: TicketStatus.resolved },
     });
     const user = userEvent.setup();
     renderWithProviders(<TicketMeta ticket={mockTicket} />);
 
-    await user.click(
-      await screen.findByRole("combobox", { name: /change ticket status/i }),
-    );
-    await user.click(await screen.findByRole("option", { name: "Resolved" }));
+    await user.click(await screen.findByRole("button", { name: "Resolve" }));
 
     await waitFor(() => {
       expect(axios.patch).toHaveBeenCalledWith("/api/tickets/42", {
         status: TicketStatus.resolved,
+      });
+    });
+  });
+
+  it("calls PATCH with the overflow transition (admin force-close)", async () => {
+    mockSession("admin");
+    vi.mocked(axios.patch).mockResolvedValue({
+      data: { ...mockTicket, status: TicketStatus.closed },
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<TicketMeta ticket={mockTicket} />);
+
+    await user.click(await screen.findByRole("button", { name: "Close" }));
+
+    await waitFor(() => {
+      expect(axios.patch).toHaveBeenCalledWith("/api/tickets/42", {
+        status: TicketStatus.closed,
       });
     });
   });
