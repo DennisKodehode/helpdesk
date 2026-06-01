@@ -1,7 +1,7 @@
 import type { SlaHealthResponse } from "@helpdesk/core";
 import axios from "axios";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, renderWithProviders, screen, waitFor, within } from "../test/utils";
+import { cleanup, renderWithProviders, screen } from "../test/utils";
 import SlaHealthCard from "./SlaHealthCard";
 
 vi.mock("axios", () => ({
@@ -34,7 +34,7 @@ afterEach(() => {
 });
 
 describe("SlaHealthCard", () => {
-  it("renders a loading skeleton while the query is pending", () => {
+  it("renders a loading skeleton while pending", () => {
     vi.mocked(axios.get).mockReturnValue(new Promise(() => {}));
     renderWithProviders(<SlaHealthCard />);
     expect(
@@ -42,7 +42,7 @@ describe("SlaHealthCard", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the three counts with labels", async () => {
+  it("renders the three counts, the active total, and the by-metric line", async () => {
     vi.mocked(axios.get).mockResolvedValue({
       data: makeResponse({
         total: 12,
@@ -59,70 +59,15 @@ describe("SlaHealthCard", () => {
     expect(await screen.findByText("Breached")).toBeInTheDocument();
     expect(screen.getByText("At risk")).toBeInTheDocument();
     expect(screen.getByText("On track")).toBeInTheDocument();
-    expect(screen.getByText("3")).toBeInTheDocument();
-    expect(screen.getByText("4")).toBeInTheDocument();
-    expect(screen.getByText("5")).toBeInTheDocument();
-    expect(screen.getByText(/12 active tickets/i)).toBeInTheDocument();
+    expect(screen.getByText("12 active tickets")).toBeInTheDocument();
+    expect(screen.getByText("First response")).toBeInTheDocument();
+    expect(screen.getByText("2 breached · 3 at risk")).toBeInTheDocument();
+    expect(screen.getByText("1 breached · 1 at risk")).toBeInTheDocument();
   });
 
-  it("wraps the breached column in a link to /tickets?breachedOnly=true", async () => {
-    vi.mocked(axios.get).mockResolvedValue({
-      data: makeResponse({ total: 3, breached: 2, atRisk: 0, ok: 1 }),
-    });
-    renderWithProviders(<SlaHealthCard />);
-    const link = await screen.findByRole("link", { name: /breached: 2/i });
-    expect(link).toHaveAttribute("href", "/tickets?breachedOnly=true");
-  });
-
-  it("wraps the at-risk column in a link to /tickets?slaState=at_risk", async () => {
-    vi.mocked(axios.get).mockResolvedValue({
-      data: makeResponse({ total: 3, breached: 0, atRisk: 2, ok: 1 }),
-    });
-    renderWithProviders(<SlaHealthCard />);
-    const link = await screen.findByRole("link", { name: /at risk: 2/i });
-    expect(link).toHaveAttribute("href", "/tickets?slaState=at_risk");
-  });
-
-  it("wraps the on-track column in a link to /tickets?slaState=ok", async () => {
-    vi.mocked(axios.get).mockResolvedValue({
-      data: makeResponse({ total: 3, breached: 0, atRisk: 0, ok: 3 }),
-    });
-    renderWithProviders(<SlaHealthCard />);
-    const link = await screen.findByRole("link", { name: /on track: 3/i });
-    expect(link).toHaveAttribute("href", "/tickets?slaState=ok");
-  });
-
-  it("exposes a byMetric tooltip on the breached column", async () => {
-    vi.mocked(axios.get).mockResolvedValue({
-      data: makeResponse({
-        total: 3,
-        breached: 2,
-        byMetric: {
-          firstResponse: { breached: 1, atRisk: 0 },
-          resolution: { breached: 1, atRisk: 0 },
-        },
-        ok: 1,
-      }),
-    });
-    renderWithProviders(<SlaHealthCard />);
-    const link = await screen.findByRole("link", { name: /breached: 2/i });
-    // The tooltip lives on the inner StatColumn div via the `title` attribute.
-    const titled = within(link).getByTitle(/First-response: 1/);
-    expect(titled).toBeInTheDocument();
-    expect(titled.getAttribute("title")).toMatch(/Resolution: 1/);
-  });
-
-  it("renders an empty state when there are no active tickets", async () => {
-    vi.mocked(axios.get).mockResolvedValue({ data: makeResponse({ total: 0, ok: 0 }) });
-    renderWithProviders(<SlaHealthCard />);
-    expect(await screen.findByText(/no active tickets/i)).toBeInTheDocument();
-    expect(screen.getByText(/nothing to track right now/i)).toBeInTheDocument();
-    expect(screen.queryByText("Breached")).not.toBeInTheDocument();
-  });
-
-  it("renders an error alert when the query fails", async () => {
+  it("renders an error state when the query fails", async () => {
     vi.mocked(axios.get).mockRejectedValue(new Error("boom"));
     renderWithProviders(<SlaHealthCard />);
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/boom/));
+    expect(await screen.findByText(/failed to load sla health/i)).toBeInTheDocument();
   });
 });

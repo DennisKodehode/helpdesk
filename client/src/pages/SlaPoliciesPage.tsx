@@ -1,22 +1,17 @@
 import { type SlaPolicy, TicketPriority } from "@helpdesk/core";
-import { useState } from "react";
-import SlaPolicyDialog from "@/components/SlaPolicyDialog";
+import { useQueryClient } from "@tanstack/react-query";
+import { Check, RotateCcw, Target } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import SlaHealthCard from "@/components/SlaHealthCard";
+import SlaTargetCard, { type EditablePolicy } from "@/components/SlaTargetCard";
 import { Button } from "@/components/ui/button";
 import ErrorAlert from "@/components/ui/ErrorAlert";
 import PageContainer from "@/components/ui/PageContainer";
 import PageHeader from "@/components/ui/PageHeader";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useSlaPolicies } from "@/lib/sla-policies";
-import {
-  BADGE_BASE,
-  PRIORITY_DOT,
-  PRIORITY_LABELS,
-  PRIORITY_STYLES,
-} from "@/lib/ticket-ui";
+import { useSlaPoliciesList, useUpdateSlaPolicy } from "@/lib/sla-policies";
 
-// Order matches the urgency we want to highlight, not the enum declaration
-// order. Urgent rows surface first so a glance at the page shows the most
-// aggressive policy.
+// Most-aggressive first, so the page reads top-down by urgency.
 const PRIORITY_ORDER: TicketPriority[] = [
   TicketPriority.urgent,
   TicketPriority.high,
@@ -24,109 +19,157 @@ const PRIORITY_ORDER: TicketPriority[] = [
   TicketPriority.low,
 ];
 
-function formatMinutes(minutes: number | null): string {
-  if (minutes == null) return "—";
-  if (minutes < 60) return `${minutes}m`;
-  if (minutes < 60 * 24) {
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    return m === 0 ? `${h}h` : `${h}h ${m}m`;
-  }
-  const d = Math.floor(minutes / (60 * 24));
-  const remainder = minutes - d * 60 * 24;
-  const h = Math.floor(remainder / 60);
-  return h === 0 ? `${d}d` : `${d}d ${h}h`;
+function toEditable(policies: SlaPolicy[]): EditablePolicy[] {
+  return PRIORITY_ORDER.map((priority) => {
+    const p = policies.find((x) => x.priority === priority);
+    return {
+      priority,
+      firstResponseMinutes: p?.firstResponseMinutes ?? null,
+      resolutionMinutes: p?.resolutionMinutes ?? null,
+    };
+  });
 }
 
 export default function SlaPoliciesPage() {
-  const [editTarget, setEditTarget] = useState<SlaPolicy | null>(null);
-  const { data: policies, isPending, isError } = useSlaPolicies();
+  const { data: serverPolicies, isPending, isError } = useSlaPoliciesList();
+  const updatePolicy = useUpdateSlaPolicy();
+  const queryClient = useQueryClient();
+
+  const baseline = useMemo(
+    () => (serverPolicies ? toEditable(serverPolicies) : null),
+    [serverPolicies],
+  );
+  const [draft, setDraft] = useState<EditablePolicy[] | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  // Adopt the server snapshot whenever it (re)loads, unless the user has
+  // unsaved edits in flight (don't clobber their work on a background refetch).
+  useEffect(() => {
+    if (!baseline) return;
+    setDraft((cur) =>
+      cur && JSON.stringify(cur) !== JSON.stringify(baseline) ? cur : baseline,
+    );
+  }, [baseline]);
+
+  // Clear the transient "Saved" chip after a moment.
+  useEffect(() => {
+    if (!saved) return;
+    const t = setTimeout(() => setSaved(false), 2600);
+    return () => clearTimeout(t);
+  }, [saved]);
+
+  const dirty =
+    draft != null &&
+    baseline != null &&
+    JSON.stringify(draft) !== JSON.stringify(baseline);
+
+  function handleChange(
+    priority: TicketPriority,
+    which: "firstResponseMinutes" | "resolutionMinutes",
+    value: number | null,
+  ) {
+    setSaved(false);
+    setDraft(
+      (cur) =>
+        cur?.map((p) => (p.priority === priority ? { ...p, [which]: value } : p)) ?? cur,
+    );
+  }
+
+  function handleRevert() {
+    setDraft(baseline);
+    setSaved(false);
+  }
+
+  async function handleSave() {
+    if (!draft || !baseline) return;
+    setSaving(true);
+    const changed = draft.filter((d) => {
+      const b = baseline.find((x) => x.priority === d.priority);
+      return (
+        d.firstResponseMinutes !== b?.firstResponseMinutes ||
+        d.resolutionMinutes !== b?.resolutionMinutes
+      );
+    });
+    // Per-priority PATCH; non-atomic by design — keep failed edits dirty.
+    const results = await Promise.allSettled(
+      changed.map((d) =>
+        updatePolicy.mutateAsync({
+          priority: d.priority,
+          data: {
+            firstResponseMinutes: d.firstResponseMinutes,
+            resolutionMinutes: d.resolutionMinutes,
+          },
+        }),
+      ),
+    );
+    setSaving(false);
+    await queryClient.invalidateQueries({ queryKey: ["sla-policies"] });
+    await queryClient.invalidateQueries({ queryKey: ["stats", "sla-health"] });
+    if (results.every((r) => r.status === "fulfilled")) setSaved(true);
+  }
 
   return (
-    <PageContainer width="form">
+    <PageContainer width="dashboard">
       <PageHeader
-        eyebrow="Policies"
+        eyebrow="Administration"
         title="SLA targets"
-        description="First-response and resolution targets per ticket priority. The breach-detection cron checks open tickets against these every 5 minutes."
+        description="Response and resolution windows the queue is measured against, set per priority."
+        action={
+          dirty ? (
+            <div className="flex gap-2.5">
+              <Button variant="ghost" size="sm" onClick={handleRevert} disabled={saving}>
+                <RotateCcw aria-hidden /> Revert
+              </Button>
+              <Button variant="accent" size="sm" onClick={handleSave} disabled={saving}>
+                <Check aria-hidden /> Save targets
+              </Button>
+            </div>
+          ) : saved ? (
+            <span className="inline-flex items-center gap-2 rounded-[var(--r-sm)] border border-eme-dot/30 px-3 py-1.5 text-[13px] text-eme-fg">
+              <Check aria-hidden className="size-4" /> Saved
+            </span>
+          ) : undefined
+        }
       />
 
       {isError && (
-        <ErrorAlert message="Failed to load SLA policies. Try refreshing the page." />
+        <ErrorAlert message="Failed to load SLA targets. Try refreshing the page." />
       )}
 
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
-        <table className="w-full text-[13px]">
-          <thead className="hairline-b bg-muted/30 text-left">
-            <tr>
-              <th className="px-5 py-3 eyebrow text-[11px]">Priority</th>
-              <th className="px-5 py-3 eyebrow text-[11px]">First response</th>
-              <th className="px-5 py-3 eyebrow text-[11px]">Resolution</th>
-              <th className="px-5 py-3 eyebrow text-[11px] text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isPending
-              ? Array.from({ length: 4 }).map((_, i) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: skeleton row placeholders, never reordered
-                  <tr key={`skeleton-${i}`} className="hairline-b">
-                    <td className="px-5 py-4">
-                      <Skeleton className="h-5 w-20" />
-                    </td>
-                    <td className="px-5 py-4">
-                      <Skeleton className="h-5 w-16" />
-                    </td>
-                    <td className="px-5 py-4">
-                      <Skeleton className="h-5 w-16" />
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <Skeleton className="ml-auto h-8 w-16" />
-                    </td>
-                  </tr>
-                ))
-              : PRIORITY_ORDER.map((priority) => {
-                  const p = policies?.[priority];
-                  if (!p) return null;
-                  return (
-                    <tr key={priority} className="hairline-b last:border-b-0">
-                      <td className="px-5 py-4">
-                        <span className={`${BADGE_BASE} ${PRIORITY_STYLES[priority]}`}>
-                          <span
-                            className={`size-1.5 rounded-full ${PRIORITY_DOT[priority]}`}
-                            aria-hidden
-                          />
-                          {PRIORITY_LABELS[priority]}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 font-mono tabular text-[12.5px]">
-                        {formatMinutes(p.firstResponseMinutes)}
-                      </td>
-                      <td className="px-5 py-4 font-mono tabular text-[12.5px]">
-                        {formatMinutes(p.resolutionMinutes)}
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setEditTarget(p)}
-                        >
-                          Edit
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
-          </tbody>
-        </table>
+      <SlaHealthCard />
+
+      <div className="mb-3.5 flex items-center gap-2.5">
+        <Target aria-hidden className="size-4 text-ink-3" />
+        <h2 className="eyebrow">Targets by priority</h2>
       </div>
 
-      <SlaPolicyDialog
-        key={editTarget?.priority ?? "closed"}
-        policy={editTarget}
-        open={editTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setEditTarget(null);
-        }}
-      />
+      {isPending || !draft ? (
+        <div className="space-y-3.5" role="status" aria-label="Loading SLA targets">
+          {Array.from({ length: 4 }).map((_, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length skeleton
+            <Skeleton key={i} className="h-[120px] w-full rounded-[var(--r-lg)]" />
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-3.5">
+          {draft.map((policy) => (
+            <SlaTargetCard
+              key={policy.priority}
+              policy={policy}
+              onChange={handleChange}
+            />
+          ))}
+        </div>
+      )}
+
+      <p className="mt-[26px] max-w-[780px] font-mono text-[11.5px] leading-[1.7] text-ink-4">
+        <span className="text-ink-3">NOTE</span> — Targets count from ticket arrival. A
+        ticket flips to <span className="text-amb-fg">At risk</span> once 75% of a window
+        has elapsed, and <span className="text-ros-fg">Breached</span> when it passes.
+        Resolved and closed tickets never carry an SLA badge. A metric with no target is
+        skipped entirely.
+      </p>
     </PageContainer>
   );
 }

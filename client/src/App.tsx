@@ -5,6 +5,7 @@ import MobileTopbar from "./components/MobileTopbar";
 import Sidebar from "./components/Sidebar";
 import { useSession } from "./lib/auth-client";
 import { useUnauthorizedRedirect } from "./lib/auth-redirect";
+import AcceptInvitePage from "./pages/AcceptInvitePage";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import MyStatsPage from "./pages/MyStatsPage";
@@ -60,6 +61,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/accept-invite" element={<AcceptInvitePage />} />
       <Route element={<ProtectedLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/tickets" element={<TicketsPage />} />
