@@ -59,6 +59,20 @@ export const CATEGORY_LABELS: Record<TicketCategory, string> = {
   [TicketCategory.feature_request]: "Feature",
 };
 
+// Each category owns a tone so the dashboard's "Open by category" bars read as
+// a small spectrum. Uncategorized falls back to neutral zinc.
+export const CATEGORY_DOT: Record<TicketCategory, string> = {
+  [TicketCategory.technical_question]: "bg-sky-dot",
+  [TicketCategory.billing_inquiry]: "bg-amb-dot",
+  [TicketCategory.general_question]: "bg-zin-dot",
+  [TicketCategory.refund_request]: "bg-ros-dot",
+  [TicketCategory.feature_request]: "bg-eme-dot",
+};
+
+export function categoryDot(category: TicketCategory | null): string {
+  return category ? CATEGORY_DOT[category] : "bg-zin-dot";
+}
+
 // Priority: only the attention-grabbing levels get a colored pill;
 // normal/low stay neutral so the queue doesn't look like a Christmas tree.
 export const PRIORITY_STYLES: Record<TicketPriority, string> = {

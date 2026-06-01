@@ -9,7 +9,8 @@ import { ArrowUpRight } from "lucide-react";
 import ErrorAlert from "@/components/ui/ErrorAlert";
 import { Link } from "@/components/ui/link";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CATEGORY_LABELS } from "@/lib/ticket-ui";
+import { CATEGORY_LABELS, categoryDot } from "@/lib/ticket-ui";
+import { cn } from "@/lib/utils";
 
 function labelFor(category: TicketCategory | null): string {
   return category === null ? "Uncategorized" : CATEGORY_LABELS[category];
@@ -59,19 +60,21 @@ function CategoryRow({
   pct: number;
 }) {
   const label = labelFor(category);
+  const tone = categoryDot(category);
   const body = (
     <>
       <div className="flex items-baseline justify-between gap-3">
-        <span className="font-mono text-[12px] uppercase tracking-[0.08em] text-foreground">
+        <span className="flex items-center gap-2 font-mono text-[12px] uppercase tracking-[0.08em] text-foreground">
+          <span aria-hidden className={cn("size-1.5 rounded-full", tone)} />
           {label}
         </span>
         <span className="display-serif tabular text-[20px] leading-none text-foreground">
           {count}
         </span>
       </div>
-      <div className="mt-2 h-1 overflow-hidden rounded-full bg-panel-inset" aria-hidden>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-panel-inset" aria-hidden>
         <div
-          className="h-full rounded-full bg-foreground/60 transition-[width] duration-300"
+          className={cn("h-full rounded-full transition-[width] duration-300", tone)}
           style={{ width: `${pct}%` }}
         />
       </div>
