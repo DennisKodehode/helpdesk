@@ -210,29 +210,24 @@ test.describe
       ticketId = ticket.id;
     });
 
-    test("agent can change an open ticket to resolved via the status dropdown", async ({
-      page,
-    }) => {
+    test("agent can resolve an open ticket via the status action", async ({ page }) => {
       await loginAs(page, AGENT_EMAIL, AGENT_PASSWORD);
       await page.goto(`/tickets/${ticketId}`);
 
-      // The status select trigger should show "Open" initially.
-      const statusSelect = page.getByLabel("Change ticket status");
-      await expect(statusSelect).toBeVisible();
-      await expect(statusSelect).toContainText("Open");
+      // Status is a pill + a contextual action button — an open ticket shows
+      // a "Resolve" action (not a dropdown).
+      const resolveBtn = page.getByRole("button", { name: "Resolve" });
+      await expect(resolveBtn).toBeVisible();
+      await resolveBtn.click();
 
-      // Open the dropdown and select "Resolved".
-      await statusSelect.click();
-      await page.getByRole("option", { name: "Resolved" }).click();
-
-      // Resolved ticket: agent has no further transitions, so the select is
-      // replaced by a static StatusPill. The word "Resolved" can appear in
-      // multiple places (pill + any other status indicator), so use .first().
-      await expect(page.getByLabel("Change ticket status")).not.toBeVisible();
+      // Agent has no further transitions from Resolved, so the action button is
+      // gone and only the StatusPill remains. "Resolved" can appear elsewhere
+      // (e.g. the Activity feed), so use .first().
+      await expect(page.getByRole("button", { name: "Resolve" })).not.toBeVisible();
       await expect(page.getByText("Resolved").first()).toBeVisible();
     });
 
-    test("admin can change a resolved ticket to closed via the status dropdown", async ({
+    test("admin can close a resolved ticket via the status action", async ({
       page,
       request,
     }) => {
@@ -250,16 +245,11 @@ test.describe
         body: "Resolve me first, then close.",
       });
 
-      // Step 1 — Agent resolves the ticket via the UI.
+      // Step 1 — Agent resolves the ticket via the "Resolve" action.
       await loginAs(page, AGENT_EMAIL, AGENT_PASSWORD);
       await page.goto(`/tickets/${resolvedTicket.id}`);
-      const agentStatusSelect = page.getByLabel("Change ticket status");
-      await expect(agentStatusSelect).toContainText("Open");
-      await agentStatusSelect.click();
-      await page.getByRole("option", { name: "Resolved" }).click();
-      // Agent has no further transitions from Resolved, so select is replaced by a static badge.
-      // "Resolved" also appears in the Activity feed, so use .first() for strict mode.
-      await expect(page.getByLabel("Change ticket status")).not.toBeVisible();
+      await page.getByRole("button", { name: "Resolve" }).click();
+      await expect(page.getByRole("button", { name: "Resolve" })).not.toBeVisible();
       await expect(page.getByText("Resolved").first()).toBeVisible();
 
       // Step 2 — Sign out the agent, then log in as admin.
@@ -267,14 +257,13 @@ test.describe
       await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
       await page.goto(`/tickets/${resolvedTicket.id}`);
 
-      const adminStatusSelect = page.getByLabel("Change ticket status");
-      await expect(adminStatusSelect).toContainText("Resolved");
+      // Admin on a resolved ticket gets "Reopen" (primary) + "Close" (overflow).
+      const closeBtn = page.getByRole("button", { name: "Close", exact: true });
+      await expect(closeBtn).toBeVisible();
+      await closeBtn.click();
 
-      await adminStatusSelect.click();
-      await page.getByRole("option", { name: "Closed" }).click();
-
-      // Admin can reopen closed tickets, so the select stays visible — it now shows "Closed".
-      await expect(adminStatusSelect).toContainText("Closed");
+      // Closed: the StatusPill now reads "Closed".
+      await expect(page.getByText("Closed").first()).toBeVisible();
     });
   });
 
