@@ -3,6 +3,7 @@ import {
   AuditEventType,
   NotificationType,
   SenderType,
+  SlaMetric,
   TicketCategory,
   TicketPriority,
   TicketStatus,
@@ -269,6 +270,10 @@ export const statsResponseSchema = z.object({
   resolvedByAI: z.number(),
   percentResolvedByAILast30d: z.number(),
   avgResolutionMinutes: z.number().nullable(),
+  // Dashboard stat cards: tickets still being triaged (new + processing) and
+  // tickets resolved in the trailing 7 days.
+  triagingTickets: z.number(),
+  resolvedLast7d: z.number(),
 });
 
 export type StatsResponse = z.infer<typeof statsResponseSchema>;
@@ -326,3 +331,52 @@ export const categoryBreakdownResponseSchema = z.array(categoryBreakdownRowSchem
 
 export type CategoryBreakdownRow = z.infer<typeof categoryBreakdownRowSchema>;
 export type CategoryBreakdownResponse = z.infer<typeof categoryBreakdownResponseSchema>;
+
+// Dashboard "AI this week" — machine-driven activity over a trailing window.
+export const aiActivityResponseSchema = z.object({
+  autoResolved: z.number().int().nonnegative(),
+  autoClassified: z.number().int().nonnegative(),
+  escalated: z.number().int().nonnegative(),
+  repliesSent: z.number().int().nonnegative(),
+});
+
+export type AiActivityResponse = z.infer<typeof aiActivityResponseSchema>;
+
+// Dashboard SLA compliance rings — percent of in-window tickets that met each
+// target. Null when there were no tickets to measure for that metric.
+export const slaComplianceResponseSchema = z.object({
+  firstResponse: z.number().min(0).max(100).nullable(),
+  resolution: z.number().min(0).max(100).nullable(),
+});
+
+export type SlaComplianceResponse = z.infer<typeof slaComplianceResponseSchema>;
+
+// Dashboard recent-activity timeline — global audit events across all tickets.
+export const recentActivityRowSchema = z.object({
+  id: z.string(),
+  type: z.enum(AuditEventType),
+  ticketId: z.number().int(),
+  ticketSubject: z.string(),
+  actorName: z.string().nullable(),
+  data: z.unknown(),
+  createdAt: z.string(),
+});
+
+export const recentActivityResponseSchema = z.array(recentActivityRowSchema);
+
+export type RecentActivityRow = z.infer<typeof recentActivityRowSchema>;
+export type RecentActivityResponse = z.infer<typeof recentActivityResponseSchema>;
+
+// Dashboard needs-attention — active tickets at risk of or past an SLA target.
+export const needsAttentionRowSchema = z.object({
+  id: z.number().int(),
+  subject: z.string(),
+  priority: z.enum(TicketPriority),
+  slaState: z.enum(["at_risk", "breached"]),
+  slaMetric: z.enum(SlaMetric),
+});
+
+export const needsAttentionResponseSchema = z.array(needsAttentionRowSchema);
+
+export type NeedsAttentionRow = z.infer<typeof needsAttentionRowSchema>;
+export type NeedsAttentionResponse = z.infer<typeof needsAttentionResponseSchema>;

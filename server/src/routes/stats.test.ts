@@ -1,4 +1,10 @@
-import { SenderType, TicketCategory, TicketPriority, TicketStatus } from "@helpdesk/core";
+import {
+  AuditEventType,
+  SenderType,
+  TicketCategory,
+  TicketPriority,
+  TicketStatus,
+} from "@helpdesk/core";
 import { generateId } from "better-auth";
 import request from "supertest";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
@@ -868,5 +874,273 @@ describe("GET /api/stats/categories", () => {
     for (let i = 1; i < rows.length; i++) {
       expect(rows[i].count).toBeLessThanOrEqual(rows[i - 1].count);
     }
+  });
+});
+
+describe("dashboard aggregation endpoints", () => {
+  let authCookie: string;
+  let testUserId: string;
+  let aiUserId: string;
+  const createdTicketIds: number[] = [];
+  const DAY = 24 * 60 * 60 * 1000;
+
+  function get(path: string) {
+    return request(app).get(path).set("Cookie", authCookie);
+  }
+
+  async function createTicket(
+    data: Partial<{
+      status: TicketStatus;
+      priority: TicketPriority;
+      subject: string;
+      createdAt: Date;
+      resolvedAt: Date;
+      firstAgentReplyAt: Date;
+    }> = {},
+  ) {
+    const ticket = await prisma.ticket.create({
+      data: {
+        fromName: "Agg",
+        fromEmail: "agg@example.com",
+        subject: data.subject ?? "Agg ticket",
+        body: "Body",
+        status: data.status ?? TicketStatus.open,
+        priority: data.priority ?? TicketPriority.normal,
+        createdAt: data.createdAt,
+        resolvedAt: data.resolvedAt,
+        firstAgentReplyAt: data.firstAgentReplyAt,
+      },
+    });
+    createdTicketIds.push(ticket.id);
+    return ticket;
+  }
+
+  beforeAll(async () => {
+    const ctx = await auth.$context;
+    const hashedPassword = await ctx.password.hash("Testpassword1!");
+    const now = new Date();
+
+    const id = generateId();
+    await prisma.user.create({
+      data: {
+        id,
+        name: "Dashboard Agg User",
+        email: "test-dashboard-agg@example.com",
+        emailVerified: true,
+        role: "agent",
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await prisma.account.create({
+      data: {
+        id: generateId(),
+        accountId: id,
+        providerId: "credential",
+        userId: id,
+        password: hashedPassword,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    testUserId = id;
+
+    const signInRes = await request(app)
+      .post("/api/auth/sign-in/email")
+      .send({ email: "test-dashboard-agg@example.com", password: "Testpassword1!" });
+    const cookies = signInRes.headers["set-cookie"] as string[] | string;
+    authCookie = Array.isArray(cookies) ? cookies.join("; ") : cookies;
+
+    const aiId = generateId();
+    await prisma.user.upsert({
+      where: { email: "ai@helpdesk.internal" },
+      update: {},
+      create: {
+        id: aiId,
+        name: "AI",
+        email: "ai@helpdesk.internal",
+        emailVerified: true,
+        role: "agent",
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    const aiUser = await prisma.user.findUnique({
+      where: { email: "ai@helpdesk.internal" },
+    });
+    aiUserId = aiUser!.id;
+    await initAiUserId();
+    await seedSlaPolicies();
+  });
+
+  afterAll(async () => {
+    if (createdTicketIds.length > 0) {
+      // Ticket delete cascades replies + audit events.
+      await prisma.ticket.deleteMany({ where: { id: { in: createdTicketIds } } });
+    }
+    await prisma.session.deleteMany({ where: { userId: testUserId } });
+    await prisma.account.deleteMany({ where: { userId: testUserId } });
+    await prisma.user.delete({ where: { id: testUserId } });
+    await prisma.user.deleteMany({ where: { email: "ai@helpdesk.internal" } });
+  });
+
+  describe("GET /api/stats (dashboard fields)", () => {
+    it("includes triagingTickets and resolvedLast7d as numbers", async () => {
+      const res = await get("/api/stats");
+      expect(res.status).toBe(200);
+      expect(typeof res.body.triagingTickets).toBe("number");
+      expect(typeof res.body.resolvedLast7d).toBe("number");
+    });
+
+    it("bumps triagingTickets when a new (triaging) ticket arrives", async () => {
+      const before = (await get("/api/stats")).body.triagingTickets as number;
+      await createTicket({ status: TicketStatus.new });
+      const after = (await get("/api/stats")).body.triagingTickets as number;
+      expect(after).toBe(before + 1);
+    });
+
+    it("bumps resolvedLast7d when a ticket is resolved now", async () => {
+      const before = (await get("/api/stats")).body.resolvedLast7d as number;
+      await createTicket({ status: TicketStatus.resolved, resolvedAt: new Date() });
+      const after = (await get("/api/stats")).body.resolvedLast7d as number;
+      expect(after).toBe(before + 1);
+    });
+  });
+
+  describe("GET /api/stats/ai-activity", () => {
+    it("returns 401 when not authenticated", async () => {
+      expect((await request(app).get("/api/stats/ai-activity")).status).toBe(401);
+    });
+
+    it("reflects new AI events and an agent reply within the window", async () => {
+      const before = (await get("/api/stats/ai-activity")).body;
+      const t = await createTicket();
+      await prisma.auditEvent.create({
+        data: { ticketId: t.id, type: AuditEventType.auto_resolved, actorId: aiUserId },
+      });
+      await prisma.auditEvent.create({
+        data: {
+          ticketId: t.id,
+          type: AuditEventType.category_changed,
+          actorId: aiUserId,
+        },
+      });
+      await prisma.auditEvent.create({
+        data: { ticketId: t.id, type: AuditEventType.ai_escalated, actorId: null },
+      });
+      await prisma.reply.create({
+        data: {
+          ticketId: t.id,
+          authorId: aiUserId,
+          senderType: SenderType.agent,
+          body: "Hello",
+        },
+      });
+      const after = (await get("/api/stats/ai-activity")).body;
+      expect(after.autoResolved).toBe(before.autoResolved + 1);
+      expect(after.autoClassified).toBe(before.autoClassified + 1);
+      expect(after.escalated).toBe(before.escalated + 1);
+      expect(after.repliesSent).toBe(before.repliesSent + 1);
+    });
+
+    it("excludes events older than the requested window", async () => {
+      const before = (await get("/api/stats/ai-activity?days=1")).body
+        .autoResolved as number;
+      const t = await createTicket();
+      await prisma.auditEvent.create({
+        data: {
+          ticketId: t.id,
+          type: AuditEventType.auto_resolved,
+          actorId: aiUserId,
+          createdAt: new Date(Date.now() - 40 * DAY),
+        },
+      });
+      const after = (await get("/api/stats/ai-activity?days=1")).body
+        .autoResolved as number;
+      expect(after).toBe(before);
+    });
+  });
+
+  describe("GET /api/stats/sla-compliance", () => {
+    it("returns 401 when not authenticated", async () => {
+      expect((await request(app).get("/api/stats/sla-compliance")).status).toBe(401);
+    });
+
+    it("returns each metric as a percent in range or null", async () => {
+      const res = await get("/api/stats/sla-compliance");
+      expect(res.status).toBe(200);
+      for (const key of ["firstResponse", "resolution"] as const) {
+        const v = res.body[key];
+        expect(v === null || (typeof v === "number" && v >= 0 && v <= 100)).toBe(true);
+      }
+    });
+
+    it("reports a measurable resolution compliance once a ticket is resolved on time", async () => {
+      const created = new Date(Date.now() - 60 * 60 * 1000); // 1h ago
+      await createTicket({
+        status: TicketStatus.resolved,
+        priority: TicketPriority.urgent,
+        createdAt: created,
+        firstAgentReplyAt: new Date(created.getTime() + 5 * 60 * 1000),
+        resolvedAt: new Date(created.getTime() + 10 * 60 * 1000),
+      });
+      const res = await get("/api/stats/sla-compliance");
+      expect(typeof res.body.resolution).toBe("number");
+    });
+  });
+
+  describe("GET /api/stats/recent-activity", () => {
+    it("returns 401 when not authenticated", async () => {
+      expect((await request(app).get("/api/stats/recent-activity")).status).toBe(401);
+    });
+
+    it("includes the ticket subject and actor for a recent event", async () => {
+      const t = await createTicket({ subject: "Recent activity subject" });
+      const ev = await prisma.auditEvent.create({
+        data: {
+          ticketId: t.id,
+          type: AuditEventType.status_changed,
+          actorId: testUserId,
+          data: { from: "open", to: "resolved" },
+        },
+      });
+      const res = await get("/api/stats/recent-activity");
+      expect(res.status).toBe(200);
+      const row = (res.body as Array<{ id: string }>).find((r) => r.id === ev.id) as
+        | Record<string, unknown>
+        | undefined;
+      expect(row).toBeDefined();
+      expect(row?.ticketSubject).toBe("Recent activity subject");
+      expect(row?.ticketId).toBe(t.id);
+      expect(row?.actorName).toBe("Dashboard Agg User");
+    });
+
+    it("respects the limit param", async () => {
+      const res = await get("/api/stats/recent-activity?limit=1");
+      expect((res.body as unknown[]).length).toBeLessThanOrEqual(1);
+    });
+  });
+
+  describe("GET /api/stats/needs-attention", () => {
+    it("returns 401 when not authenticated", async () => {
+      expect((await request(app).get("/api/stats/needs-attention")).status).toBe(401);
+    });
+
+    it("surfaces a long-overdue open ticket as breached", async () => {
+      const t = await createTicket({
+        status: TicketStatus.open,
+        priority: TicketPriority.urgent,
+        subject: "Overdue urgent",
+        createdAt: new Date(Date.now() - 400 * DAY), // breaches any finite target
+      });
+      const res = await get("/api/stats/needs-attention?limit=20");
+      expect(res.status).toBe(200);
+      const row = (
+        res.body as Array<{ id: number; slaState: string; slaMetric: string }>
+      ).find((r) => r.id === t.id);
+      expect(row).toBeDefined();
+      expect(row?.slaState).toBe("breached");
+      expect(["first_response", "resolution"]).toContain(row?.slaMetric);
+    });
   });
 });
