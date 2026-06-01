@@ -91,17 +91,17 @@ export default function NotificationBell({ className, align = "end" }: Props) {
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((v) => !v)}
-        className="relative grid size-9 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className="relative grid size-9 place-items-center rounded-md text-ink-3 transition-colors hover:bg-panel-2 hover:text-foreground"
       >
         <Bell className="size-4.5" />
+        {/* A single rose dot signals "unread" — the exact count lives in the
+            popover header and the button's accessible name, so color stays
+            reserved for meaning rather than carrying a number. */}
         {unreadCount > 0 && (
           <span
             aria-hidden
-            className="absolute -right-0.5 -top-0.5 grid min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-medium leading-none text-primary-foreground"
-            style={{ height: 16 }}
-          >
-            {unreadCount > 9 ? "9+" : unreadCount}
-          </span>
+            className="absolute right-1.5 top-1.5 size-2 rounded-full bg-ros-dot ring-2 ring-[var(--sidebar)]"
+          />
         )}
       </button>
 
@@ -109,17 +109,24 @@ export default function NotificationBell({ className, align = "end" }: Props) {
         <div
           role="menu"
           className={cn(
-            "absolute top-full z-50 mt-2 w-80 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-md border border-border bg-popover shadow-[0_8px_30px_-12px_rgb(0_0_0_/_0.18)]",
+            "absolute top-full z-50 mt-2 w-80 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-md border border-border bg-popover shadow-[var(--shadow-lg)]",
             align === "end" ? "right-0" : "left-0",
           )}
         >
-          <div className="flex items-center justify-between border-b border-border px-3 py-2">
-            <p className="eyebrow text-[11px]">Notifications</p>
+          <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
+            <p className="eyebrow">
+              Notifications
+              {unreadCount > 0 && (
+                <span className="ml-2 text-accent-ink normal-case tracking-normal">
+                  {unreadCount} new
+                </span>
+              )}
+            </p>
             <button
               type="button"
               onClick={handleMarkAllRead}
               disabled={unreadCount === 0 || markAllRead.isPending}
-              className="text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:cursor-default disabled:opacity-40"
+              className="text-[11px] text-ink-3 transition-colors hover:text-foreground disabled:cursor-default disabled:opacity-40"
             >
               Mark all as read
             </button>
@@ -127,7 +134,7 @@ export default function NotificationBell({ className, align = "end" }: Props) {
 
           <div className="max-h-[60vh] overflow-y-auto">
             {items.length === 0 ? (
-              <p className="px-3 py-6 text-center text-[12px] text-muted-foreground">
+              <p className="px-3 py-6 text-center text-[12px] text-ink-3">
                 You're all caught up.
               </p>
             ) : (
@@ -147,8 +154,8 @@ export default function NotificationBell({ className, align = "end" }: Props) {
                         role="menuitem"
                         onClick={() => handleItemClick(n)}
                         className={cn(
-                          "flex w-full items-start gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-accent/60",
-                          unread && "bg-accent/30",
+                          "flex w-full items-start gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-panel-2",
+                          unread && "bg-accent-tint",
                         )}
                       >
                         <span
@@ -156,8 +163,8 @@ export default function NotificationBell({ className, align = "end" }: Props) {
                           className={cn(
                             "mt-0.5 grid size-7 shrink-0 place-items-center rounded-full",
                             unread
-                              ? "bg-primary/10 text-primary"
-                              : "bg-muted text-muted-foreground",
+                              ? "bg-accent-tint-2 text-accent-ink"
+                              : "bg-panel-2 text-ink-3",
                           )}
                         >
                           <Icon className="size-3.5" />
@@ -166,10 +173,10 @@ export default function NotificationBell({ className, align = "end" }: Props) {
                           <span className="block truncate text-[12px] font-medium text-foreground">
                             {label}
                           </span>
-                          <span className="block truncate text-[12px] text-muted-foreground">
+                          <span className="block truncate text-[12px] text-ink-3">
                             #{n.ticketId} · {n.ticketSubject}
                           </span>
-                          <span className="block text-[11px] text-muted-foreground/80">
+                          <span className="block font-mono text-[10.5px] text-ink-4">
                             {formatRelative(n.createdAt)}
                           </span>
                         </span>

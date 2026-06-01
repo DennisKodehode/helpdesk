@@ -35,7 +35,7 @@ function ProtectedLayout() {
     <div className="min-h-screen bg-background">
       <MobileTopbar onMenuClick={() => setMobileNavOpen(true)} />
       <Sidebar mobileOpen={mobileNavOpen} onMobileOpenChange={setMobileNavOpen} />
-      <div className="pt-14 md:pt-0 md:pl-60 xl:pl-64 2xl:pl-72">
+      <div className="pt-14 md:pt-0 md:pl-64">
         <Outlet />
       </div>
     </div>

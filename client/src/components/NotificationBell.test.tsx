@@ -53,20 +53,26 @@ describe("NotificationBell", () => {
     expect(btn).toHaveAccessibleName("Notifications");
   });
 
-  it("shows the unread count in the bell button aria-label and badge", async () => {
+  it("reflects the unread count in the bell aria-label and popover header", async () => {
     mockNotificationsResponse({ data: [], unreadCount: 3 });
+    const user = userEvent.setup();
     renderWithProviders(<NotificationBell />);
     const btn = await screen.findByRole("button", {
       name: /notifications \(3 unread\)/i,
     });
-    expect(btn).toHaveTextContent("3");
+    await user.click(btn);
+    expect(await screen.findByText(/3 new/i)).toBeInTheDocument();
   });
 
-  it("caps the badge text at '9+' when unreadCount is over 9", async () => {
+  it("shows the full unread count in the popover header, not on the bell", async () => {
     mockNotificationsResponse({ data: [], unreadCount: 42 });
+    const user = userEvent.setup();
     renderWithProviders(<NotificationBell />);
     const btn = await screen.findByRole("button", { name: /42 unread/i });
-    expect(btn).toHaveTextContent("9+");
+    // The bell carries only a rose dot — the number lives in the popover.
+    expect(btn).not.toHaveTextContent("42");
+    await user.click(btn);
+    expect(await screen.findByText(/42 new/i)).toBeInTheDocument();
   });
 
   it("opens the dropdown on click and shows 'You're all caught up.' when empty", async () => {
