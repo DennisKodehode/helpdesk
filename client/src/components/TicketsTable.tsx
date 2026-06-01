@@ -1,4 +1,5 @@
-import type { Ticket, TicketPriority, TicketStatus } from "@helpdesk/core";
+import type { Ticket } from "@helpdesk/core";
+import { TicketPriority, type TicketStatus } from "@helpdesk/core";
 import {
   type ColumnDef,
   flexRender,
@@ -48,18 +49,42 @@ interface TicketsTableProps {
 // breakpoint class so headers + cells stay in sync.
 type ColumnMeta = { cellClass?: string };
 
+// Priority stays restrained: Low/Normal render as muted mono text (no pill,
+// no dot) so the queue doesn't light up; only High (orange) and Urgent (rose)
+// earn a colored pill. Shared by the desktop cell and the mobile card.
+function PriorityCell({ priority }: { priority: TicketPriority }) {
+  if (priority === TicketPriority.low || priority === TicketPriority.normal) {
+    return (
+      <span className="font-mono text-[11px] uppercase tracking-[0.07em] text-ink-4">
+        {PRIORITY_LABELS[priority]}
+      </span>
+    );
+  }
+  return (
+    <span className={`${BADGE_BASE} ${PRIORITY_STYLES[priority]}`}>
+      <span className={`size-1.5 rounded-full ${PRIORITY_DOT[priority]}`} aria-hidden />
+      {PRIORITY_LABELS[priority]}
+    </span>
+  );
+}
+
 const columns: ColumnDef<Ticket, unknown>[] = [
   {
     id: "subject",
     accessorKey: "subject",
     header: "Subject",
     cell: ({ row }) => (
-      <Link
-        to={`/tickets/${row.original.id}`}
-        className="block max-w-[20rem] truncate text-[13.5px] font-medium text-foreground underline-offset-4 hover:underline"
-      >
-        {row.original.subject}
-      </Link>
+      <div className="min-w-0">
+        <Link
+          to={`/tickets/${row.original.id}`}
+          className="block max-w-[20rem] truncate text-[14.5px] font-medium text-foreground underline-offset-4 hover:underline"
+        >
+          {row.original.subject}
+        </Link>
+        <p className="mt-0.5 font-mono tabular text-[11px] text-ink-4">
+          #{String(row.original.id).padStart(4, "0")}
+        </p>
+      </div>
     ),
   },
   {
@@ -103,15 +128,9 @@ const columns: ColumnDef<Ticket, unknown>[] = [
     id: "priority",
     accessorKey: "priority",
     header: "Priority",
-    cell: ({ row }) => {
-      const p = row.original.priority as TicketPriority;
-      return (
-        <span className={`${BADGE_BASE} ${PRIORITY_STYLES[p]}`}>
-          <span className={`size-1.5 rounded-full ${PRIORITY_DOT[p]}`} aria-hidden />
-          {PRIORITY_LABELS[p]}
-        </span>
-      );
-    },
+    cell: ({ row }) => (
+      <PriorityCell priority={row.original.priority as TicketPriority} />
+    ),
   },
   {
     id: "sla",
@@ -178,7 +197,7 @@ function MobileSkeleton() {
         <li
           // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholder; never reorders
           key={`mobile-skeleton-${i}`}
-          className="h-32 rounded-lg border border-border bg-card"
+          className="h-32 rounded-[var(--r-lg)] border border-border bg-card"
         >
           <div className="flex items-start justify-between p-4">
             <Skeleton className="h-3 w-10" />
@@ -196,7 +215,7 @@ function MobileSkeleton() {
 
 function MobileEmpty({ title, description }: { title: string; description: string }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-8 text-center">
+    <div className="rounded-[var(--r-lg)] border border-border bg-card p-8 text-center">
       <p className="display-serif text-2xl text-muted-foreground">{title}</p>
       <p className="mt-1 text-[13px] text-muted-foreground/70">{description}</p>
     </div>
@@ -240,11 +259,11 @@ export default function TicketsTable({
           Subject is capped at 22rem and From at 14rem so the table always
           fits its content area at every breakpoint — overflow-hidden keeps
           the rounded card aesthetic clean (no inner scrollbar). */}
-      <div className="hidden overflow-hidden rounded-lg border border-border bg-card lg:block">
+      <div className="hidden overflow-hidden rounded-[var(--r-lg)] border border-border bg-card lg:block">
         <table className="min-w-full">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id} className="hairline-b">
+              <tr key={headerGroup.id} className="hairline-b bg-panel-2">
                 {headerGroup.headers.map((header) => {
                   const meta = header.column.columnDef.meta as ColumnMeta | undefined;
                   return (
@@ -279,7 +298,7 @@ export default function TicketsTable({
               table.getRowModel().rows.map((row, idx, arr) => (
                 <tr
                   key={row.id}
-                  className={`group transition-colors hover:bg-accent/40 ${
+                  className={`group transition-colors hover:bg-panel-2 ${
                     idx < arr.length - 1 ? "hairline-b" : ""
                   }`}
                 >
@@ -331,7 +350,7 @@ export default function TicketsTable({
             {tickets.map((t) => (
               <li
                 key={t.id}
-                className="relative rounded-lg border border-border bg-card transition-colors hover:bg-accent/40 focus-within:ring-2 focus-within:ring-ring"
+                className="relative rounded-[var(--r-lg)] border border-border bg-card transition-colors hover:bg-panel-2 focus-within:ring-2 focus-within:ring-ring"
               >
                 <div className="flex items-start justify-between gap-3 px-4 pt-4">
                   <span className="font-mono tabular text-[11px] text-muted-foreground">
@@ -358,14 +377,8 @@ export default function TicketsTable({
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1.5">
-                    <span
-                      className={`${BADGE_BASE} ${PRIORITY_STYLES[t.priority as TicketPriority]} relative z-10`}
-                    >
-                      <span
-                        className={`size-1.5 rounded-full ${PRIORITY_DOT[t.priority as TicketPriority]}`}
-                        aria-hidden
-                      />
-                      {PRIORITY_LABELS[t.priority as TicketPriority]}
+                    <span className="relative z-10">
+                      <PriorityCell priority={t.priority as TicketPriority} />
                     </span>
                     <span className="relative z-10">
                       <SlaBadge ticket={t} />

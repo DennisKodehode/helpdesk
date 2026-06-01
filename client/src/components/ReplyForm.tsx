@@ -160,17 +160,17 @@ export default function ReplyForm({ ticketId }: Props) {
       }}
       onDragLeave={() => setIsDragOver(false)}
       onDrop={handleDrop}
-      className={`overflow-hidden rounded-lg border transition-colors ${
+      className={`overflow-hidden rounded-[var(--r-lg)] border transition-colors ${
         isDragOver
           ? "border-primary/60 ring-2 ring-primary/20"
           : isInternal
-            ? "border-amber-300/70 bg-amber-50/40 dark:border-amber-900/60 dark:bg-amber-950/20"
+            ? "border-amb-dot/45 bg-amb-bg/50"
             : "border-border bg-card"
       }`}
     >
       <div
         className={`hairline-b flex items-center justify-between px-4 py-2.5 ${
-          isInternal ? "bg-amber-100/40 dark:bg-amber-950/30" : "bg-muted/30"
+          isInternal ? "bg-amb-bg" : "bg-panel-2"
         }`}
       >
         <Controller
@@ -194,7 +194,7 @@ export default function ReplyForm({ ticketId }: Props) {
           )}
         />
         {isPolished && !isInternal && (
-          <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-primary">
+          <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-accent-ink">
             <Sparkles className="size-2.5" />
             Polished
           </span>
@@ -223,7 +223,7 @@ export default function ReplyForm({ ticketId }: Props) {
             {pickedFiles.map(({ id, file }) => (
               <li
                 key={id}
-                className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-[12px]"
+                className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-panel-2 px-3 py-1 text-[12px]"
               >
                 <Paperclip className="size-3 text-muted-foreground" aria-hidden />
                 <span className="max-w-[180px] truncate font-medium text-foreground">
@@ -283,12 +283,20 @@ export default function ReplyForm({ ticketId }: Props) {
               <Paperclip />
               Attach
             </Button>
+            {/* Polish/Refine are AI moments → violet. Refine goes solid accent
+                once there's a note to act on; otherwise a quiet accent-tinted
+                outline keeps the machine action distinct from the ink Send. */}
             {!isInternal &&
               (isPolished ? (
                 <Button
                   type="button"
-                  variant={refinementNote.trim() ? "default" : "outline"}
+                  variant={refinementNote.trim() ? "accent" : "outline"}
                   size="sm"
+                  className={
+                    refinementNote.trim()
+                      ? undefined
+                      : "border-primary/30 text-accent-ink hover:bg-accent-tint hover:text-accent-ink"
+                  }
                   disabled={!refinementNote.trim() || polishMutation.isPending}
                   onClick={() =>
                     polishMutation.mutate({ body: bodyValue, refinementNote })
@@ -302,6 +310,7 @@ export default function ReplyForm({ ticketId }: Props) {
                   type="button"
                   variant="outline"
                   size="sm"
+                  className="border-primary/30 text-accent-ink hover:bg-accent-tint hover:text-accent-ink"
                   disabled={!bodyValue?.trim() || polishMutation.isPending}
                   onClick={() => polishMutation.mutate({ body: bodyValue })}
                 >

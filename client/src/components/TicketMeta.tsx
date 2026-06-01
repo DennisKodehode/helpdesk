@@ -127,8 +127,8 @@ export default function TicketMeta({ ticket }: Props) {
   const isTriaging = isTriagingStatus(ticket.status as TicketStatus);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card">
-      <div className="hairline-b flex items-center justify-between bg-muted/30 px-5 py-3">
+    <div className="overflow-hidden rounded-[var(--r-lg)] border border-border bg-card">
+      <div className="hairline-b flex items-center justify-between bg-panel-2 px-5 py-3">
         <h2 className="eyebrow">Properties</h2>
       </div>
 
