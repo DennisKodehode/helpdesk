@@ -1,7 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { google } from "@ai-sdk/google";
 import { AuditEventType, SenderType, TicketStatus } from "@helpdesk/core";
 import * as Sentry from "@sentry/node";
@@ -12,6 +9,7 @@ import type { Logger } from "pino";
 import { getAiUserId } from "./ai-user";
 import { recordAuditEvent } from "./audit";
 import boss from "./boss";
+import { buildDraftPrompt, parseDraftDecision } from "./draft-reply";
 import { logger } from "./logger";
 import { prisma } from "./prisma";
 import { SEND_REPLY_EMAIL_QUEUE } from "./send-reply-email-job";
@@ -26,11 +24,6 @@ export type AutoResolveJobData = {
   _requestId?: string;
 };
 
-const KNOWLEDGE_BASE = readFileSync(
-  join(dirname(fileURLToPath(import.meta.url)), "../../knowledge-base.md"),
-  "utf-8",
-);
-
 async function runAutoResolve(data: AutoResolveJobData, log: Logger) {
   const aiUserId = getAiUserId();
   if (!aiUserId) {
@@ -43,24 +36,11 @@ async function runAutoResolve(data: AutoResolveJobData, log: Logger) {
     data: { status: TicketStatus.processing, assignedToId: aiUserId },
   });
 
-  const prompt =
-    `You are a customer support agent.\n\n` +
-    `Using ONLY the knowledge base below, determine whether you can fully answer the customer's ticket.\n\n` +
-    `You MUST respond with action: "escalate" if:\n` +
-    `- The customer threatens legal action\n` +
-    `- The customer requests a refund outside the 30-day window\n` +
-    `- The customer disputes a charge or mentions a chargeback\n` +
-    `- The issue involves account security concerns\n` +
-    `- You are not confident the knowledge base fully covers this issue\n\n` +
-    `KNOWLEDGE BASE:\n${KNOWLEDGE_BASE}\n\n` +
-    `CUSTOMER TICKET:\n` +
-    `Customer name: ${data.fromName}\n` +
-    `Subject: ${data.subject}\n` +
-    `Message: ${data.body}\n\n` +
-    `Respond with JSON only, no markdown, no explanation:\n` +
-    `{"action":"resolve","reply":"<complete reply addressed to the customer>"}\n` +
-    `or\n` +
-    `{"action":"escalate"}`;
+  const prompt = buildDraftPrompt({
+    fromName: data.fromName,
+    subject: data.subject,
+    body: data.body,
+  });
 
   let text: string;
   try {
@@ -87,9 +67,9 @@ async function runAutoResolve(data: AutoResolveJobData, log: Logger) {
     return;
   }
 
-  let parsed: { action: string; reply?: string };
+  let parsed: { action: string; reply: string | null };
   try {
-    parsed = JSON.parse(text.trim());
+    parsed = parseDraftDecision(text);
   } catch {
     log.error({ ticketId: data.id, text }, "auto-resolve: failed to parse AI response");
     Sentry.captureMessage("auto-resolve: AI response was not valid JSON", "error");

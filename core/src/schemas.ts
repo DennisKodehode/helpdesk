@@ -200,6 +200,18 @@ export const polishReplySchema = z.object({
   refinementNote: z.string().trim().max(500).optional(),
 });
 
+// AI "Suggest reply" — the knowledge-base draft + resolve/escalate decision
+// the auto-responder would have made, surfaced to the agent for review.
+export const suggestReplyResponseSchema = z.object({
+  action: z.enum(["resolve", "escalate"]),
+  reply: z.string().nullable(),
+  confidence: z.number().min(0).max(100),
+  escalate: z.boolean(),
+  rationale: z.string().nullable(),
+});
+
+export type SuggestReplyResponse = z.infer<typeof suggestReplyResponseSchema>;
+
 export const dailyTicketCountSchema = z.object({
   date: z.string(),
   count: z.number(),

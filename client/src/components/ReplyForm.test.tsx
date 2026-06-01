@@ -347,3 +347,69 @@ describe("ReplyForm", () => {
     expect(await screen.findByText(/5 max per reply/i)).toBeInTheDocument();
   });
 });
+
+describe("ReplyForm — Suggest reply", () => {
+  it("fetches and displays an AI suggested draft with a confidence pill", async () => {
+    vi.mocked(axios.post).mockResolvedValue({
+      data: {
+        action: "resolve",
+        reply: "Try resetting via the link in your email.",
+        confidence: 90,
+        escalate: false,
+        rationale: "Covered by the knowledge base.",
+      },
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyForm ticketId="42" />);
+
+    await user.click(screen.getByRole("button", { name: /suggest reply/i }));
+
+    expect(
+      await screen.findByText("Try resetting via the link in your email."),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/High.*90%/)).toBeInTheDocument();
+    expect(screen.getByText("Covered by the knowledge base.")).toBeInTheDocument();
+    expect(axios.post).toHaveBeenCalledWith("/api/tickets/42/suggest-reply");
+  });
+
+  it("fills the reply textarea when Use draft is clicked", async () => {
+    vi.mocked(axios.post).mockResolvedValue({
+      data: {
+        action: "resolve",
+        reply: "Here is your reset link.",
+        confidence: 85,
+        escalate: false,
+        rationale: null,
+      },
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyForm ticketId="42" />);
+
+    await user.click(screen.getByRole("button", { name: /suggest reply/i }));
+    await user.click(await screen.findByRole("button", { name: /use draft/i }));
+
+    expect(screen.getByRole("textbox", { name: /reply body/i })).toHaveValue(
+      "Here is your reset link.",
+    );
+  });
+
+  it("shows an escalate recommendation with no Use draft button", async () => {
+    vi.mocked(axios.post).mockResolvedValue({
+      data: {
+        action: "escalate",
+        reply: null,
+        confidence: 30,
+        escalate: true,
+        rationale: "Possible chargeback.",
+      },
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyForm ticketId="42" />);
+
+    await user.click(screen.getByRole("button", { name: /suggest reply/i }));
+
+    expect(await screen.findByText(/recommends escalating/i)).toBeInTheDocument();
+    expect(screen.getByText("Escalate")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /use draft/i })).not.toBeInTheDocument();
+  });
+});

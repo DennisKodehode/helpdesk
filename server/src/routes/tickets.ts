@@ -10,6 +10,7 @@ import {
   polishReplySchema,
   Role,
   SenderType,
+  type SuggestReplyResponse,
   type TicketPriority,
   TicketStatus,
   TicketView,
@@ -27,6 +28,7 @@ import type { Prisma } from "../generated/prisma/client";
 import { assigneeType, isAiAssigned } from "../lib/ai-user";
 import { recordAuditEvent } from "../lib/audit";
 import boss from "../lib/boss";
+import { buildDraftPrompt, parseDraftDecision } from "../lib/draft-reply";
 import { handleMulterError, upload } from "../lib/multipart";
 import { prisma } from "../lib/prisma";
 import { SEND_REPLY_EMAIL_QUEUE } from "../lib/send-reply-email-job";
@@ -748,6 +750,49 @@ router.post("/:id/polish-reply", requireAuth, aiEndpointLimiter, async (req, res
   });
 
   res.json({ body: text });
+});
+
+// Surfaces the AI's knowledge-base draft + resolve/escalate decision to the
+// agent (the same call the auto-responder makes on new tickets), so the agent
+// can review, use, or edit it. Drafting/parse failures propagate to the global
+// error handler (500), matching summarize/polish-reply.
+router.post("/:id/suggest-reply", requireAuth, aiEndpointLimiter, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid ticket ID" });
+    return;
+  }
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id },
+    select: { fromName: true, subject: true, body: true },
+  });
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  const prompt = buildDraftPrompt({
+    fromName: ticket.fromName,
+    subject: ticket.subject,
+    body: ticket.body,
+  });
+
+  const { text } = await generateText({
+    model: google("gemini-2.5-flash-lite"),
+    prompt,
+    timeout: 30_000,
+  });
+
+  const decision = parseDraftDecision(text);
+  const response: SuggestReplyResponse = {
+    action: decision.action,
+    reply: decision.reply,
+    confidence: decision.confidence,
+    escalate: decision.action === "escalate",
+    rationale: decision.rationale,
+  };
+  res.json(response);
 });
 
 export default router;

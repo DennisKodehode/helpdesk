@@ -4,6 +4,7 @@ import {
   createReplySchema,
   MAX_ATTACHMENT_SIZE_BYTES,
   type Reply,
+  type SuggestReplyResponse,
 } from "@helpdesk/core";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -17,6 +18,7 @@ import FieldError from "@/components/ui/FieldError";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { PERSONAL_STATS_QUERY_KEY } from "@/lib/personal-stats";
+import { BADGE_BASE } from "@/lib/ticket-ui";
 
 interface Props {
   ticketId: string;
@@ -28,6 +30,15 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+// Confidence pill on the AI draft card: High (emerald) / Moderate (amber) /
+// Low (rose), mirroring the SLA/priority tone language.
+function confidenceTone(pct: number): { label: string; cls: string } {
+  if (pct >= 80) return { label: "High", cls: "bg-eme-bg text-eme-fg border-eme-dot/30" };
+  if (pct >= 65)
+    return { label: "Moderate", cls: "bg-amb-bg text-amb-fg border-amb-dot/30" };
+  return { label: "Low", cls: "bg-ros-bg text-ros-fg border-ros-dot/35" };
 }
 
 export default function ReplyForm({ ticketId }: Props) {
@@ -106,6 +117,24 @@ export default function ReplyForm({ ticketId }: Props) {
       setRefinementNote("");
     },
   });
+
+  // "Suggest reply" surfaces the AI's knowledge-base draft + resolve/escalate
+  // decision for the agent to review, use, or edit.
+  const suggestMutation = useMutation({
+    mutationFn: () =>
+      axios
+        .post<SuggestReplyResponse>(`/api/tickets/${ticketId}/suggest-reply`)
+        .then((r) => r.data),
+  });
+
+  function applySuggestedDraft(focus: boolean) {
+    const draft = suggestMutation.data?.reply;
+    if (!draft) return;
+    setValue("body", draft, { shouldValidate: true, shouldDirty: true });
+    setIsPolished(false);
+    suggestMutation.reset();
+    if (focus) document.getElementById("reply-body")?.focus();
+  }
 
   function addFiles(incoming: File[]) {
     setAttachmentError(null);
@@ -212,6 +241,96 @@ export default function ReplyForm({ ticketId }: Props) {
         />
         <FieldError message={errors.body?.message} />
 
+        {!isInternal && (suggestMutation.isPending || suggestMutation.data) && (
+          <div className="ai-surface rounded-[var(--r-md)] p-4">
+            <div className="flex items-center justify-between gap-2">
+              <p className="ai-chip">
+                <Sparkles className="size-3" aria-hidden /> Suggested reply
+              </p>
+              <div className="flex items-center gap-2">
+                {suggestMutation.data && (
+                  <span
+                    className={`${BADGE_BASE} ${confidenceTone(suggestMutation.data.confidence).cls}`}
+                  >
+                    {confidenceTone(suggestMutation.data.confidence).label} ·{" "}
+                    {Math.round(suggestMutation.data.confidence)}%
+                  </span>
+                )}
+                {suggestMutation.data?.escalate && (
+                  <span
+                    className={`${BADGE_BASE} bg-ros-bg text-ros-fg border-ros-dot/35`}
+                  >
+                    Escalate
+                  </span>
+                )}
+                {suggestMutation.data && (
+                  <button
+                    type="button"
+                    aria-label="Dismiss suggestion"
+                    onClick={() => suggestMutation.reset()}
+                    className="rounded-full p-0.5 text-ink-3 hover:bg-panel-2 hover:text-foreground"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {suggestMutation.isPending ? (
+              <div
+                className="mt-3 space-y-2"
+                role="status"
+                aria-label="Drafting a suggested reply"
+              >
+                <div className="shimmer h-3 w-[92%] rounded" />
+                <div className="shimmer h-3 w-full rounded" />
+                <div className="shimmer h-3 w-[70%] rounded" />
+              </div>
+            ) : suggestMutation.data ? (
+              <div className="mt-3">
+                {suggestMutation.data.reply ? (
+                  <p className="whitespace-pre-wrap text-[14px] leading-[1.6] text-foreground">
+                    {suggestMutation.data.reply}
+                  </p>
+                ) : (
+                  <p className="text-[14px] text-foreground">
+                    The AI recommends escalating this ticket to a human.
+                  </p>
+                )}
+                {suggestMutation.data.rationale && (
+                  <p className="mt-2.5 text-[12.5px] text-accent-ink">
+                    {suggestMutation.data.rationale}
+                  </p>
+                )}
+                {suggestMutation.data.reply && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="accent"
+                      size="sm"
+                      onClick={() => applySuggestedDraft(false)}
+                    >
+                      Use draft
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => applySuggestedDraft(true)}
+                    >
+                      Use &amp; edit
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {suggestMutation.isError && (
+          <ErrorAlert message="Failed to suggest a reply. Please try again." />
+        )}
+
         {polishMutation.isError && (
           <ErrorAlert message="Failed to polish reply. Please try again." />
         )}
@@ -283,6 +402,21 @@ export default function ReplyForm({ ticketId }: Props) {
               <Paperclip />
               Attach
             </Button>
+            {/* Suggest reply drafts from the knowledge base; Polish refines the
+                agent's own draft. Both are AI → violet, distinct from ink Send. */}
+            {!isInternal && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-primary/30 text-accent-ink hover:bg-accent-tint hover:text-accent-ink"
+                disabled={suggestMutation.isPending}
+                onClick={() => suggestMutation.mutate()}
+              >
+                <Sparkles />
+                {suggestMutation.isPending ? "Suggesting…" : "Suggest reply"}
+              </Button>
+            )}
             {/* Polish/Refine are AI moments → violet. Refine goes solid accent
                 once there's a note to act on; otherwise a quiet accent-tinted
                 outline keeps the machine action distinct from the ink Send. */}
