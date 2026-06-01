@@ -8,9 +8,9 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Hanken Grotesk Variable', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
-  --font-serif: 'Instrument Serif', ui-serif, Georgia, serif;
+  --font-serif: 'Newsreader Variable', ui-serif, Georgia, serif;
   --font-display: var(--font-serif);
   --font-heading: var(--font-sans);
 
@@ -48,6 +48,47 @@
   --color-surface: var(--surface);
   --color-surface-foreground: var(--surface-foreground);
   --color-hairline: var(--hairline);
+  --color-hairline-strong: var(--hairline-strong);
+
+  /* Editorial neutral ramps — warm paper surfaces + cool-warm inks.
+     Exposed as utilities so components can reach exact steps. */
+  --color-paper: var(--paper);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-panel-inset: var(--panel-inset);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-4: var(--ink-4);
+
+  /* Violet "AI / interactive" accent — tints + ink for surfaces and chips. */
+  --color-accent-tint: var(--accent-tint);
+  --color-accent-tint-2: var(--accent-tint-2);
+  --color-accent-ink: var(--accent-ink);
+
+  /* Semantic tone triplets (status / priority / SLA). Each tone redefines
+     under .dark, so `bg-sky-bg text-sky-fg` adapts with no `dark:` variant. */
+  --color-sky-fg: var(--sky-fg);
+  --color-sky-bg: var(--sky-bg);
+  --color-sky-dot: var(--sky-dot);
+  --color-vio-fg: var(--vio-fg);
+  --color-vio-bg: var(--vio-bg);
+  --color-vio-dot: var(--vio-dot);
+  --color-amb-fg: var(--amb-fg);
+  --color-amb-bg: var(--amb-bg);
+  --color-amb-dot: var(--amb-dot);
+  --color-eme-fg: var(--eme-fg);
+  --color-eme-bg: var(--eme-bg);
+  --color-eme-dot: var(--eme-dot);
+  --color-zin-fg: var(--zin-fg);
+  --color-zin-bg: var(--zin-bg);
+  --color-zin-dot: var(--zin-dot);
+  --color-org-fg: var(--org-fg);
+  --color-org-bg: var(--org-bg);
+  --color-org-dot: var(--org-dot);
+  --color-ros-fg: var(--ros-fg);
+  --color-ros-bg: var(--ros-bg);
+  --color-ros-dot: var(--ros-dot);
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -59,108 +100,209 @@
 }
 
 /* ─────────────────────────────────────────────────────────
-   LIGHT — Bone & Ink
-   A warm ivory ground, deep cool charcoal foreground.
-   One quiet cobalt accent. Hairline borders everywhere.
+   LIGHT — Quiet Operations
+   Warm off-white paper, warm near-black ink. A single violet
+   accent reserved for AI / interactive moments. Hairline rules.
    ───────────────────────────────────────────────────────── */
 :root {
-  --background: oklch(0.985 0.004 85); /* warm bone */
-  --surface: oklch(1 0 0); /* paper white */
-  --surface-foreground: oklch(0.16 0.012 270);
+  /* Raw design tokens (ported from the prototype's :root) */
+  --paper: oklch(0.984 0.004 75); /* app canvas, warm off-white */
+  --panel: oklch(0.998 0.0015 75); /* cards / surfaces */
+  --panel-2: oklch(0.972 0.005 75); /* raised / table header / hover */
+  --panel-inset: oklch(0.966 0.006 75); /* track backgrounds */
 
-  --foreground: oklch(0.16 0.012 270); /* deep ink, cool */
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.16 0.012 270);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.16 0.012 270);
+  --ink: oklch(0.245 0.012 55); /* primary text */
+  --ink-2: oklch(0.46 0.011 55); /* secondary text */
+  --ink-3: oklch(0.6 0.01 55); /* muted text / labels */
+  --ink-4: oklch(0.7 0.008 55); /* faint text / placeholders */
 
-  /* Cobalt — single accent, used sparingly */
-  --primary: oklch(0.42 0.18 262);
-  --primary-foreground: oklch(0.985 0.004 85);
+  --hairline: oklch(0.912 0.005 70); /* default borders / dividers */
+  --hairline-strong: oklch(0.86 0.006 70); /* input borders */
 
-  --secondary: oklch(0.95 0.005 270);
-  --secondary-foreground: oklch(0.22 0.012 270);
+  /* Violet accent */
+  --accent-solid: oklch(0.55 0.18 286);
+  --accent-ink: oklch(0.47 0.19 286);
+  --accent-tint: oklch(0.955 0.028 286);
+  --accent-tint-2: oklch(0.93 0.045 286);
 
-  --muted: oklch(0.96 0.004 270);
-  --muted-foreground: oklch(0.45 0.012 270);
+  /* Semantic tones — fg (text) / bg (tint) / dot (marker) */
+  --sky-fg: oklch(0.49 0.12 245);
+  --sky-bg: oklch(0.955 0.03 245);
+  --sky-dot: oklch(0.62 0.15 245);
+  --vio-fg: oklch(0.5 0.16 286);
+  --vio-bg: oklch(0.955 0.04 286);
+  --vio-dot: oklch(0.58 0.19 286);
+  --amb-fg: oklch(0.52 0.1 70);
+  --amb-bg: oklch(0.958 0.05 80);
+  --amb-dot: oklch(0.72 0.15 75);
+  --eme-fg: oklch(0.48 0.1 162);
+  --eme-bg: oklch(0.955 0.045 162);
+  --eme-dot: oklch(0.62 0.13 162);
+  --zin-fg: oklch(0.58 0.008 60);
+  --zin-bg: oklch(0.962 0.004 70);
+  --zin-dot: oklch(0.74 0.006 60);
+  --org-fg: oklch(0.53 0.13 48);
+  --org-bg: oklch(0.958 0.05 55);
+  --org-dot: oklch(0.66 0.17 48);
+  --ros-fg: oklch(0.52 0.17 18);
+  --ros-bg: oklch(0.957 0.045 18);
+  --ros-dot: oklch(0.6 0.21 18);
 
-  --accent: oklch(0.94 0.006 270);
-  --accent-foreground: oklch(0.16 0.012 270);
+  /* Editorial radius scale (6 / 9 / 12 / 16 / 22 px) for direct var() use */
+  --r-xs: 6px;
+  --r-sm: 9px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 22px;
 
-  --destructive: oklch(0.52 0.21 28);
+  --shadow-sm: 0 1px 2px oklch(0.4 0.02 60 / 0.05);
+  --shadow-md: 0 6px 22px -12px oklch(0.35 0.03 60 / 0.2),
+    0 1px 3px oklch(0.4 0.02 60 / 0.05);
+  --shadow-lg: 0 24px 60px -22px oklch(0.3 0.03 60 / 0.3),
+    0 2px 8px oklch(0.4 0.02 60 / 0.06);
+  --grid-line: oklch(0.93 0.004 70);
 
-  --border: oklch(0.92 0.006 270); /* hairline */
-  --hairline: oklch(0.88 0.006 270); /* slightly stronger rule */
-  --input: oklch(0.94 0.006 270);
-  --ring: oklch(0.42 0.18 262);
+  /* ── shadcn semantic tokens, repointed at the design tokens ── */
+  --background: var(--paper);
+  --surface: var(--panel);
+  --surface-foreground: var(--ink);
 
-  --chart-1: oklch(0.42 0.18 262);
-  --chart-2: oklch(0.55 0.13 262);
-  --chart-3: oklch(0.7 0.08 262);
-  --chart-4: oklch(0.82 0.04 262);
-  --chart-5: oklch(0.9 0.02 270);
+  --foreground: var(--ink);
+  --card: var(--panel);
+  --card-foreground: var(--ink);
+  --popover: var(--panel);
+  --popover-foreground: var(--ink);
 
-  --radius: 0.375rem;
+  /* `primary` is the violet brand/AI accent (used sparingly) */
+  --primary: var(--accent-solid);
+  --primary-foreground: oklch(0.99 0 0);
 
-  --sidebar: oklch(0.97 0.005 85);
-  --sidebar-foreground: oklch(0.16 0.012 270);
-  --sidebar-primary: oklch(0.42 0.18 262);
-  --sidebar-primary-foreground: oklch(0.985 0.004 85);
-  --sidebar-accent: oklch(0.93 0.007 270);
-  --sidebar-accent-foreground: oklch(0.16 0.012 270);
-  --sidebar-border: oklch(0.91 0.006 270);
-  --sidebar-ring: oklch(0.42 0.18 262);
+  --secondary: var(--panel-2);
+  --secondary-foreground: var(--ink);
+
+  --muted: var(--panel-2);
+  --muted-foreground: var(--ink-2);
+
+  /* `accent` here is shadcn's neutral hover surface — NOT the violet accent */
+  --accent: var(--panel-2);
+  --accent-foreground: var(--ink);
+
+  --destructive: oklch(0.52 0.17 18);
+
+  --border: var(--hairline);
+  --input: var(--hairline-strong);
+  --ring: var(--accent-solid);
+
+  --chart-1: oklch(0.55 0.18 286);
+  --chart-2: oklch(0.65 0.14 286);
+  --chart-3: oklch(0.75 0.09 286);
+  --chart-4: oklch(0.85 0.05 286);
+  --chart-5: oklch(0.92 0.025 286);
+
+  --radius: 0.5rem;
+
+  --sidebar: oklch(0.974 0.006 70);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--accent-solid);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: var(--panel-2);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--hairline);
+  --sidebar-ring: var(--accent-solid);
 }
 
 /* ─────────────────────────────────────────────────────────
-   DARK — Deep Ink
-   Near-black with a slight cool cast. Warm cream foreground.
-   Brighter cobalt for legibility against deep ground.
+   DARK — Quiet Operations (deep cool slate)
    ───────────────────────────────────────────────────────── */
 .dark {
-  --background: oklch(0.13 0.012 265); /* deep ink */
-  --surface: oklch(0.165 0.012 265); /* slightly elevated */
-  --surface-foreground: oklch(0.95 0.005 85);
+  --paper: oklch(0.165 0.006 280);
+  --panel: oklch(0.205 0.007 280);
+  --panel-2: oklch(0.235 0.008 280);
+  --panel-inset: oklch(0.19 0.007 280);
 
-  --foreground: oklch(0.95 0.005 85); /* warm off-white */
-  --card: oklch(0.165 0.012 265);
-  --card-foreground: oklch(0.95 0.005 85);
-  --popover: oklch(0.185 0.012 265);
-  --popover-foreground: oklch(0.95 0.005 85);
+  --ink: oklch(0.955 0.004 80);
+  --ink-2: oklch(0.74 0.008 280);
+  --ink-3: oklch(0.6 0.01 280);
+  --ink-4: oklch(0.5 0.01 280);
 
-  --primary: oklch(0.72 0.16 262); /* brighter cobalt */
-  --primary-foreground: oklch(0.13 0.012 265);
+  --hairline: oklch(0.3 0.01 280);
+  --hairline-strong: oklch(0.38 0.012 280);
 
-  --secondary: oklch(0.2 0.012 265);
-  --secondary-foreground: oklch(0.95 0.005 85);
+  --accent-solid: oklch(0.72 0.15 286);
+  --accent-ink: oklch(0.78 0.14 286);
+  --accent-tint: oklch(0.27 0.05 286);
+  --accent-tint-2: oklch(0.32 0.07 286);
 
-  --muted: oklch(0.2 0.012 265);
-  --muted-foreground: oklch(0.65 0.012 265);
+  --sky-fg: oklch(0.78 0.11 245);
+  --sky-bg: oklch(0.28 0.05 245);
+  --sky-dot: oklch(0.68 0.14 245);
+  --vio-fg: oklch(0.8 0.12 286);
+  --vio-bg: oklch(0.29 0.06 286);
+  --vio-dot: oklch(0.7 0.16 286);
+  --amb-fg: oklch(0.82 0.11 80);
+  --amb-bg: oklch(0.3 0.05 75);
+  --amb-dot: oklch(0.78 0.14 75);
+  --eme-fg: oklch(0.8 0.11 162);
+  --eme-bg: oklch(0.28 0.05 162);
+  --eme-dot: oklch(0.7 0.13 162);
+  --zin-fg: oklch(0.68 0.008 280);
+  --zin-bg: oklch(0.27 0.006 280);
+  --zin-dot: oklch(0.55 0.008 280);
+  --org-fg: oklch(0.8 0.12 50);
+  --org-bg: oklch(0.3 0.06 50);
+  --org-dot: oklch(0.72 0.15 48);
+  --ros-fg: oklch(0.78 0.15 18);
+  --ros-bg: oklch(0.3 0.07 18);
+  --ros-dot: oklch(0.66 0.2 18);
 
-  --accent: oklch(0.22 0.012 265);
-  --accent-foreground: oklch(0.95 0.005 85);
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.4);
+  --shadow-md: 0 8px 26px -14px oklch(0 0 0 / 0.6), 0 1px 3px oklch(0 0 0 / 0.4);
+  --shadow-lg: 0 30px 70px -24px oklch(0 0 0 / 0.7),
+    0 2px 10px oklch(0 0 0 / 0.5);
+  --grid-line: oklch(0.24 0.008 280);
 
-  --destructive: oklch(0.65 0.21 28);
+  --background: var(--paper);
+  --surface: var(--panel);
+  --surface-foreground: var(--ink);
 
-  --border: oklch(0.235 0.012 265);
-  --hairline: oklch(0.28 0.012 265);
-  --input: oklch(0.2 0.012 265);
-  --ring: oklch(0.72 0.16 262);
+  --foreground: var(--ink);
+  --card: var(--panel);
+  --card-foreground: var(--ink);
+  --popover: var(--panel);
+  --popover-foreground: var(--ink);
 
-  --chart-1: oklch(0.72 0.16 262);
-  --chart-2: oklch(0.6 0.12 262);
-  --chart-3: oklch(0.48 0.08 262);
-  --chart-4: oklch(0.36 0.05 262);
-  --chart-5: oklch(0.28 0.02 265);
+  --primary: var(--accent-solid);
+  --primary-foreground: oklch(0.16 0.01 280);
 
-  --sidebar: oklch(0.11 0.012 265);
-  --sidebar-foreground: oklch(0.95 0.005 85);
-  --sidebar-primary: oklch(0.72 0.16 262);
-  --sidebar-primary-foreground: oklch(0.13 0.012 265);
-  --sidebar-accent: oklch(0.2 0.012 265);
-  --sidebar-accent-foreground: oklch(0.95 0.005 85);
-  --sidebar-border: oklch(0.22 0.012 265);
-  --sidebar-ring: oklch(0.72 0.16 262);
+  --secondary: var(--panel-2);
+  --secondary-foreground: var(--ink);
+
+  --muted: var(--panel-2);
+  --muted-foreground: var(--ink-2);
+
+  --accent: var(--panel-2);
+  --accent-foreground: var(--ink);
+
+  --destructive: oklch(0.78 0.15 18);
+
+  --border: var(--hairline);
+  --input: var(--hairline-strong);
+  --ring: var(--accent-solid);
+
+  --chart-1: oklch(0.72 0.15 286);
+  --chart-2: oklch(0.62 0.12 286);
+  --chart-3: oklch(0.52 0.08 286);
+  --chart-4: oklch(0.4 0.05 286);
+  --chart-5: oklch(0.3 0.03 286);
+
+  --sidebar: oklch(0.185 0.007 280);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--accent-solid);
+  --sidebar-primary-foreground: oklch(0.16 0.01 280);
+  --sidebar-accent: var(--panel-2);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--hairline);
+  --sidebar-ring: var(--accent-solid);
 }
 
 @layer base {
@@ -169,7 +311,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "ss01", "cv11";
+    font-feature-settings: "ss01", "cv01";
   }
   html {
     @apply font-sans antialiased;
@@ -184,6 +326,13 @@
   }
   h2 {
     @apply text-sm font-medium text-muted-foreground;
+  }
+  /* Stronger, intentional keyboard focus ring (violet), per the redesign.
+     Components with their own focus treatment (inputs use a box-shadow ring)
+     override this locally. */
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
   }
   /* Tailwind 4's preflight intentionally drops `cursor: pointer` from the
      UA stylesheet so authors opt in. Opt in globally for anything the user
@@ -207,16 +356,17 @@
 @layer utilities {
   .display-serif {
     font-family: var(--font-serif);
-    font-weight: 400;
-    letter-spacing: -0.01em;
+    font-weight: 420;
+    letter-spacing: -0.02em;
+    line-height: 0.98;
   }
   .eyebrow {
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--muted-foreground);
+    color: var(--ink-3);
   }
   .label-meta {
     font-family: var(--font-mono);
@@ -224,7 +374,7 @@
     font-weight: 500;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--muted-foreground);
+    color: var(--ink-3);
   }
   .tabular {
     font-variant-numeric: tabular-nums;
@@ -245,6 +395,61 @@
   .hairline-l {
     border-left: 1px solid var(--hairline);
   }
+
+  /* Violet "AI" surface — soft tinted gradient panel with an accent border.
+     Used for AI summaries, suggested-reply drafts, and the dashboard's
+     "AI this week" card. */
+  .ai-surface {
+    background: linear-gradient(
+      180deg,
+      var(--accent-tint) 0%,
+      color-mix(in oklch, var(--accent-tint) 50%, var(--panel)) 100%
+    );
+    border: 1px solid color-mix(in oklch, var(--primary) 22%, transparent);
+  }
+  .ai-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent-ink);
+  }
+  /* Loading placeholder for async AI moments (summarize / suggest / polish). */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--panel-2) 25%,
+      var(--panel-inset) 37%,
+      var(--panel-2) 63%
+    );
+    background-size: 400% 100%;
+    animation: shimmer 1.4s ease infinite;
+  }
+  /* Faint editorial grid — login hero backdrop. */
+  .bg-grid {
+    background-image: linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 64px 64px;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
+  }
 }
 
 input:-webkit-autofill,
@@ -255,7 +460,7 @@ input:-webkit-autofill:focus {
   transition: background-color 5000s ease-in-out 0s !important;
 }
 
-/* Selection — soft cobalt */
+/* Selection — soft violet */
 ::selection {
   background-color: color-mix(in oklch, var(--primary) 22%, transparent);
   color: var(--foreground);

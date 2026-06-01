@@ -12,34 +12,32 @@ export function isTriagingStatus(status: TicketStatus): boolean {
 }
 
 export const TRIAGING_LABEL = "Triaging";
-export const TRIAGING_STYLE =
-  "bg-violet-500/8 text-violet-700 border-violet-500/20 dark:text-violet-300 dark:bg-violet-400/10 dark:border-violet-400/20";
-export const TRIAGING_DOT = "bg-violet-500";
+// Triaging (new + processing) shares the violet "AI" tone — the machine is
+// still working the ticket. Tone vars redefine under .dark, so no `dark:`.
+export const TRIAGING_STYLE = "bg-vio-bg text-vio-fg border-vio-dot/30";
+export const TRIAGING_DOT = "bg-vio-dot";
 
-// Restrained pill: hairline border, soft tint, small caps mono label.
+// Restrained pill: hairline border, soft tint, small-caps mono label.
 export const BADGE_BASE =
-  "inline-flex items-center gap-1.5 rounded-full border px-2 py-[3px] text-[10px] font-mono font-medium uppercase tracking-[0.08em]";
+  "inline-flex items-center gap-1.5 rounded-full border px-2 py-[3px] text-[10.5px] font-mono font-medium uppercase tracking-[0.07em]";
 
 // A small color dot prefix — the pill itself stays calm.
 export const STATUS_DOT: Record<TicketStatus, string> = {
-  [TicketStatus.new]: "bg-sky-500",
-  [TicketStatus.processing]: "bg-violet-500",
-  [TicketStatus.open]: "bg-amber-500",
-  [TicketStatus.resolved]: "bg-emerald-500",
-  [TicketStatus.closed]: "bg-zinc-400 dark:bg-zinc-500",
+  [TicketStatus.new]: "bg-sky-dot",
+  [TicketStatus.processing]: "bg-vio-dot",
+  [TicketStatus.open]: "bg-amb-dot",
+  [TicketStatus.resolved]: "bg-eme-dot",
+  [TicketStatus.closed]: "bg-zin-dot",
 };
 
-// Pill styling: subtle tinted background, restrained text. One look across statuses.
+// Pill styling: subtle tinted background, restrained text. One look across
+// statuses, sourced from the semantic tone triplets (auto dark-adapting).
 export const STATUS_STYLES: Record<TicketStatus, string> = {
-  [TicketStatus.new]:
-    "bg-sky-500/8 text-sky-700 border-sky-500/20 dark:text-sky-300 dark:bg-sky-400/10 dark:border-sky-400/20",
-  [TicketStatus.processing]:
-    "bg-violet-500/8 text-violet-700 border-violet-500/20 dark:text-violet-300 dark:bg-violet-400/10 dark:border-violet-400/20",
-  [TicketStatus.open]:
-    "bg-amber-500/8 text-amber-700 border-amber-500/20 dark:text-amber-300 dark:bg-amber-400/10 dark:border-amber-400/20",
-  [TicketStatus.resolved]:
-    "bg-emerald-500/8 text-emerald-700 border-emerald-500/20 dark:text-emerald-300 dark:bg-emerald-400/10 dark:border-emerald-400/20",
-  [TicketStatus.closed]: "bg-muted text-muted-foreground border-border",
+  [TicketStatus.new]: "bg-sky-bg text-sky-fg border-sky-dot/30",
+  [TicketStatus.processing]: "bg-vio-bg text-vio-fg border-vio-dot/30",
+  [TicketStatus.open]: "bg-amb-bg text-amb-fg border-amb-dot/30",
+  [TicketStatus.resolved]: "bg-eme-bg text-eme-fg border-eme-dot/30",
+  [TicketStatus.closed]: "bg-zin-bg text-zin-fg border-zin-dot/30",
 };
 
 export const STATUS_LABELS: Record<TicketStatus, string> = {
@@ -51,7 +49,7 @@ export const STATUS_LABELS: Record<TicketStatus, string> = {
 };
 
 // Categories: no color tint, just a neutral pill — these are taxonomy, not state.
-export const CATEGORY_BADGE = "bg-transparent text-muted-foreground border-border";
+export const CATEGORY_BADGE = "bg-transparent text-ink-2 border-hairline-strong";
 
 export const CATEGORY_LABELS: Record<TicketCategory, string> = {
   [TicketCategory.general_question]: "General",
@@ -64,19 +62,19 @@ export const CATEGORY_LABELS: Record<TicketCategory, string> = {
 // Priority: only the attention-grabbing levels get a colored pill;
 // normal/low stay neutral so the queue doesn't look like a Christmas tree.
 export const PRIORITY_STYLES: Record<TicketPriority, string> = {
-  [TicketPriority.low]: "bg-transparent text-muted-foreground/70 border-border",
-  [TicketPriority.normal]: "bg-transparent text-muted-foreground border-border",
-  [TicketPriority.high]:
-    "bg-orange-500/8 text-orange-700 border-orange-500/20 dark:text-orange-300 dark:bg-orange-400/10 dark:border-orange-400/20",
-  [TicketPriority.urgent]:
-    "bg-rose-500/10 text-rose-700 border-rose-500/25 dark:text-rose-300 dark:bg-rose-400/12 dark:border-rose-400/25",
+  // Low/normal carry no pill chrome (border-transparent) — they read as plain
+  // muted mono text so the queue doesn't light up like a Christmas tree.
+  [TicketPriority.low]: "bg-transparent text-ink-4 border-transparent",
+  [TicketPriority.normal]: "bg-transparent text-ink-3 border-transparent",
+  [TicketPriority.high]: "bg-org-bg text-org-fg border-org-dot/30",
+  [TicketPriority.urgent]: "bg-ros-bg text-ros-fg border-ros-dot/35",
 };
 
 export const PRIORITY_DOT: Record<TicketPriority, string> = {
-  [TicketPriority.low]: "bg-zinc-300 dark:bg-zinc-600",
-  [TicketPriority.normal]: "bg-zinc-400 dark:bg-zinc-500",
-  [TicketPriority.high]: "bg-orange-500",
-  [TicketPriority.urgent]: "bg-rose-500",
+  [TicketPriority.low]: "bg-zin-dot/60",
+  [TicketPriority.normal]: "bg-zin-dot",
+  [TicketPriority.high]: "bg-org-dot",
+  [TicketPriority.urgent]: "bg-ros-dot",
 };
 
 export const PRIORITY_LABELS: Record<TicketPriority, string> = {
@@ -104,15 +102,13 @@ export function formatRelative(iso: string): string {
 // fires at >=75% of the target window elapsed (purely visual, no server
 // notification); 'breached' once the window has elapsed.
 export const SLA_STYLES: Record<Exclude<SlaState, "ok">, string> = {
-  at_risk:
-    "bg-amber-500/8 text-amber-700 border-amber-500/20 dark:text-amber-300 dark:bg-amber-400/10 dark:border-amber-400/20",
-  breached:
-    "bg-rose-500/10 text-rose-700 border-rose-500/25 dark:text-rose-300 dark:bg-rose-400/12 dark:border-rose-400/25",
+  at_risk: "bg-amb-bg text-amb-fg border-amb-dot/30",
+  breached: "bg-ros-bg text-ros-fg border-ros-dot/35",
 };
 
 export const SLA_DOT: Record<Exclude<SlaState, "ok">, string> = {
-  at_risk: "bg-amber-500",
-  breached: "bg-rose-500",
+  at_risk: "bg-amb-dot",
+  breached: "bg-ros-dot",
 };
 
 export const SLA_LABELS: Record<Exclude<SlaState, "ok">, string> = {

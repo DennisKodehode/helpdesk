@@ -16,6 +16,7 @@
       "!**/playwright-report",
       "!**/test-results",
       "!server/src/generated",
+      "!design_handoff_helpdesk_redesign",
       "!bun.lock",
       "!**/*.tsbuildinfo",
       "!**/*.css"
