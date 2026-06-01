@@ -16,7 +16,9 @@ test.describe("Happy-path login", () => {
   test("admin can log in and is redirected to the dashboard", async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
 
-    await expect(page.getByRole("heading", { name: /Welcome/ })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Dashboard" }),
+    ).toBeVisible();
   });
 
   test("already-authenticated user visiting /login is redirected to dashboard", async ({
@@ -72,6 +74,8 @@ test.describe("Role-based access control", () => {
     await page.goto("/users");
 
     await expect(page).toHaveURL("/");
-    await expect(page.getByRole("heading", { name: /Welcome/ })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Dashboard" }),
+    ).toBeVisible();
   });
 });
