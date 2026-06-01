@@ -1,10 +1,28 @@
-import { Role } from "@helpdesk/core";
+import { Role, TicketStatus, UserStatus } from "@helpdesk/core";
 import { generateId } from "better-auth";
 import request from "supertest";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import app from "../app";
 import { auth } from "../lib/auth";
 import { prisma } from "../lib/prisma";
+
+// Invites send email inline — stub Resend so tests never hit the network.
+vi.mock("../lib/resend", () => ({
+  default: {
+    emails: {
+      send: vi.fn().mockResolvedValue({ data: { id: "test-email" }, error: null }),
+    },
+  },
+}));
 
 let adminCookie: string;
 let agentCookie: string;
@@ -139,13 +157,14 @@ describe("GET /api/users", () => {
   });
 });
 
-// ─── POST /api/users ──────────────────────────────────────────────────────────
+// ─── POST /api/users (invite) ─────────────────────────────────────────────────
 
-describe("POST /api/users", () => {
+describe("POST /api/users (invite)", () => {
   let createdId: string | undefined;
 
   afterEach(async () => {
     if (createdId) {
+      await prisma.invitation.deleteMany({ where: { userId: createdId } });
       await prisma.account.deleteMany({ where: { userId: createdId } });
       await prisma.user.deleteMany({ where: { id: createdId } });
       createdId = undefined;
@@ -155,7 +174,7 @@ describe("POST /api/users", () => {
   it("returns 401 when not authenticated", async () => {
     const res = await request(app)
       .post("/api/users")
-      .send({ name: "New User", email: "new@example.com", password: "password123" });
+      .send({ name: "New User", email: "new@example.com", role: Role.agent });
     expect(res.status).toBe(401);
   });
 
@@ -163,7 +182,7 @@ describe("POST /api/users", () => {
     const res = await request(app)
       .post("/api/users")
       .set("Cookie", agentCookie)
-      .send({ name: "New User", email: "new@example.com", password: "password123" });
+      .send({ name: "New User", email: "new@example.com", role: Role.agent });
     expect(res.status).toBe(403);
   });
 
@@ -171,7 +190,7 @@ describe("POST /api/users", () => {
     const res = await request(app)
       .post("/api/users")
       .set("Cookie", adminCookie)
-      .send({ name: "Ab", email: "new@example.com", password: "password123" });
+      .send({ name: "Ab", email: "new@example.com", role: Role.agent });
     expect(res.status).toBe(400);
     expect(res.body.error).toBeTypeOf("string");
   });
@@ -180,16 +199,7 @@ describe("POST /api/users", () => {
     const res = await request(app)
       .post("/api/users")
       .set("Cookie", adminCookie)
-      .send({ name: "New User", email: "not-an-email", password: "password123" });
-    expect(res.status).toBe(400);
-    expect(res.body.error).toBeTypeOf("string");
-  });
-
-  it("returns 400 when password is too short", async () => {
-    const res = await request(app)
-      .post("/api/users")
-      .set("Cookie", adminCookie)
-      .send({ name: "New User", email: "new@example.com", password: "short" });
+      .send({ name: "New User", email: "not-an-email", role: Role.agent });
     expect(res.status).toBe(400);
     expect(res.body.error).toBeTypeOf("string");
   });
@@ -198,44 +208,51 @@ describe("POST /api/users", () => {
     const res = await request(app).post("/api/users").set("Cookie", adminCookie).send({
       name: "Duplicate",
       email: "users-agent@example.com",
-      password: "password123",
+      role: Role.agent,
     });
     expect(res.status).toBe(409);
     expect(res.body.error).toBeTypeOf("string");
   });
 
-  it("returns 201 with the created user", async () => {
+  it("returns 201 with an invited, credential-less user + an Invitation row", async () => {
     const res = await request(app).post("/api/users").set("Cookie", adminCookie).send({
       name: "New Agent",
       email: "new-agent-post-users@example.com",
-      password: "password123",
+      role: Role.agent,
     });
     expect(res.status).toBe(201);
     expect(res.body.id).toBeDefined();
     expect(res.body.name).toBe("New Agent");
-    expect(res.body.email).toBe("new-agent-post-users@example.com");
+    expect(res.body.status).toBe(UserStatus.invited);
     createdId = res.body.id;
+
+    // No credential yet — an invited user can't sign in.
+    const accounts = await prisma.account.count({ where: { userId: createdId } });
+    expect(accounts).toBe(0);
+    // A pending invite exists.
+    const invite = await prisma.invitation.findUnique({ where: { userId: createdId } });
+    expect(invite).not.toBeNull();
   });
 
-  it("always creates the user with role agent", async () => {
+  it("honors the invited role (admin)", async () => {
     const res = await request(app).post("/api/users").set("Cookie", adminCookie).send({
-      name: "Always Agent",
-      email: "always-agent-users@example.com",
-      password: "password123",
+      name: "Invited Admin",
+      email: "invited-admin-users@example.com",
+      role: Role.admin,
     });
     expect(res.status).toBe(201);
-    expect(res.body.role).toBe(Role.agent);
+    expect(res.body.role).toBe(Role.admin);
     createdId = res.body.id;
   });
 
-  it("creates a fresh account when the email was previously used by a deleted user", async () => {
+  it("re-invites cleanly when the email was previously used by a deleted user", async () => {
     const createRes = await request(app)
       .post("/api/users")
       .set("Cookie", adminCookie)
       .send({
         name: "Old Agent",
         email: "reused-email-users@example.com",
-        password: "password123",
+        role: Role.agent,
       });
     expect(createRes.status).toBe(201);
     const oldId = createRes.body.id;
@@ -245,7 +262,7 @@ describe("POST /api/users", () => {
     const res = await request(app).post("/api/users").set("Cookie", adminCookie).send({
       name: "New Agent",
       email: "reused-email-users@example.com",
-      password: "password123",
+      role: Role.agent,
     });
     expect(res.status).toBe(201);
     expect(res.body.id).not.toBe(oldId);
@@ -253,6 +270,61 @@ describe("POST /api/users", () => {
 
     await prisma.user.deleteMany({ where: { id: oldId } });
     createdId = res.body.id;
+  });
+});
+
+// ─── POST /api/users/:id/invite/resend ────────────────────────────────────────
+
+describe("POST /api/users/:id/invite/resend", () => {
+  let invitedId: string | undefined;
+
+  afterEach(async () => {
+    if (invitedId) {
+      await prisma.invitation.deleteMany({ where: { userId: invitedId } });
+      await prisma.account.deleteMany({ where: { userId: invitedId } });
+      await prisma.user.deleteMany({ where: { id: invitedId } });
+      invitedId = undefined;
+    }
+  });
+
+  async function invite(email: string) {
+    const res = await request(app)
+      .post("/api/users")
+      .set("Cookie", adminCookie)
+      .send({ name: "Resend Target", email, role: Role.agent });
+    invitedId = res.body.id;
+    return res.body.id as string;
+  }
+
+  it("returns 403 for a non-admin user", async () => {
+    const id = await invite("resend-403@example.com");
+    const res = await request(app)
+      .post(`/api/users/${id}/invite/resend`)
+      .set("Cookie", agentCookie);
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 204 and rotates the token for an invited user", async () => {
+    const id = await invite("resend-ok@example.com");
+    const before = await prisma.invitation.findUnique({ where: { userId: id } });
+    const res = await request(app)
+      .post(`/api/users/${id}/invite/resend`)
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(204);
+    const after = await prisma.invitation.findUnique({ where: { userId: id } });
+    expect(after?.tokenHash).not.toBe(before?.tokenHash);
+  });
+
+  it("returns 409 for a user who has already accepted (active)", async () => {
+    const id = await invite("resend-active@example.com");
+    await prisma.user.update({
+      where: { id },
+      data: { status: UserStatus.active },
+    });
+    const res = await request(app)
+      .post(`/api/users/${id}/invite/resend`)
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(409);
   });
 });
 
@@ -559,5 +631,315 @@ describe("PATCH /api/users/:id", () => {
       .post("/api/auth/sign-in/email")
       .send({ email: "patch-target-users@example.com", password: "OriginalPassword1!" });
     expect(signInRes.status).toBe(200);
+  });
+});
+
+// ─── Helpers for role / status / gate ─────────────────────────────────────────
+
+async function createUserRow(opts: {
+  email: string;
+  role?: Role;
+  status?: UserStatus;
+  password?: string;
+}): Promise<string> {
+  const now = new Date();
+  const id = generateId();
+  await prisma.user.create({
+    data: {
+      id,
+      name: "Fixture",
+      email: opts.email,
+      emailVerified: true,
+      role: opts.role ?? Role.agent,
+      status: opts.status ?? UserStatus.active,
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
+  if (opts.password) {
+    const ctx = await auth.$context;
+    const hashed = await ctx.password.hash(opts.password);
+    await prisma.account.create({
+      data: {
+        id: generateId(),
+        accountId: id,
+        providerId: "credential",
+        userId: id,
+        password: hashed,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+  }
+  return id;
+}
+
+function joinCookie(res: request.Response): string {
+  const c = res.headers["set-cookie"] as string[] | string;
+  return Array.isArray(c) ? c.join("; ") : c;
+}
+
+// ─── PATCH /api/users/:id/role ────────────────────────────────────────────────
+
+describe("PATCH /api/users/:id/role", () => {
+  const created: string[] = [];
+  afterEach(async () => {
+    for (const id of created) {
+      await prisma.account.deleteMany({ where: { userId: id } });
+      await prisma.user.deleteMany({ where: { id } });
+    }
+    created.length = 0;
+  });
+
+  it("returns 403 for a non-admin user", async () => {
+    const id = await createUserRow({ email: "role-403@example.com" });
+    created.push(id);
+    const res = await request(app)
+      .patch(`/api/users/${id}/role`)
+      .set("Cookie", agentCookie)
+      .send({ role: Role.admin });
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 400 for an invalid role", async () => {
+    const id = await createUserRow({ email: "role-400@example.com" });
+    created.push(id);
+    const res = await request(app)
+      .patch(`/api/users/${id}/role`)
+      .set("Cookie", adminCookie)
+      .send({ role: "superuser" });
+    expect(res.status).toBe(400);
+  });
+
+  it("promotes an agent to admin", async () => {
+    const id = await createUserRow({ email: "role-promote@example.com" });
+    created.push(id);
+    const res = await request(app)
+      .patch(`/api/users/${id}/role`)
+      .set("Cookie", adminCookie)
+      .send({ role: Role.admin });
+    expect(res.status).toBe(200);
+    expect(res.body.role).toBe(Role.admin);
+  });
+
+  it("demotes an admin to agent when other admins exist", async () => {
+    // The fixture admin (adminId) is also an admin, so the demoted one is not last.
+    const id = await createUserRow({
+      email: "role-demote@example.com",
+      role: Role.admin,
+    });
+    created.push(id);
+    const res = await request(app)
+      .patch(`/api/users/${id}/role`)
+      .set("Cookie", adminCookie)
+      .send({ role: Role.agent });
+    expect(res.status).toBe(200);
+    expect(res.body.role).toBe(Role.agent);
+  });
+
+  it("returns 403 when an admin tries to demote themselves", async () => {
+    const res = await request(app)
+      .patch(`/api/users/${adminId}/role`)
+      .set("Cookie", adminCookie)
+      .send({ role: Role.agent });
+    expect(res.status).toBe(403);
+  });
+});
+
+// ─── PATCH /api/users/:id/status + login gate ─────────────────────────────────
+
+describe("PATCH /api/users/:id/status + login gate", () => {
+  const created: string[] = [];
+  afterEach(async () => {
+    for (const id of created) {
+      await prisma.session.deleteMany({ where: { userId: id } });
+      await prisma.account.deleteMany({ where: { userId: id } });
+      await prisma.user.deleteMany({ where: { id } });
+    }
+    created.length = 0;
+  });
+
+  it("deactivating kills live sessions and blocks re-login", async () => {
+    const email = "deactivate-gate@example.com";
+    const password = "Agentpass1!";
+    const id = await createUserRow({ email, password });
+    created.push(id);
+
+    const signIn1 = await request(app)
+      .post("/api/auth/sign-in/email")
+      .send({ email, password });
+    expect(signIn1.status).toBe(200);
+    const cookie = joinCookie(signIn1);
+
+    const res = await request(app)
+      .patch(`/api/users/${id}/status`)
+      .set("Cookie", adminCookie)
+      .send({ status: UserStatus.inactive });
+    expect(res.status).toBe(200);
+
+    // Old session is gone.
+    const me = await request(app).get("/api/agents").set("Cookie", cookie);
+    expect(me.status).toBe(401);
+
+    // The login gate blocks a fresh sign-in.
+    const signIn2 = await request(app)
+      .post("/api/auth/sign-in/email")
+      .send({ email, password });
+    expect(signIn2.status).not.toBe(200);
+  });
+
+  it("an invited user cannot sign in even with a credential", async () => {
+    // Edge guard: belt-and-suspenders — invited users never have a credential,
+    // but the gate must still refuse one if it somehow exists.
+    const email = "invited-gate@example.com";
+    const password = "Agentpass1!";
+    const id = await createUserRow({ email, password, status: UserStatus.invited });
+    created.push(id);
+    const signIn = await request(app)
+      .post("/api/auth/sign-in/email")
+      .send({ email, password });
+    expect(signIn.status).not.toBe(200);
+  });
+
+  it("reactivates an inactive user", async () => {
+    const id = await createUserRow({
+      email: "reactivate@example.com",
+      status: UserStatus.inactive,
+    });
+    created.push(id);
+    const res = await request(app)
+      .patch(`/api/users/${id}/status`)
+      .set("Cookie", adminCookie)
+      .send({ status: UserStatus.active });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe(UserStatus.active);
+  });
+
+  it("returns 409 for an invited user", async () => {
+    const id = await createUserRow({
+      email: "invited-status@example.com",
+      status: UserStatus.invited,
+    });
+    created.push(id);
+    const res = await request(app)
+      .patch(`/api/users/${id}/status`)
+      .set("Cookie", adminCookie)
+      .send({ status: UserStatus.inactive });
+    expect(res.status).toBe(409);
+  });
+
+  it("returns 403 when deactivating your own account", async () => {
+    const res = await request(app)
+      .patch(`/api/users/${adminId}/status`)
+      .set("Cookie", adminCookie)
+      .send({ status: UserStatus.inactive });
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 403 when deactivating an admin", async () => {
+    const id = await createUserRow({
+      email: "admin-status@example.com",
+      role: Role.admin,
+    });
+    created.push(id);
+    const res = await request(app)
+      .patch(`/api/users/${id}/status`)
+      .set("Cookie", adminCookie)
+      .send({ status: UserStatus.inactive });
+    expect(res.status).toBe(403);
+  });
+});
+
+// ─── GET /api/users/roster ────────────────────────────────────────────────────
+
+describe("GET /api/users/roster", () => {
+  const created: string[] = [];
+  const ticketIds: number[] = [];
+  afterEach(async () => {
+    if (ticketIds.length) {
+      await prisma.ticket.deleteMany({ where: { id: { in: ticketIds } } });
+      ticketIds.length = 0;
+    }
+    for (const id of created) {
+      await prisma.session.deleteMany({ where: { userId: id } });
+      await prisma.user.deleteMany({ where: { id } });
+    }
+    created.length = 0;
+  });
+
+  it("returns 403 for a non-admin", async () => {
+    const res = await request(app).get("/api/users/roster").set("Cookie", agentCookie);
+    expect(res.status).toBe(403);
+  });
+
+  it("returns rows with the roster shape", async () => {
+    const res = await request(app).get("/api/users/roster").set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    const me = (res.body as { id: string }[]).find((r) => r.id === adminId);
+    expect(me).toMatchObject({
+      id: adminId,
+      role: Role.admin,
+      status: UserStatus.active,
+    });
+    expect(me).toHaveProperty("openAssigned");
+    expect(me).toHaveProperty("resolved30d");
+    expect(me).toHaveProperty("avgResolutionMinutes");
+    expect(me).toHaveProperty("lastActiveAt");
+  });
+
+  it("does not fan out counts across multiple sessions", async () => {
+    const now = new Date();
+    const id = generateId();
+    await prisma.user.create({
+      data: {
+        id,
+        name: "Fanout",
+        email: "fanout-roster@example.com",
+        emailVerified: true,
+        role: Role.agent,
+        status: UserStatus.active,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    created.push(id);
+    for (let i = 0; i < 2; i++) {
+      await prisma.session.create({
+        data: {
+          id: generateId(),
+          token: generateId(),
+          userId: id,
+          expiresAt: new Date(now.getTime() + 86_400_000),
+          createdAt: now,
+          updatedAt: now,
+        },
+      });
+    }
+    for (let i = 0; i < 2; i++) {
+      const t = await prisma.ticket.create({
+        data: {
+          fromName: "Customer",
+          fromEmail: `fanout-${i}@example.com`,
+          subject: "S",
+          body: "B",
+          status: TicketStatus.open,
+          assignedToId: id,
+        },
+      });
+      ticketIds.push(t.id);
+    }
+    const res = await request(app).get("/api/users/roster").set("Cookie", adminCookie);
+    const row = (
+      res.body as { id: string; openAssigned: number; lastActiveAt: string | null }[]
+    ).find((r) => r.id === id);
+    expect(row?.openAssigned).toBe(2); // two sessions must NOT inflate this to 4
+    expect(row?.lastActiveAt).not.toBeNull();
+  });
+
+  it("excludes the AI user", async () => {
+    const res = await request(app).get("/api/users/roster").set("Cookie", adminCookie);
+    const emails = (res.body as { email: string }[]).map((r) => r.email);
+    expect(emails).not.toContain("ai@helpdesk.internal");
   });
 });

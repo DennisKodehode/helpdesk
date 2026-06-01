@@ -12,6 +12,12 @@ enum Role {
   agent
 }
 
+enum UserStatus {
+  invited
+  active
+  inactive
+}
+
 enum TicketStatus {
   new
   processing
@@ -44,6 +50,7 @@ model User {
   createdAt     DateTime
   updatedAt     DateTime
   role          Role      @default(agent)
+  status        UserStatus @default(active)
   deletedAt     DateTime?
   sessions             Session[]
   accounts             Account[]
@@ -52,8 +59,24 @@ model User {
   notifications        Notification[] @relation("NotificationRecipient")
   triggeredNotifications Notification[] @relation("NotificationActor")
   auditEvents          AuditEvent[]   @relation("AuditEventActor")
+  invitation           Invitation?
 
   @@map("user")
+}
+
+// One pending invite per user. The raw token lives only in the emailed link;
+// we store its SHA-256 hash, so a DB leak can't be replayed. Single-use: the
+// row is deleted on accept, and resend rotates the hash (invalidating old links).
+model Invitation {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([tokenHash])
+  @@map("invitation")
 }
 
 model Session {

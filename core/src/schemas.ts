@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   AuditEventType,
   NotificationType,
+  Role,
   SenderType,
   SlaMetric,
   TicketCategory,
@@ -10,6 +11,7 @@ import {
   TicketView,
   TRIAGING_FILTER_VALUE,
   UNCATEGORIZED_FILTER_VALUE,
+  UserStatus,
 } from "./types";
 
 export const userSchema = z.object({
@@ -45,6 +47,57 @@ export const updateUserSchema = z.object({
 });
 
 export type UpdateUserData = z.infer<typeof updateUserSchema>;
+
+// --- Admin · Agents roster -------------------------------------------------
+// Parallel to userSchema (kept narrow for /api/users) — the roster carries the
+// status + per-agent throughput the Agents screen renders. Don't widen
+// userSchema/updateUserSchema for these; the create/edit dialog binds to those.
+
+export const rosterAgentSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  role: z.enum(Role),
+  status: z.enum(UserStatus),
+  openAssigned: z.number().int(),
+  resolved30d: z.number().int(),
+  avgResolutionMinutes: z.number().nullable(),
+  lastActiveAt: z.string().nullable(),
+});
+
+export type RosterAgent = z.infer<typeof rosterAgentSchema>;
+
+export const rosterResponseSchema = z.array(rosterAgentSchema);
+
+// Invite (no password — the invitee sets it on the accept page).
+export const inviteAgentSchema = z.object({
+  name: z.string().trim().min(3, "Name must be at least 3 characters"),
+  email: z.email("Invalid email address"),
+  role: z.enum(Role),
+});
+
+export type InviteAgentData = z.infer<typeof inviteAgentSchema>;
+
+// Public accept-invite payload (token from the email link + chosen password).
+export const acceptInviteSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().trim().min(8, "Password must be at least 8 characters"),
+});
+
+export type AcceptInviteData = z.infer<typeof acceptInviteSchema>;
+
+export const updateUserRoleSchema = z.object({
+  role: z.enum(Role),
+});
+
+export type UpdateUserRoleData = z.infer<typeof updateUserRoleSchema>;
+
+// Only active⇄inactive is an admin transition; `invited` resolves via accept.
+export const updateUserStatusSchema = z.object({
+  status: z.enum([UserStatus.active, UserStatus.inactive]),
+});
+
+export type UpdateUserStatusData = z.infer<typeof updateUserStatusSchema>;
 
 export const inboundEmailSchema = z.object({
   fromName: z.string().trim().min(1).max(255),

@@ -51,3 +51,48 @@ export async function sendReplyEmail({
   });
   if (error) throw new Error(error.message);
 }
+
+export interface SendInviteEmailParams {
+  to: string;
+  toName: string;
+  acceptUrl: string;
+}
+
+export async function sendInviteEmail({
+  to,
+  toName,
+  acceptUrl,
+}: SendInviteEmailParams): Promise<void> {
+  // Same suppression guard as replies — a hard-bounced/complained invitee
+  // shouldn't keep throwing. Resend recovers it once the address clears.
+  const suppression = await prisma.emailSuppression.findUnique({
+    where: { email: to.toLowerCase() },
+    select: { reason: true },
+  });
+  if (suppression) {
+    logger.warn(
+      { to, reason: suppression.reason },
+      "skipping invite to suppressed address",
+    );
+    return;
+  }
+
+  const text =
+    `Hi ${toName},\n\n` +
+    `You've been invited to join the Helpdesk agent console. ` +
+    `Set your password to get started:\n\n${acceptUrl}\n\n` +
+    `This link expires in 72 hours.`;
+  const { error } = await resend.emails.send({
+    from: EMAIL_FROM,
+    to: `${toName} <${to}>`,
+    subject: "You're invited to Helpdesk",
+    text,
+    html:
+      `<p>Hi ${toName},</p>` +
+      `<p>You've been invited to join the Helpdesk agent console. ` +
+      `Set your password to get started:</p>` +
+      `<p><a href="${acceptUrl}">Accept your invitation</a></p>` +
+      `<p>This link expires in 72 hours.</p>`,
+  });
+  if (error) throw new Error(error.message);
+}

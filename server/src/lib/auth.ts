@@ -1,5 +1,7 @@
+import { UserStatus } from "@helpdesk/core";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { APIError } from "better-auth/api";
 import { env } from "./env";
 import { prisma } from "./prisma";
 
@@ -31,6 +33,28 @@ export const auth = betterAuth({
         required: true,
         defaultValue: "agent",
         input: false,
+      },
+    },
+  },
+  // Login gate: a session is only minted on a successful sign-in, so refusing to
+  // create one here blocks Invited (no credential anyway) and Inactive users —
+  // and the seeded admin/agents are `active`, so they're unaffected. Existing
+  // sessions are untouched; deactivation separately deletes them.
+  databaseHooks: {
+    session: {
+      create: {
+        before: async (session) => {
+          const user = await prisma.user.findUnique({
+            where: { id: session.userId },
+            select: { status: true, deletedAt: true },
+          });
+          if (!user || user.deletedAt || user.status !== UserStatus.active) {
+            throw new APIError("FORBIDDEN", {
+              message: "Your account is not active. Contact an administrator.",
+            });
+          }
+          return { data: session };
+        },
       },
     },
   },

@@ -3,6 +3,17 @@ export enum Role {
   agent = "agent",
 }
 
+// Workspace-access lifecycle for a human agent/admin. Orthogonal to soft-delete
+// (`deletedAt`): a removed user is `deletedAt != null` regardless of status.
+//   invited  — created via an invite, no credential yet; cannot sign in.
+//   active   — has a credential; can sign in.
+//   inactive — deactivated by an admin; credential kept but sign-in is blocked.
+export enum UserStatus {
+  invited = "invited",
+  active = "active",
+  inactive = "inactive",
+}
+
 export enum TicketStatus {
   new = "new",
   processing = "processing",
