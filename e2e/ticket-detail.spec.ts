@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { type APIRequestContext, expect, test } from "@playwright/test";
 import {
   ADMIN_EMAIL,
@@ -13,11 +14,34 @@ import {
 // ---------------------------------------------------------------------------
 
 // The inbound-email webhook is the simplest way to create a ticket without any
-// UI flow. It doesn't require auth — only the webhook secret header.
-// We call the server directly (port 3000) because the Vite proxy is not
-// involved in Playwright's `request` fixture when using a full URL.
-const WEBHOOK_URL = "http://localhost:3000/api/webhooks/inbound-email";
-const WEBHOOK_SECRET = "test-webhook-secret";
+// UI flow. We call the server directly (port 3000) because the Vite proxy is
+// not involved in Playwright's `request` fixture when using a full URL.
+//
+// The route verifies a Resend/svix-style HMAC signature. We sign locally using
+// the RESEND_WEBHOOK_SECRET from server/.env.test (exposed via `bun --env-file`
+// when the suite runs). The algorithm:
+//   signedContent = `${svix-id}.${svix-timestamp}.${rawBody}`
+//   signature     = HMAC-SHA256(base64-decode(secret[7:]), signedContent) → base64
+const WEBHOOK_URL = "http://localhost:3000/api/inbound-email";
+
+function signWebhookPayload(rawBody: string): Record<string, string> {
+  const secret = process.env.RESEND_WEBHOOK_SECRET ?? "";
+  const secretBytes = Buffer.from(secret.replace(/^whsec_/, ""), "base64");
+
+  const id = `msg_${Date.now()}`;
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const signedContent = `${id}.${timestamp}.${rawBody}`;
+  const signature = createHmac("sha256", secretBytes)
+    .update(signedContent)
+    .digest("base64");
+
+  return {
+    "content-type": "application/json",
+    "svix-id": id,
+    "svix-timestamp": timestamp,
+    "svix-signature": `v1,${signature}`,
+  };
+}
 
 interface CreatedTicket {
   id: number;
@@ -36,16 +60,24 @@ async function createTestTicket(
     body: string;
   }> = {},
 ): Promise<CreatedTicket> {
+  // The Resend webhook delivers email.received events. We mirror that shape.
   const payload = {
-    fromName: overrides.fromName ?? "Alice Customer",
-    fromEmail: overrides.fromEmail ?? "alice@example.com",
-    subject: overrides.subject ?? "Test ticket subject",
-    body: overrides.body ?? "Hello, I need help with my order.",
+    type: "email.received",
+    data: {
+      email_id: `test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      from: `${overrides.fromName ?? "Alice Customer"} <${overrides.fromEmail ?? "alice@example.com"}>`,
+      subject: overrides.subject ?? "Test ticket subject",
+      to: ["support@test.example.com"],
+    },
   };
 
+  // POST the exact JSON string — the signature is computed over the raw body.
+  const rawBody = JSON.stringify(payload);
+  const headers = signWebhookPayload(rawBody);
+
   const response = await request.post(WEBHOOK_URL, {
-    data: payload,
-    headers: { "x-webhook-secret": WEBHOOK_SECRET },
+    data: rawBody,
+    headers,
   });
 
   if (!response.ok()) {

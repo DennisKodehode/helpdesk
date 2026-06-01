@@ -27,7 +27,7 @@ test.describe
     test.beforeEach(async ({ page }) => {
       await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
       await page.goto("/users");
-      await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Agents" })).toBeVisible();
     });
 
     // =========================================================================
@@ -41,12 +41,12 @@ test.describe
       await page.getByRole("button", { name: "Add Agent" }).click();
 
       const dialog = page.getByRole("dialog");
-      await expect(dialog.getByRole("heading", { name: "Add Agent" })).toBeVisible();
+      await expect(dialog.getByRole("heading", { name: "New agent" })).toBeVisible();
 
       // Fill the form.
       await dialog.getByLabel("Name").fill(NEW_AGENT.name);
       await dialog.getByLabel("Email").fill(NEW_AGENT.email);
-      await dialog.getByLabel("Password").fill(NEW_AGENT.password);
+      await dialog.getByLabel("Password", { exact: true }).fill(NEW_AGENT.password);
 
       // Submit.
       await dialog.getByRole("button", { name: "Create Agent" }).click();
@@ -76,7 +76,7 @@ test.describe
       await agentRow.getByRole("button", { name: "Edit" }).click();
 
       const dialog = page.getByRole("dialog");
-      await expect(dialog.getByRole("heading", { name: "Edit Agent" })).toBeVisible();
+      await expect(dialog.getByRole("heading", { name: "Edit agent" })).toBeVisible();
 
       // Name and email should be pre-populated.
       await expect(dialog.getByLabel("Name")).toHaveValue(NEW_AGENT.name);
@@ -157,16 +157,18 @@ test.describe
       // Step 1 — Admin creates the agent.
       await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
       await page.goto("/users");
-      await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Agents" })).toBeVisible();
 
       await page.getByRole("button", { name: "Add Agent" }).click();
       const createDialog = page.getByRole("dialog");
       await expect(
-        createDialog.getByRole("heading", { name: "Add Agent" }),
+        createDialog.getByRole("heading", { name: "New agent" }),
       ).toBeVisible();
       await createDialog.getByLabel("Name").fill(AGENT.name);
       await createDialog.getByLabel("Email").fill(AGENT.email);
-      await createDialog.getByLabel("Password").fill(AGENT.originalPassword);
+      await createDialog
+        .getByLabel("Password", { exact: true })
+        .fill(AGENT.originalPassword);
       await createDialog.getByRole("button", { name: "Create Agent" }).click();
       await expect(createDialog).not.toBeVisible();
       await expect(page.getByRole("row").filter({ hasText: AGENT.email })).toBeVisible();
@@ -180,14 +182,14 @@ test.describe
       await logout(page);
       await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
       await page.goto("/users");
-      await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Agents" })).toBeVisible();
 
       const agentRow = page.getByRole("row").filter({ hasText: AGENT.email });
       await agentRow.getByRole("button", { name: "Edit" }).click();
 
       const editDialog = page.getByRole("dialog");
-      await expect(editDialog.getByRole("heading", { name: "Edit Agent" })).toBeVisible();
-      await editDialog.getByLabel("Password").fill(AGENT.newPassword);
+      await expect(editDialog.getByRole("heading", { name: "Edit agent" })).toBeVisible();
+      await editDialog.getByLabel("Password", { exact: true }).fill(AGENT.newPassword);
       await editDialog.getByRole("button", { name: "Save Changes" }).click();
       await expect(editDialog).not.toBeVisible();
 
@@ -206,7 +208,7 @@ test.describe
       await logout(page);
       await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
       await page.goto("/users");
-      await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Agents" })).toBeVisible();
 
       const cleanupRow = page.getByRole("row").filter({ hasText: AGENT.email });
       await cleanupRow.getByRole("button", { name: "Delete" }).click();
@@ -236,16 +238,16 @@ test.describe
       // Step 1 — Admin creates the agent.
       await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
       await page.goto("/users");
-      await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Agents" })).toBeVisible();
 
       await page.getByRole("button", { name: "Add Agent" }).click();
       const createDialog = page.getByRole("dialog");
       await expect(
-        createDialog.getByRole("heading", { name: "Add Agent" }),
+        createDialog.getByRole("heading", { name: "New agent" }),
       ).toBeVisible();
       await createDialog.getByLabel("Name").fill(AGENT.name);
       await createDialog.getByLabel("Email").fill(AGENT.email);
-      await createDialog.getByLabel("Password").fill(AGENT.password);
+      await createDialog.getByLabel("Password", { exact: true }).fill(AGENT.password);
       await createDialog.getByRole("button", { name: "Create Agent" }).click();
       await expect(createDialog).not.toBeVisible();
       await expect(page.getByRole("row").filter({ hasText: AGENT.email })).toBeVisible();

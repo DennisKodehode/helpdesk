@@ -66,7 +66,7 @@ test.describe("Role-based access control", () => {
     await page.goto("/users");
 
     await expect(page).toHaveURL("/users");
-    await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Agents" })).toBeVisible();
   });
 
   test("agent cannot access /users and is redirected to dashboard", async ({ page }) => {

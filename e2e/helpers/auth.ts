@@ -9,7 +9,9 @@ export const AGENT_PASSWORD = "AgentPassword123!";
 /** Fills the login form and submits. Does NOT assert any outcome. */
 export async function submitLoginForm(page: Page, email: string, password: string) {
   await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(password);
+  // exact: true so this matches only the password input, not the
+  // "Show password" toggle button whose aria-label also contains "password".
+  await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
 }
 
@@ -20,8 +22,10 @@ export async function loginAs(page: Page, email: string, password: string) {
   await page.waitForURL("/");
 }
 
-/** Clicks the sign-out button and waits for the redirect to /login. */
+/** Opens the account popover, clicks "Sign out", and waits for /login. */
 export async function logout(page: Page) {
-  await page.getByRole("button", { name: "Sign out" }).click();
+  // "Sign out" lives inside the account popover — open it first.
+  await page.getByRole("button", { name: "Account menu" }).click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
   await page.waitForURL("/login");
 }
