@@ -158,7 +158,7 @@ export default function TicketFilters({
         size="default"
         pressed={breachedOnly}
         onPressedChange={onBreachedOnlyChange}
-        className="h-10 sm:h-9"
+        className="h-10 aria-pressed:border-ros-dot/40 aria-pressed:bg-ros-bg aria-pressed:text-ros-fg aria-pressed:hover:bg-ros-bg aria-pressed:hover:text-ros-fg data-[state=on]:border-ros-dot/40 data-[state=on]:bg-ros-bg data-[state=on]:text-ros-fg sm:h-9"
       >
         <AlertTriangle className="size-3.5" aria-hidden />
         Breached only
