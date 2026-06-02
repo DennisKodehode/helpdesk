@@ -716,6 +716,9 @@ async function seedTickets(agentIds: Record<AgentKey, string>, aiUserId: string)
     });
     ticketCount++;
 
+    // Track the AI reply so the auto_resolved audit event can link to it,
+    // mirroring the real pipeline (auto-resolve-ticket.ts records the reply id).
+    let aiReplyId: number | null = null;
     for (const r of replies) {
       const at = minsAfter(createdAt, r.afterMins);
       const authorId =
@@ -732,9 +735,10 @@ async function seedTickets(agentIds: Record<AgentKey, string>, aiUserId: string)
           : r.from === "note"
             ? SenderType.internal_note
             : SenderType.agent;
-      await prisma.reply.create({
+      const reply = await prisma.reply.create({
         data: { ticketId: ticket.id, authorId, senderType, body: r.body, createdAt: at },
       });
+      if (r.from === "ai") aiReplyId = reply.id;
       replyCount++;
     }
 
@@ -744,7 +748,14 @@ async function seedTickets(agentIds: Record<AgentKey, string>, aiUserId: string)
       actorId: string | null;
       at: Date;
       data?: object;
-    }[] = [{ type: AuditEventType.ticket_created, actorId: null, at: createdAt }];
+    }[] = [
+      {
+        type: AuditEventType.ticket_created,
+        actorId: null,
+        at: createdAt,
+        data: { fromEmail: t.email },
+      },
+    ];
     if (assignedToId) {
       events.push({
         type: AuditEventType.assignee_changed,
@@ -766,6 +777,7 @@ async function seedTickets(agentIds: Record<AgentKey, string>, aiUserId: string)
         type: AuditEventType.auto_resolved,
         actorId: aiUserId,
         at: resolvedAt ?? createdAt,
+        data: { replyId: aiReplyId },
       });
     } else if (resolvedAt) {
       events.push({
