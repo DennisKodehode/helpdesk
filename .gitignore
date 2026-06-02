@@ -16,3 +16,6 @@ design_handoff_helpdesk_redesign/
 
 # Visual-fidelity harness output (screenshots + Playwright artifacts)
 tools/fidelity/.out/
+
+# README screenshot harness — local-only authoring aid, not app code
+tools/readme-shots/

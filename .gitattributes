@@ -1,0 +1,39 @@
+# Normalize line endings: store LF in the repo, check out LF everywhere.
+# Without this, Windows (core.autocrlf=true) checks files out as CRLF, which
+# makes Biome (lineEnding: "lf") flag every line as a format error locally.
+* text=auto eol=lf
+
+# Explicit text types (belt-and-suspenders for the common source/config files)
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.js    text eol=lf
+*.jsx   text eol=lf
+*.mjs   text eol=lf
+*.cjs   text eol=lf
+*.json  text eol=lf
+*.css   text eol=lf
+*.md    text eol=lf
+*.html  text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.svg   text eol=lf
+*.sql   text eol=lf
+*.prisma text eol=lf
+*.sh    text eol=lf
+.env.example text eol=lf
+
+# Binary files — never normalize or diff as text.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.woff  binary
+*.woff2 binary
+*.ttf  binary
+*.eot  binary
+*.pdf  binary
+
+# Lockfile: keep LF, but don't let it explode in diffs.
+bun.lock text eol=lf
