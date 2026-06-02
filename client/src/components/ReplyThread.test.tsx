@@ -72,6 +72,7 @@ describe("ReplyThread", () => {
         senderType: SenderType.agent,
         body: "We are looking into it.",
         bodyHtml: null,
+        isAi: false,
         author: { id: "agent-1", name: "Bob Agent" },
         attachments: [],
         createdAt: "2024-01-15T12:00:00Z",
@@ -87,6 +88,34 @@ describe("ReplyThread", () => {
     expect(within(thread).getAllByText("Agent").length).toBeGreaterThan(0);
   });
 
+  it("renders an AI auto-reply with the 'AI Agent' name and 'AI · auto' label", async () => {
+    const replies: Reply[] = [
+      {
+        id: 1,
+        ticketId: 42,
+        senderType: SenderType.agent,
+        body: "Happy to help! Here is our refund policy.",
+        bodyHtml: null,
+        // The AI user is a real author, but the server flags the reply as AI.
+        author: { id: "ai-user", name: "AI" },
+        isAi: true,
+        attachments: [],
+        createdAt: "2024-01-15T12:00:00Z",
+      },
+    ];
+    vi.mocked(axios.get).mockResolvedValue({ data: replies });
+    renderWithProviders(<ReplyThread ticket={mockTicket} />);
+    const thread = await screen.findByRole("list", { name: /reply thread/i });
+
+    expect(
+      await within(thread).findByText("Happy to help! Here is our refund policy."),
+    ).toBeInTheDocument();
+    expect(within(thread).getByText("AI Agent")).toBeInTheDocument();
+    expect(within(thread).getByText("AI · auto")).toBeInTheDocument();
+    // It must NOT fall back to the plain human-agent label.
+    expect(within(thread).queryByText("Agent")).not.toBeInTheDocument();
+  });
+
   it("strips event handler attributes from reply body HTML", async () => {
     const replies: Reply[] = [
       {
@@ -95,6 +124,7 @@ describe("ReplyThread", () => {
         senderType: SenderType.customer,
         body: '<img src="x" onerror="window.__xss=1"> Safe reply',
         bodyHtml: null,
+        isAi: false,
         author: null,
         attachments: [],
         createdAt: "2024-01-15T12:00:00Z",
@@ -151,6 +181,7 @@ describe("ReplyThread", () => {
         senderType: SenderType.internal_note,
         body: "FYI — called this customer earlier, they're frustrated.",
         bodyHtml: null,
+        isAi: false,
         attachments: [],
         author: { id: "agent-1", name: "Bob Agent" },
         createdAt: "2024-01-15T12:00:00Z",
@@ -190,6 +221,7 @@ describe("ReplyThread", () => {
         senderType: SenderType.agent,
         body: "Here's the fix.",
         bodyHtml: null,
+        isAi: false,
         author: { id: "agent-1", name: "Bob" },
         attachments: [
           {
@@ -228,6 +260,7 @@ describe("ReplyThread", () => {
         senderType: SenderType.agent,
         body: "No files here.",
         bodyHtml: null,
+        isAi: false,
         author: { id: "agent-1", name: "Bob" },
         attachments: [],
         createdAt: "2024-01-15T12:00:00Z",
@@ -248,6 +281,7 @@ describe("ReplyThread", () => {
         senderType: SenderType.agent,
         body: "PDF attached.",
         bodyHtml: null,
+        isAi: false,
         author: { id: "agent-1", name: "Bob" },
         attachments: [
           {

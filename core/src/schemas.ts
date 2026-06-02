@@ -235,6 +235,9 @@ export const replySchema = z.object({
   body: z.string(),
   bodyHtml: z.string().nullable(),
   author: z.object({ id: z.string(), name: z.string() }).nullable(),
+  // True when the reply was authored by the AI agent user. Derived server-side
+  // (author id === AI user id) — never trust a null author to mean "AI".
+  isAi: z.boolean(),
   attachments: z.array(attachmentSchema).default([]),
   createdAt: z.string(),
 });

@@ -80,8 +80,8 @@ export default function ReplyThread({ ticket }: Props) {
       const isInternal = r.senderType === SenderType.internal_note;
       const isAgent = r.senderType === SenderType.agent;
       const isAgentSide = isAgent || isInternal;
-      // An agent reply with no author is machine-sent — the AI auto-responder.
-      const isAI = isAgent && !r.author;
+      // The AI auto-responder is flagged server-side (author === AI user).
+      const isAI = r.isAi;
       return {
         id: String(r.id),
         isAgent,
@@ -94,7 +94,11 @@ export default function ReplyThread({ ticket }: Props) {
             : isAgent
               ? "Agent"
               : "Customer",
-        senderName: isAgentSide ? (r.author?.name ?? "AI") : ticket.fromName,
+        senderName: isAI
+          ? "AI Agent"
+          : isAgentSide
+            ? (r.author?.name ?? "AI")
+            : ticket.fromName,
         html: r.bodyHtml ?? r.body.replace(/\n/g, "<br>"),
         attachments: r.attachments ?? [],
         createdAt: r.createdAt,

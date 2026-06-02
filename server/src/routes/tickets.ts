@@ -494,7 +494,7 @@ router.get("/:id/replies", requireAuth, async (req, res) => {
     orderBy: { createdAt: "asc" },
   });
 
-  res.json(replies);
+  res.json(replies.map((r) => ({ ...r, isAi: isAiAssigned(r.author?.id) })));
 });
 
 router.post(
@@ -613,7 +613,7 @@ router.post(
       });
     });
 
-    res.status(201).json(reply);
+    res.status(201).json({ ...reply, isAi: isAiAssigned(reply.author?.id) });
   },
 );
 
