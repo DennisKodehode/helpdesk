@@ -1,19 +1,36 @@
 import { Role } from "@helpdesk/core";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
 import MobileTopbar from "./components/MobileTopbar";
 import Sidebar from "./components/Sidebar";
+import { Skeleton } from "./components/ui/skeleton";
 import { useSession } from "./lib/auth-client";
 import { useUnauthorizedRedirect } from "./lib/auth-redirect";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
-import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
-import MyStatsPage from "./pages/MyStatsPage";
-import MyTicketsPage from "./pages/MyTicketsPage";
-import SlaPoliciesPage from "./pages/SlaPoliciesPage";
-import TicketDetailPage from "./pages/TicketDetailPage";
-import TicketsPage from "./pages/TicketsPage";
-import UsersPage from "./pages/UsersPage";
+
+// The two unauthenticated entry points stay eager (above) so the cold-load path
+// has no extra round-trip. Every authenticated page is code-split: the initial
+// bundle no longer pulls the dashboard, ticket detail, tables, etc. Declared at
+// module top level (never inside a component) so their state survives re-renders.
+const HomePage = lazy(() => import("./pages/HomePage"));
+const TicketsPage = lazy(() => import("./pages/TicketsPage"));
+const TicketDetailPage = lazy(() => import("./pages/TicketDetailPage"));
+const MyTicketsPage = lazy(() => import("./pages/MyTicketsPage"));
+const MyStatsPage = lazy(() => import("./pages/MyStatsPage"));
+const UsersPage = lazy(() => import("./pages/UsersPage"));
+const SlaPoliciesPage = lazy(() => import("./pages/SlaPoliciesPage"));
+
+// Shown only while a route's JS chunk is fetching; the sidebar shell stays
+// mounted around it, and each page renders its own data skeletons afterward.
+function RouteFallback() {
+  return (
+    <div className="mx-auto max-w-6xl px-4 pt-11 pb-10 sm:px-6 md:px-8 lg:px-12 xl:px-14">
+      <Skeleton className="h-8 w-48" />
+      <Skeleton className="mt-6 h-64 w-full" />
+    </div>
+  );
+}
 
 function ProtectedLayout() {
   const { data: session, isPending } = useSession();
@@ -37,7 +54,9 @@ function ProtectedLayout() {
       <MobileTopbar onMenuClick={() => setMobileNavOpen(true)} />
       <Sidebar mobileOpen={mobileNavOpen} onMobileOpenChange={setMobileNavOpen} />
       <div className="pt-14 md:pt-0 md:pl-64">
-        <Outlet />
+        <Suspense fallback={<RouteFallback />}>
+          <Outlet />
+        </Suspense>
       </div>
     </div>
   );
