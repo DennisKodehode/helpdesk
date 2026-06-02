@@ -49,6 +49,22 @@ function parseFrom(from: string): { fromName: string; fromEmail: string } {
   return { fromName: from.trim(), fromEmail: from.trim() };
 }
 
+/**
+ * Strip Gmail-style inline-image placeholders from a plain-text body. When a
+ * customer pastes an image into the message, the text/plain alternative carries
+ * a `[image: filename.png]` marker where the image sat, while the image itself
+ * arrives as a related attachment (surfaced separately as a download link). The
+ * marker is noise in the rendered body, so drop it and tidy the whitespace it
+ * leaves behind. An image-only email correctly collapses to an empty body.
+ */
+export function stripInlineImagePlaceholders(text: string): string {
+  return text
+    .replace(/\[image:[^\]\n]*\]/gi, "")
+    .replace(/[^\S\n]+$/gm, "") // trailing spaces/tabs left on a line
+    .replace(/\n{3,}/g, "\n\n") // collapse blank-line runs the marker left
+    .trim();
+}
+
 type AttachmentParent = { replyId: number } | { ticketId: number };
 
 /**
@@ -289,7 +305,7 @@ router.post("/", webhookLimiter, async (req, res) => {
 
   const rawText = emailResult.data?.text ?? "";
   const bodyText = rawText
-    ? new EmailReplyParser().parseReply(he.decode(rawText))
+    ? stripInlineImagePlaceholders(new EmailReplyParser().parseReply(he.decode(rawText)))
     : undefined;
   const bodyHtml = undefined;
 

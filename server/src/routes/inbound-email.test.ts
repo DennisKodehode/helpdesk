@@ -245,6 +245,26 @@ describe("POST /api/inbound-email", () => {
     createdTicketId = res.body.ticket.id;
   });
 
+  it("strips Gmail inline-image placeholders from the ticket body", async () => {
+    vi.mocked(resend.emails.receiving.get).mockResolvedValueOnce({
+      data: {
+        text: "i forgot my password how do i reset it?\n\n[image: Helpdesk-login.png]",
+        html: null,
+      } as any,
+      error: null,
+      headers: null,
+    });
+
+    const res = await request(app)
+      .post("/api/inbound-email")
+      .set(SVIX_HEADERS)
+      .send(makeEvent({ from: "Carol <inline-image@example.com>" }));
+
+    expect(res.status).toBe(201);
+    expect(res.body.ticket.body).toBe("i forgot my password how do i reset it?");
+    createdTicketId = res.body.ticket.id;
+  });
+
   it("defaults subject to '(no subject)' when email has no subject", async () => {
     const res = await request(app)
       .post("/api/inbound-email")
