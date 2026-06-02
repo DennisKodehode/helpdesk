@@ -271,7 +271,20 @@ export default function ActivityFeed({ ticketId }: Props) {
         ) : (
           <ol className="space-y-3">
             {events.map((event) => {
-              const { icon, content } = renderEvent(event, agentsById);
+              // A single malformed event (e.g. a missing `data` payload) must
+              // not white-screen the whole activity feed via the ErrorBoundary —
+              // log it and skip the row instead.
+              let icon: ReactNode;
+              let content: ReactNode;
+              try {
+                ({ icon, content } = renderEvent(event, agentsById));
+              } catch (err) {
+                console.error(
+                  `Failed to render audit event ${event.id} (${event.type}):`,
+                  err,
+                );
+                return null;
+              }
               if (!content) return null;
               return (
                 <li

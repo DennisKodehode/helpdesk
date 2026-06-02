@@ -217,6 +217,36 @@ describe("ActivityFeed", () => {
     expect(item).toHaveTextContent("alice@example.com");
   });
 
+  it("skips a malformed event (null data) without crashing the feed", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockAuditAndAgents([
+      {
+        id: "ev-bad",
+        type: AuditEventType.ticket_created,
+        actor: null,
+        data: null as unknown as { fromEmail: string },
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: "ev-ok",
+        type: AuditEventType.status_changed,
+        actor: baseActor,
+        data: { from: "open", to: "resolved" },
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    renderWithProviders(<ActivityFeed ticketId="42" />);
+
+    // The valid sibling event still renders; the malformed one is skipped + logged.
+    expect(await screen.findByText(/changed status/)).toBeInTheDocument();
+    expect(screen.queryByText(/Ticket created from/)).not.toBeInTheDocument();
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Failed to render audit event ev-bad"),
+      expect.anything(),
+    );
+    errorSpy.mockRestore();
+  });
+
   it("renders an auto_resolved event as a link to #reply-<id>", async () => {
     mockAuditAndAgents([
       {
