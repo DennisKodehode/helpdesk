@@ -6,13 +6,13 @@
 
 Built with React 19, Bun, TypeScript, Prisma, Better Auth, and Google Gemini.
 
-![Sign-in screen](docs/screenshots/Helpdesk-login.png)
+![Sign-in screen](docs/screenshots/01-login.png)
 
 ---
 
 ## What it does
 
-A support tool for a small team. Customers email in, agents reply, and AI does the boring parts in between. Here's what each scenario looks like in practice.
+A support tool for a small team. Customers email in, agents reply, and AI does the boring parts in between. There are two roles: **agents** work the queue, and **admins** additionally manage the roster and the rules everything runs on. Here's what each scenario looks like in practice.
 
 ### A ticket the AI can answer
 
@@ -20,9 +20,13 @@ A customer emails: *"Why was I charged twice for the React course last week?"*
 
 Within seconds of Resend delivering the email, Gemini reads it, classifies it as `billing` / `normal`, and checks the knowledge base. There's an article about duplicate charges from webhook retries — high-confidence match. The AI drafts a reply quoting the policy, sends it via Resend, and marks the ticket `resolved` with itself as the assignee. The customer gets an answer in under a minute. No agent is paged.
 
-![Ticket queue](docs/screenshots/Helpdesk-ticketpage.png)
+![Ticket queue](docs/screenshots/03-tickets.png)
 
-By the time an agent logs in, the queue is already triaged. Every row has a category, a priority, and an SLA badge. Quick-filter chips at the top — *Unassigned*, *Needs triage*, *Awaiting customer* — cover the common slices.
+By the time an agent logs in, the queue is already triaged. Every row has a category, a priority, and an SLA badge. Filters along the top — status, category, priority, and a *Breached only* toggle — cut the queue down to the slice you care about, and the search box matches sender, email, or subject.
+
+![AI-resolved ticket](docs/screenshots/04-ticket-detail.png)
+
+Open one the AI handled and the whole story is there: the customer's question, the AI's auto-reply grounded in the knowledge base, the `RESOLVED` status, and an **AUTO-CLASSIFIED BY AI** / **HANDLED BY AUTOMATION** marker. The activity feed on the right records every step, including *AI auto-resolved the ticket*.
 
 ### A ticket that needs a human
 
@@ -30,27 +34,53 @@ A different customer emails: *"URGENT: payment failed and my account is locked. 
 
 Gemini classifies it correctly — `billing` / `urgent` — but the knowledge base has nothing about account lockouts. Instead of guessing, the AI stays out of it. The ticket lands in the human queue as `open`, with the urgent first-response SLA timer running.
 
-![Ticket detail](docs/screenshots/Helpdesk-ticketdetails.png)
+![My tickets](docs/screenshots/06-my-tickets.png)
 
-The agent opens the ticket and sees the full conversation, the AI's classification, and the SLA timer counting down. The sidebar shows status, category, priority, assignment, and a timeline of every change. They write a draft, click **Polish with AI** — tone and grammar get a quick pass, substance untouched — then hit send. Resend delivers the email. The first-response timer stops. The audit log records who replied and when.
+Each agent has their own queue split into what they're **working on** and what's already **closed**. Opening a ticket shows the full conversation, the AI's classification, and the SLA timer counting down. The agent can write a reply and **Polish with AI** — tone and grammar get a quick pass, substance untouched — or click **Suggest reply** to have the AI draft a grounded answer from the knowledge base for them to review and edit. Either way the agent owns the send. Resend delivers the email, the first-response timer stops, and the audit log records who replied and when.
 
 ### When customers come back
 
-If the customer replies later, the inbound webhook matches the reply to the existing ticket (same sender, same subject thread). A resolved ticket auto-reopens and gets unassigned from the AI, so the next available human picks it up. No duplicate tickets, no orphaned threads.
+If the customer replies later, the inbound webhook matches the reply to the existing ticket (same sender, same subject thread). A resolved ticket auto-reopens and gets unassigned from the AI, so the next available human picks it up. A reply on a *closed* ticket spawns a fresh one. No duplicate tickets, no orphaned threads.
 
-### Tracking the work
+### Tracking your own work
 
-![Personal stats](docs/screenshots/Helpdesk-mystats.png)
+![Personal stats](docs/screenshots/07-my-stats.png)
 
-Each agent has a personal dashboard: open queue, average resolution time, average first-reply time, throughput last 30 days, lifetime totals. The admin dashboard aggregates the same numbers across the team plus a category breakdown and an SLA health card.
-
-### Administration
-
-Admins manage the agent roster — create, deactivate, reset passwords, force-close stuck tickets, reopen anything that was closed prematurely. Roles aren't writable from any client form: the server ignores the field on user-update requests, so a misconfigured admin UI can't elevate an agent to admin by accident.
+Every agent gets a personal dashboard: open tickets on their plate, tickets resolved over the last 30 days and lifetime, average resolution time, average first-reply time, and reply counts. Throughput and resolution time credit whoever's currently assigned; reply counts follow authorship and survive reassignment.
 
 ### How customers experience it
 
 Customers never log in. They email an address and continue the conversation by replying. They don't see categories, priorities, or SLAs — just normal email replies, some of which happen to be drafted by an AI grounded in the team's own knowledge base.
+
+---
+
+## Administration
+
+Admins get everything agents have, plus a workspace-wide view and the controls that shape how the queue behaves.
+
+### The team dashboard
+
+![Admin dashboard](docs/screenshots/02-dashboard.png)
+
+The admin dashboard aggregates the whole workspace: open / triaging / breached / unassigned counts up top, an AI-activity card (auto-classified, replies sent, escalated), a live recent-activity feed, tickets broken down by category, the highest-priority tickets needing attention, and SLA-compliance gauges for first response and resolution. It's the morning glance that tells you where the team stands.
+
+### Managing agents
+
+![Agent roster](docs/screenshots/05-agents.png)
+
+The roster is the admin's control panel for people. Each row shows the teammate's role, status (`active` / `invited` / `inactive`), open assignments, tickets resolved, average resolution time, and when they were last active. From here an admin can **invite** a teammate, **change their role** (promote an agent to admin, or demote back), **deactivate / reactivate** them, and **remove** them from the team. The AI user appears here too — marked as automation and excluded from the human seat count.
+
+Guardrails keep the workspace from locking itself out: you can't deactivate or remove yourself or *any* admin, you can't demote yourself, and the last remaining admin can't be demoted. Deactivating someone immediately ends their live sessions; removing them also voids any pending invite.
+
+Nobody is ever handed a password. Inviting a teammate — as agent **or** admin — creates them in an `invited` state with no credential and emails a single-use link; they set their own password on first visit, which flips them to `active`.
+
+![Accept invite](docs/screenshots/09-accept-invite.png)
+
+### Setting SLA targets
+
+![SLA targets](docs/screenshots/08-sla-policies.png)
+
+SLAs aren't hard-coded — admins set first-response and resolution windows per priority (urgent → low), each with its own at-risk threshold. A live health bar at the top shows how the current queue is tracking against those targets in real time. Tickets flip to **At risk** once 75% of a window has elapsed and **Breached** when it passes; resolved and closed tickets stop carrying a badge. A metric with no target set is simply skipped.
 
 ---
 
@@ -108,11 +138,11 @@ Every server input and every client form validates against the **same** Zod sche
 
 **AI behind a provider-agnostic interface.** All AI calls go through the [Vercel AI SDK](https://sdk.vercel.ai)'s `generateText` / `generateObject`. The currently-bound provider is Google Gemini via `@ai-sdk/google`, but swapping to Claude or OpenAI is a one-line import change. Schemas for structured outputs (categorization, suggested reply confidence) are declared with Zod and validated automatically.
 
-**AI polishes; it never drafts blindly.** "Polish with AI" rewrites the agent's draft for tone and clarity; it cannot invent content. Auto-resolve is the only path where the AI sends a message without human review, and it's gated on a strict KB match — if Gemini isn't confident, the ticket goes to the human queue rather than guessing.
+**AI polishes; it never drafts blindly.** "Polish with AI" rewrites the agent's draft for tone and clarity; it cannot invent content. "Suggest reply" drafts an answer grounded in the knowledge base, but an agent still reviews and sends it. Auto-resolve is the only path where the AI sends a message without human review, and it's gated on a strict KB match — if Gemini isn't confident, the ticket goes to the human queue rather than guessing.
 
 **Idempotent inbound webhook.** Resend's `email-received` webhook is at-least-once. Each Ticket and Reply has a unique `resendEmailId`; the handler upserts on that key so a redelivered webhook can't create duplicates. Customer-reply detection (does this email reopen an existing ticket, or start a new one?) keys on `(fromEmail, subject, status)` rather than blind string matching.
 
-**Better Auth with DB sessions, not JWTs.** Logout is a real revocation, not a "trust the expiry" handshake. Password changes invalidate sessions across devices. The `role` field is declared as a Better Auth `additionalField` with `input: false` so it's never writable from client input — only the seed script and admin routes can mutate it.
+**Better Auth with DB sessions, not JWTs.** Logout is a real revocation, not a "trust the expiry" handshake. Password changes invalidate sessions across devices, and a deactivated account is booted from its live sessions on the spot (a custom login gate also blocks anyone whose status isn't `active`). The `role` field is a Better Auth `additionalField` with `input: false`, so Better Auth's own signup/update endpoints can never touch it — role changes flow *only* through the dedicated admin routes, which set it deliberately (admin included; see [Known limitations](#known-limitations)). Teammates are onboarded via single-use invite links and set their own password; admins never see or set it.
 
 **Polymorphic attachments enforced at the DB level.** A single `Attachment` row belongs to either a `Reply` or a `Ticket`, never both. Prisma doesn't model XOR constraints natively, so the migration adds a raw `CHECK (replyId IS NULL) <> (ticketId IS NULL)` constraint — invalid combinations fail at insert time, not just at the application layer.
 
@@ -151,6 +181,7 @@ This is a portfolio-stage project. It works end-to-end but is intentionally scop
 - **Single tenant.** No notion of multiple organizations or workspaces.
 - **No customer portal.** Customers interact via email only — no login, no "view your ticket status" page.
 - **No 2FA or SSO.** Email + password only. Sessions live in the database with a configurable expiry.
+- **Flat admin model — any admin can mint more admins.** Admins can invite new admins and promote any agent to admin with no second approval. It's deliberate so the workspace is easy to bootstrap, but it's setup-grade access control, not production RBAC (no per-permission roles, no audit gate on promotion). Removal *is* guarded: an admin can't be deactivated or deleted, and the last admin can't be demoted — so you can't accidentally lock everyone out.
 - **AI is best-effort.** Gemini's classification and auto-resolve are probabilistic. Misclassifications happen; agents can always override.
 - **Knowledge base is a single Markdown file.** No structured FAQ editor in the UI yet — edit the file and redeploy.
 - **No real-time updates.** The UI refetches on focus and after mutations; it doesn't push via WebSocket.
