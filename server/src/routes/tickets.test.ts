@@ -1682,6 +1682,9 @@ describe("GET /api/tickets/:id/replies", () => {
     expect(res.body).toHaveLength(2);
     expect(res.body[0].id).toBe(first.id);
     expect(res.body[1].id).toBe(second.id);
+    // Human-authored replies are flagged as non-AI.
+    expect(res.body[0].isAi).toBe(false);
+    expect(res.body[1].isAi).toBe(false);
   });
 });
 
