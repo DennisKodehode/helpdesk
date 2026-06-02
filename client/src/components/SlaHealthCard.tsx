@@ -1,4 +1,3 @@
-import type { SlaHealthResponse } from "@helpdesk/core";
 import ErrorAlert from "@/components/ui/ErrorAlert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSlaHealth } from "@/lib/sla-policies";
