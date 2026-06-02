@@ -37,6 +37,14 @@ const EnvSchema = z
     S3_BUCKET: z.string().optional(),
     S3_ACCESS_KEY: z.string().optional(),
     S3_SECRET_KEY: z.string().optional(),
+    // Railway Buckets (and AWS/R2) use virtual-hosted-style URLs, so this
+    // defaults to false. Set to "true" only for path-style providers (e.g. a
+    // local MinIO, or pre-2025 Railway buckets per their Credentials tab).
+    // NB: a plain z.coerce.boolean() would treat the string "false" as true.
+    S3_FORCE_PATH_STYLE: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((s) => s === "true"),
   })
   .superRefine((env, ctx) => {
     if (env.STORAGE_DRIVER === "s3") {

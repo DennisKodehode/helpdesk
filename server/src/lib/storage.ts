@@ -77,6 +77,9 @@ function createS3Adapter(): StorageAdapter {
     bucket: env.S3_BUCKET!,
     accessKey: env.S3_ACCESS_KEY!,
     secretKey: env.S3_SECRET_KEY!,
+    // s3-lite-client defaults pathStyle to true; Railway Buckets (and R2/AWS)
+    // serve virtual-hosted-style, so this must be false for them.
+    pathStyle: env.S3_FORCE_PATH_STYLE,
   });
 
   return {
