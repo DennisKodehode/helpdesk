@@ -41,8 +41,9 @@ Each workspace has its own `CLAUDE.md` with implementation details: `client/CLAU
 | `server/src/lib/auth.ts` | Better Auth instance |
 | `server/src/middleware/auth-middleware.ts` | `requireAuth`, `requireAdmin`, `requireAdminChain` |
 | `server/prisma/schema.prisma` | Full schema: User, Session, Account, Verification, Ticket, Reply |
-| `server/prisma/seed.ts` | Seeds the admin user (`bun run db:seed` from `server/`) |
-| `server/prisma/seed-dev.ts` | Seeds dev data: one agent + 8 sample tickets (`bun prisma/seed-dev.ts` from `server/`) |
+| `server/prisma/seed.ts` | Seeds the admin user + AI user + SLA policies (`bun run db:seed` from `server/`) |
+| `server/prisma/seed-dev.ts` | Minimal dev data: one agent + sample tickets (`bun prisma/seed-dev.ts`) |
+| `server/prisma/seed-demo.ts` | **Full demo dataset** — 8 diverse agents/admins (active/invited/inactive), 22 tickets across every status/category/priority/SLA-state with threads + audit + notifications. Re-runnable (wipes mock data, keeps admin + AI). `bun run db:seed-demo` after `db:seed`. |
 | `client/src/App.tsx` | Route tree: `ProtectedLayout` (auth) → `AdminLayout` (role) |
 | `client/src/lib/auth-client.ts` | Better Auth React client (signIn, signOut, useSession) |
 | `core/src/types.ts` | Shared enums: Role, TicketStatus, TicketCategory, SenderType |
@@ -58,8 +59,9 @@ bun run dev                          # from helpdesk/
 bun run db:migrate                   # create + apply a new migration (always use this, never db:push)
 bun run db:generate                  # regenerate Prisma client after schema change
 bun run db:studio                    # open Prisma Studio
-bun run db:seed                      # seed admin user + AI agent user (production-safe; idempotent)
-bun prisma/seed-dev.ts               # seed dev agent + sample tickets (run after db:seed)
+bun run db:seed                      # seed admin user + AI agent user + SLA policies (production-safe; idempotent)
+bun run db:seed-demo                  # full diverse demo dataset (re-runnable; wipes mock data, keeps admin + AI). Run after db:seed
+bun prisma/seed-dev.ts               # minimal dev data: one agent + sample tickets (run after db:seed)
 
 # Tests
 bun run test                         # component tests (from client/) or integration tests (from server/)
