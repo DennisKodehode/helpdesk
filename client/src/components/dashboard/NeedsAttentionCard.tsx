@@ -4,7 +4,13 @@ import axios from "axios";
 import { ArrowRight } from "lucide-react";
 import { Link } from "@/components/ui/link";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BADGE_BASE, SLA_DOT, SLA_LABELS, SLA_STYLES } from "@/lib/ticket-ui";
+import {
+  BADGE_BASE,
+  formatCaseId,
+  SLA_DOT,
+  SLA_LABELS,
+  SLA_STYLES,
+} from "@/lib/ticket-ui";
 
 export default function NeedsAttentionCard() {
   const query = useQuery<NeedsAttentionResponse>({
@@ -56,7 +62,7 @@ export default function NeedsAttentionCard() {
                     {t.subject}
                   </span>
                   <span className="mt-0.5 block font-mono tabular text-[11px] leading-none text-ink-4">
-                    #{String(t.id).padStart(4, "0")}
+                    #{formatCaseId(t.id)}
                   </span>
                 </span>
                 <span className={`${BADGE_BASE} ${SLA_STYLES[t.slaState]} shrink-0`}>

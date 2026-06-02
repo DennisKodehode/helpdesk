@@ -20,6 +20,7 @@ const MyTicketsPage = lazy(() => import("./pages/MyTicketsPage"));
 const MyStatsPage = lazy(() => import("./pages/MyStatsPage"));
 const UsersPage = lazy(() => import("./pages/UsersPage"));
 const SlaPoliciesPage = lazy(() => import("./pages/SlaPoliciesPage"));
+const ActivityPage = lazy(() => import("./pages/ActivityPage"));
 
 // Shown only while a route's JS chunk is fetching; the sidebar shell stays
 // mounted around it, and each page renders its own data skeletons afterward.
@@ -90,6 +91,7 @@ export default function App() {
         <Route element={<AdminLayout />}>
           <Route path="/users" element={<UsersPage />} />
           <Route path="/sla-policies" element={<SlaPoliciesPage />} />
+          <Route path="/activity" element={<ActivityPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

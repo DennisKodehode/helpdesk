@@ -88,6 +88,17 @@ export enum AuditEventType {
   auto_closed = "auto_closed",
 }
 
+// Sentinels for the activity-log `actorId` query param. Distinguish "no actor
+// filter" (omitted) from the two non-human actor classes the UI can't name with
+// a user id: `system` → events with `actorId IS NULL` (automated, or a deleted
+// agent's events via onDelete: SetNull); `ai` → the server resolves this to the
+// AI user's id (`getAiUserId()`), keeping the AI user's id off the client.
+export const ACTOR_SYSTEM_FILTER_VALUE = "system" as const;
+export type ActorSystemFilterValue = typeof ACTOR_SYSTEM_FILTER_VALUE;
+
+export const ACTOR_AI_FILTER_VALUE = "ai" as const;
+export type ActorAiFilterValue = typeof ACTOR_AI_FILTER_VALUE;
+
 export const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024;
 
 export const ATTACHMENT_MIME_ALLOWLIST: readonly string[] = [

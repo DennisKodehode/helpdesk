@@ -12,8 +12,32 @@ import {
   Tag,
   UserCheck,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export type AuditTone = "ai" | "warn" | "neutral";
+
+// Tailwind classes for the round type-icon badge, keyed by tone. Shared by the
+// dashboard's recent-activity feed and the admin activity table via <ActivityIcon>.
+export const TONE_RING: Record<AuditTone, string> = {
+  ai: "bg-accent-tint-2 text-accent-ink",
+  warn: "bg-amb-bg text-amb-fg",
+  neutral: "bg-panel-2 text-ink-3",
+};
+
+// Short, filter-friendly labels per event type — used in the activity-log
+// event-type dropdown. (The richer per-row phrasing lives in `auditSummary`.)
+export const EVENT_TYPE_LABELS: Record<AuditEventType, string> = {
+  [AuditEventType.status_changed]: "Status changed",
+  [AuditEventType.assignee_changed]: "Reassigned",
+  [AuditEventType.priority_changed]: "Priority changed",
+  [AuditEventType.category_changed]: "Category changed",
+  [AuditEventType.reply_added]: "Reply added",
+  [AuditEventType.ticket_created]: "Ticket created",
+  [AuditEventType.auto_resolved]: "AI auto-resolved",
+  [AuditEventType.ai_escalated]: "AI escalated",
+  [AuditEventType.auto_reopened]: "Auto-reopened",
+  [AuditEventType.auto_closed]: "Auto-closed",
+};
 
 // Icon + tone per audit event type. AI/machine moments are violet ("ai"),
 // escalations/notes are amber ("warn"), everything else neutral. Shared by the
@@ -70,6 +94,30 @@ export function auditSummary(row: RecentActivityRow): string {
     default:
       return "Updated";
   }
+}
+
+// The round, tone-tinted type-icon badge for one activity row. Default size
+// matches the dashboard feed (size-7); pass `className` to override.
+export function ActivityIcon({
+  type,
+  className,
+}: {
+  type: AuditEventType;
+  className?: string;
+}) {
+  const { Icon, tone } = auditVisual(type);
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "grid size-7 shrink-0 place-items-center rounded-full",
+        TONE_RING[tone],
+        className,
+      )}
+    >
+      <Icon className="size-3.5" />
+    </span>
+  );
 }
 
 // Re-exported so the internal-note path can render a lock affordance if needed.

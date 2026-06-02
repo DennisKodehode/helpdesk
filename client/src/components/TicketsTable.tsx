@@ -26,6 +26,7 @@ import {
   BADGE_BASE,
   CATEGORY_BADGE,
   CATEGORY_LABELS,
+  formatCaseId,
   formatRelative,
   isTriagingStatus,
   PRIORITY_DOT,
@@ -103,7 +104,7 @@ const columns: ColumnDef<Ticket, unknown>[] = [
           {row.original.subject}
         </Link>
         <p className="mt-0.5 font-mono tabular text-[11px] text-ink-4">
-          #{String(row.original.id).padStart(4, "0")}
+          #{formatCaseId(row.original.id)}
         </p>
       </div>
     ),
@@ -368,7 +369,7 @@ export default function TicketsTable({
               >
                 <div className="flex items-start justify-between gap-3 px-4 pt-4">
                   <span className="font-mono tabular text-[11px] text-muted-foreground">
-                    #{String(t.id).padStart(4, "0")}
+                    #{formatCaseId(t.id)}
                   </span>
                   <StatusPill status={t.status as TicketStatus} />
                 </div>

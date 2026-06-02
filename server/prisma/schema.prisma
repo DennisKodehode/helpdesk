@@ -273,5 +273,9 @@ model AuditEvent {
   createdAt DateTime       @default(now())
 
   @@index([ticketId, createdAt])
+  // Global activity log (admin): newest-first scans + date-range filtering.
+  @@index([createdAt])
+  // Primary "investigate one actor over time" filter for the activity log.
+  @@index([actorId, createdAt])
   @@map("audit_event")
 }

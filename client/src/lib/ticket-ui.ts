@@ -98,6 +98,12 @@ export const PRIORITY_LABELS: Record<TicketPriority, string> = {
   [TicketPriority.urgent]: "Urgent",
 };
 
+// Zero-padded case number for display, e.g. 42 → "0042". Call sites prepend
+// the "#" so they keep control of the surrounding markup (label vs. link).
+export function formatCaseId(id: number): string {
+  return String(id).padStart(4, "0");
+}
+
 export function formatRelative(iso: string): string {
   const then = new Date(iso).getTime();
   const now = Date.now();

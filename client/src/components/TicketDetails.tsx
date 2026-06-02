@@ -1,4 +1,5 @@
 import type { TicketDetail } from "@helpdesk/core";
+import { formatCaseId } from "@/lib/ticket-ui";
 import SuppressionPill from "./SuppressionPill";
 
 interface Props {
@@ -7,7 +8,7 @@ interface Props {
 
 export default function TicketDetails({ ticket }: Props) {
   const showName = ticket.fromName && ticket.fromName !== ticket.fromEmail;
-  const caseId = String(ticket.id).padStart(4, "0");
+  const caseId = formatCaseId(ticket.id);
   const received = new Date(ticket.createdAt);
 
   return (

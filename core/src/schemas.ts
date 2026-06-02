@@ -435,6 +435,37 @@ export const recentActivityResponseSchema = z.array(recentActivityRowSchema);
 export type RecentActivityRow = z.infer<typeof recentActivityRowSchema>;
 export type RecentActivityResponse = z.infer<typeof recentActivityResponseSchema>;
 
+// Admin activity-log query params. Coercion mirrors `ticketSortSchema` so the
+// raw `req.query` strings parse into numbers/defaults. `actorId` is free-form:
+// a user id, or one of ACTOR_SYSTEM_FILTER_VALUE / ACTOR_AI_FILTER_VALUE which
+// the server resolves. `from`/`to` are date-only (YYYY-MM-DD) or ISO strings;
+// the server treats them as UTC and makes `to` inclusive.
+export const auditEventQuerySchema = z.object({
+  type: z.enum(AuditEventType).optional(),
+  actorId: z.string().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+});
+
+export type AuditEventQuery = z.infer<typeof auditEventQuerySchema>;
+
+// The activity-log row is identical to the dashboard's recent-activity row
+// (flat `actorName`) — reuse it so the server maps the same way and the UI can
+// share `auditSummary`/`<ActivityIcon>` with no adapter.
+export const auditEventRowSchema = recentActivityRowSchema;
+export type AuditEventRow = RecentActivityRow;
+
+export const paginatedAuditEventsSchema = z.object({
+  data: z.array(recentActivityRowSchema),
+  total: z.number(),
+  page: z.number(),
+  pageSize: z.number(),
+});
+
+export type PaginatedAuditEvents = z.infer<typeof paginatedAuditEventsSchema>;
+
 // Dashboard needs-attention — active tickets at risk of or past an SLA target.
 export const needsAttentionRowSchema = z.object({
   id: z.number().int(),

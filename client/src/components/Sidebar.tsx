@@ -2,6 +2,7 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Role } from "@helpdesk/core";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  Activity,
   ChevronsUpDown,
   Inbox,
   LayoutDashboard,
@@ -153,6 +154,7 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
   const adminNav: NavItem[] = [
     { to: "/users", label: "Agents", icon: Users },
     { to: "/sla-policies", label: "SLA targets", icon: ShieldCheck },
+    { to: "/activity", label: "Activity", icon: Activity },
   ];
 
   return (

@@ -1,6 +1,7 @@
 import { AuditEventType, type RecentActivityResponse } from "@helpdesk/core";
 import axios from "axios";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useSession } from "@/lib/auth-client";
 import { cleanup, renderWithProviders, screen } from "../../test/utils";
 import RecentActivityCard from "./RecentActivityCard";
 
@@ -13,6 +14,15 @@ vi.mock("axios", () => ({
     isAxiosError: vi.fn(),
   },
 }));
+
+vi.mock("@/lib/auth-client", () => ({ useSession: vi.fn() }));
+
+function setRole(role: "admin" | "agent") {
+  vi.mocked(useSession).mockReturnValue({
+    data: { user: { role } },
+    isPending: false,
+  } as unknown as ReturnType<typeof useSession>);
+}
 
 const ROWS: RecentActivityResponse = [
   {
@@ -35,6 +45,7 @@ const ROWS: RecentActivityResponse = [
   },
 ];
 
+beforeEach(() => setRole("agent"));
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -55,5 +66,21 @@ describe("RecentActivityCard", () => {
     vi.mocked(axios.get).mockResolvedValue({ data: [] });
     renderWithProviders(<RecentActivityCard />);
     expect(await screen.findByText(/no activity yet/i)).toBeInTheDocument();
+  });
+
+  it("shows a 'View all' link to admins", async () => {
+    setRole("admin");
+    vi.mocked(axios.get).mockResolvedValue({ data: ROWS });
+    renderWithProviders(<RecentActivityCard />);
+    const link = await screen.findByRole("link", { name: /view all/i });
+    expect(link).toHaveAttribute("href", "/activity");
+  });
+
+  it("hides the 'View all' link from non-admins", async () => {
+    setRole("agent");
+    vi.mocked(axios.get).mockResolvedValue({ data: ROWS });
+    renderWithProviders(<RecentActivityCard />);
+    await screen.findByText(/AI auto-resolved/i);
+    expect(screen.queryByRole("link", { name: /view all/i })).not.toBeInTheDocument();
   });
 });
