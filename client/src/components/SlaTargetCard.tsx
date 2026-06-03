@@ -75,9 +75,15 @@ export default function SlaTargetCard({ policy, onChange }: Props) {
         </div>
         <p className="mt-2 text-[12.5px] leading-relaxed text-ink-3">{META[priority]}</p>
       </div>
-      <div className="flex min-w-[280px] flex-1 flex-wrap gap-7">
+      {/* @container so the divider can hide when the two editors wrap to a
+          stack — a vertical w-px rule between stacked editors orphans into a
+          stray line. */}
+      <div className="@container/sla flex min-w-[280px] flex-1 flex-wrap gap-7">
         <Editor which="firstResponseMinutes" label="First response" />
-        <div aria-hidden className="w-px self-stretch bg-border" />
+        <div
+          aria-hidden
+          className="hidden w-px self-stretch bg-border @min-[32rem]/sla:block"
+        />
         <Editor which="resolutionMinutes" label="Resolution" allowNone />
       </div>
     </div>

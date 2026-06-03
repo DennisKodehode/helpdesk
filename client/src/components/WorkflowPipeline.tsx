@@ -21,12 +21,12 @@ const STAGE_META: Record<Stage, { label: string; dot: string; note: string }> = 
 function StageNode({ stage, count }: { stage: Stage; count: number }) {
   const meta = STAGE_META[stage];
   return (
-    <div className="min-w-[168px] flex-1 rounded-[var(--r-lg)] border border-border bg-card px-5 py-[18px]">
-      <div className="flex items-center gap-2">
+    <div className="w-full rounded-[var(--r-lg)] border border-border bg-card px-5 py-[18px] @min-[53rem]/pipe:w-auto @min-[53rem]/pipe:min-w-[150px] @min-[53rem]/pipe:flex-1">
+      <div className="flex items-center justify-center gap-2 @min-[53rem]/pipe:justify-start">
         <span className={cn("size-[9px] flex-none rounded-full", meta.dot)} />
         <span className="font-serif text-[21px] text-ink">{meta.label}</span>
       </div>
-      <div className="mt-3 flex items-baseline gap-[7px]">
+      <div className="mt-3 flex items-baseline justify-center gap-[7px] @min-[53rem]/pipe:justify-start">
         <span className="font-serif text-[32px] leading-[0.9] text-ink tabular-nums">
           {count}
         </span>
@@ -34,19 +34,23 @@ function StageNode({ stage, count }: { stage: Stage; count: number }) {
           active
         </span>
       </div>
-      <p className="mt-[9px] font-mono text-[10px] uppercase tracking-[0.05em] text-ink-4">
+      <p className="mt-[9px] text-center font-mono text-[10px] uppercase tracking-[0.05em] text-ink-4 @min-[53rem]/pipe:text-left">
         {meta.note}
       </p>
     </div>
   );
 }
 
+// Connector between two stages. Vertical (chevron points down) when the
+// pipeline is stacked; horizontal (chevron points right) once the card clears
+// ~53rem and the row goes side-by-side. The mono label wraps to 2 lines in the
+// narrow horizontal form — that's in-character, not a regression.
 function Connector({ label, auto }: { label: string; auto: boolean }) {
   return (
-    <div className="flex flex-[0_0_92px] min-w-[72px] flex-col items-center gap-[7px] self-center">
+    <div className="flex flex-col items-center gap-[7px] self-center @min-[53rem]/pipe:flex-[0_0_68px] @min-[53rem]/pipe:min-w-[60px]">
       <span
         className={cn(
-          "max-w-[90px] text-center font-mono text-[9.5px] uppercase leading-[1.35] tracking-[0.07em]",
+          "max-w-[120px] text-center font-mono text-[9.5px] uppercase leading-[1.35] tracking-[0.07em]",
           auto ? "text-accent-ink" : "text-ink-4",
         )}
       >
@@ -55,11 +59,11 @@ function Connector({ label, auto }: { label: string; auto: boolean }) {
         )}
         {label}
       </span>
-      <div className="flex w-full items-center">
-        <span className="h-[1.5px] flex-1 bg-hairline-strong" />
+      <div className="flex flex-col items-center @min-[53rem]/pipe:w-full @min-[53rem]/pipe:flex-row">
+        <span className="h-4 w-[1.5px] bg-hairline-strong @min-[53rem]/pipe:h-[1.5px] @min-[53rem]/pipe:w-auto @min-[53rem]/pipe:flex-1" />
         <ChevronDown
           aria-hidden
-          className="-mr-[3px] -ml-0.5 size-[15px] -rotate-90 text-hairline-strong"
+          className="size-[15px] text-hairline-strong @min-[53rem]/pipe:-mr-[3px] @min-[53rem]/pipe:-ml-0.5 @min-[53rem]/pipe:-rotate-90"
         />
       </div>
     </div>
@@ -107,13 +111,17 @@ export default function WorkflowPipeline({ life, counts }: Props) {
     .join(" + ");
 
   return (
-    <div className="mb-[22px] rounded-[var(--r-lg)] border border-border bg-card px-[26px] py-6">
+    <div className="@container/pipe mb-[22px] rounded-[var(--r-lg)] border border-border bg-card px-[26px] py-6">
       <div className="mb-5 flex items-center gap-2.5">
         <RotateCcw aria-hidden className="size-4 text-ink-3" />
         <p className="eyebrow">The lifecycle · every ticket moves left to right</p>
       </div>
 
-      <div className="flex flex-wrap items-stretch gap-1 overflow-x-auto pb-1">
+      {/* Stacked top-to-bottom by default; flips to a side-by-side row once the
+          card clears ~53rem (just above the shrunk row's real min width, so the
+          horizontal form never overflows the card). No flex-wrap — wrapping is
+          what orphaned the connectors. */}
+      <div className="flex flex-col items-stretch gap-2 @min-[53rem]/pipe:flex-row @min-[53rem]/pipe:items-stretch @min-[53rem]/pipe:gap-1">
         <StageNode stage="triaging" count={counts.triaging} />
         <Connector
           label={life.autoAssignOn ? "classify · auto-assign" : "AI classifies & routes"}
