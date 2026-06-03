@@ -24,6 +24,10 @@ import boss from "../lib/boss";
 import { prisma } from "../lib/prisma";
 import { SEND_REPLY_EMAIL_QUEUE } from "../lib/send-reply-email-job";
 import { seedSlaPolicies } from "../lib/sla-defaults";
+import {
+  WORKFLOW_SETTINGS_DEFAULTS,
+  WORKFLOW_SETTINGS_ID,
+} from "../lib/workflow-settings";
 
 vi.mock("../lib/boss", () => ({
   default: { send: vi.fn().mockResolvedValue("mock-job-id") },
@@ -38,6 +42,32 @@ vi.mock("ai", async () => {
     ...actual,
     generateText: (...args: unknown[]) => generateTextMock(...args),
   };
+});
+
+// The lifecycle gates (require category/assignee before resolving) and the
+// closed-lock default to ON. These suites predate those rules and resolve/edit
+// tickets without a category — run them with the gates relaxed so existing
+// behavior is preserved. Dedicated gate/lock coverage sets its own settings.
+beforeAll(async () => {
+  await prisma.workflowSettings.upsert({
+    where: { id: WORKFLOW_SETTINGS_ID },
+    create: {
+      id: WORKFLOW_SETTINGS_ID,
+      ...WORKFLOW_SETTINGS_DEFAULTS,
+      requireCategory: false,
+      requireAssignee: false,
+      lockClosed: false,
+    },
+    update: { requireCategory: false, requireAssignee: false, lockClosed: false },
+  });
+});
+
+afterAll(async () => {
+  await prisma.workflowSettings.upsert({
+    where: { id: WORKFLOW_SETTINGS_ID },
+    create: { id: WORKFLOW_SETTINGS_ID, ...WORKFLOW_SETTINGS_DEFAULTS },
+    update: { ...WORKFLOW_SETTINGS_DEFAULTS },
+  });
 });
 
 describe("GET /api/tickets", () => {
@@ -1630,6 +1660,121 @@ describe("PATCH /api/tickets/:id", () => {
       from: aiUserId,
       to: null,
       reopenUnassigned: true,
+    });
+  });
+
+  describe("workflow lifecycle gates & closed-lock", () => {
+    async function setWf(overrides: Record<string, unknown>) {
+      await prisma.workflowSettings.upsert({
+        where: { id: WORKFLOW_SETTINGS_ID },
+        create: {
+          id: WORKFLOW_SETTINGS_ID,
+          ...WORKFLOW_SETTINGS_DEFAULTS,
+          requireCategory: false,
+          requireAssignee: false,
+          lockClosed: false,
+          ...overrides,
+        },
+        update: {
+          requireCategory: false,
+          requireAssignee: false,
+          lockClosed: false,
+          ...overrides,
+        },
+      });
+    }
+
+    // Reset to the file-level relaxed baseline so sibling tests aren't affected.
+    afterEach(async () => {
+      await setWf({});
+    });
+
+    it("rejects resolve with 422 when requireCategory is on and category is null", async () => {
+      await setWf({ requireCategory: true });
+      const res = await request(app)
+        .patch(`/api/tickets/${ticketId}`)
+        .set("Cookie", authCookie)
+        .send({ status: TicketStatus.resolved });
+      expect(res.status).toBe(422);
+      expect(res.body.error).toBeTypeOf("string");
+      const t = await prisma.ticket.findUnique({ where: { id: ticketId } });
+      expect(t!.status).toBe(TicketStatus.open);
+    });
+
+    it("allows resolve when the same PATCH also sets the required category", async () => {
+      await setWf({ requireCategory: true });
+      const res = await request(app)
+        .patch(`/api/tickets/${ticketId}`)
+        .set("Cookie", authCookie)
+        .send({
+          status: TicketStatus.resolved,
+          category: TicketCategory.billing_inquiry,
+        });
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe(TicketStatus.resolved);
+    });
+
+    it("rejects resolve with 422 when requireAssignee is on and the ticket is unassigned", async () => {
+      await setWf({ requireAssignee: true });
+      const res = await request(app)
+        .patch(`/api/tickets/${ticketId}`)
+        .set("Cookie", authCookie)
+        .send({ status: TicketStatus.resolved });
+      expect(res.status).toBe(422);
+    });
+
+    it("rejects a reply to a locked closed ticket with 422", async () => {
+      await setWf({ lockClosed: true });
+      const closed = await prisma.ticket.create({
+        data: {
+          fromName: "Closed",
+          fromEmail: "closed-lock@example.com",
+          subject: "Closed",
+          body: "",
+          status: TicketStatus.closed,
+          closedAt: new Date(),
+        },
+      });
+      try {
+        const res = await request(app)
+          .post(`/api/tickets/${closed.id}/replies`)
+          .set("Cookie", authCookie)
+          .send({ body: "Trying to reply", isInternal: false });
+        expect(res.status).toBe(422);
+        expect(res.body.error).toMatch(/closed and locked/i);
+      } finally {
+        await prisma.ticket.deleteMany({ where: { id: closed.id } });
+      }
+    });
+
+    it("rejects a field edit on a locked closed ticket but allows the reopen transition", async () => {
+      await setWf({ lockClosed: true });
+      const closed = await prisma.ticket.create({
+        data: {
+          fromName: "Closed",
+          fromEmail: "closed-edit@example.com",
+          subject: "Closed",
+          body: "",
+          status: TicketStatus.closed,
+          closedAt: new Date(),
+        },
+      });
+      try {
+        const editRes = await request(app)
+          .patch(`/api/tickets/${closed.id}`)
+          .set("Cookie", adminCookie)
+          .send({ category: TicketCategory.refund_request });
+        expect(editRes.status).toBe(422);
+
+        const reopenRes = await request(app)
+          .patch(`/api/tickets/${closed.id}`)
+          .set("Cookie", adminCookie)
+          .send({ status: TicketStatus.open });
+        expect(reopenRes.status).toBe(200);
+        expect(reopenRes.body.status).toBe(TicketStatus.open);
+      } finally {
+        await prisma.ticket.deleteMany({ where: { id: closed.id } });
+      }
     });
   });
 });

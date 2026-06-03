@@ -58,6 +58,14 @@ export enum SenderType {
   internal_note = "internal_note",
 }
 
+// Strategy for auto-assigning a ticket to a human agent when it leaves triage
+// (workflow setting `autoAssignOn`). round_robin cycles evenly across active
+// agents; least_loaded picks whoever currently has the fewest open tickets.
+export enum AutoAssignMode {
+  round_robin = "round_robin",
+  least_loaded = "least_loaded",
+}
+
 export enum TicketView {
   unassigned = "unassigned",
   triage = "triage",

@@ -41,6 +41,11 @@ enum TicketPriority {
   urgent
 }
 
+enum AutoAssignMode {
+  round_robin
+  least_loaded
+}
+
 model User {
   id            String    @id
   name          String
@@ -247,6 +252,27 @@ model SlaPolicy {
   updatedAt            DateTime       @updatedAt
 
   @@map("sla_policy")
+}
+
+// Singleton row (id always "default") holding the admin-configurable
+// ticket-lifecycle rules edited on the Workflow screen. `roundRobinCursor` is
+// internal auto-assign state, never exposed through the API contract.
+model WorkflowSettings {
+  id                   String         @id @default("default")
+  autoAssignOn         Boolean        @default(false)
+  autoAssignMode       AutoAssignMode @default(round_robin)
+  autoResolveOn        Boolean        @default(true)
+  autoResolveThreshold Int            @default(85)
+  requireCategory      Boolean        @default(true)
+  requireAssignee      Boolean        @default(false)
+  autoCloseOn          Boolean        @default(true)
+  autoCloseDays        Int            @default(7)
+  reopenOnReply        Boolean        @default(true)
+  lockClosed           Boolean        @default(true)
+  roundRobinCursor     Int            @default(0)
+  updatedAt            DateTime       @updatedAt
+
+  @@map("workflow_settings")
 }
 
 enum AuditEventType {

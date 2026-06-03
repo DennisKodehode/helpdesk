@@ -214,10 +214,21 @@ test.describe
       await loginAs(page, AGENT_EMAIL, AGENT_PASSWORD);
       await page.goto(`/tickets/${ticketId}`);
 
+      // The "Require a category before resolving" lifecycle rule defaults to ON,
+      // so Resolve is disabled until a category is set. Set one first.
+      const categorySelect = page.getByLabel("Change ticket category");
+      await expect(categorySelect).toBeVisible();
+      await categorySelect.click();
+      await page.getByRole("option", { name: "Billing" }).click();
+      // Confirm the trigger reflects the selection before proceeding.
+      await expect(categorySelect).toContainText("Billing");
+
       // Status is a pill + a contextual action button — an open ticket shows
-      // a "Resolve" action (not a dropdown).
+      // a "Resolve" action (not a dropdown). Now that a category is set it is
+      // enabled.
       const resolveBtn = page.getByRole("button", { name: "Resolve" });
       await expect(resolveBtn).toBeVisible();
+      await expect(resolveBtn).toBeEnabled();
       await resolveBtn.click();
 
       // Agent has no further transitions from Resolved, so the action button is
@@ -246,8 +257,14 @@ test.describe
       });
 
       // Step 1 — Agent resolves the ticket via the "Resolve" action.
+      // "Require a category before resolving" defaults to ON, so set one first.
       await loginAs(page, AGENT_EMAIL, AGENT_PASSWORD);
       await page.goto(`/tickets/${resolvedTicket.id}`);
+      const categorySelectClose = page.getByLabel("Change ticket category");
+      await expect(categorySelectClose).toBeVisible();
+      await categorySelectClose.click();
+      await page.getByRole("option", { name: "Billing" }).click();
+      await expect(categorySelectClose).toContainText("Billing");
       await page.getByRole("button", { name: "Resolve" }).click();
       await expect(page.getByRole("button", { name: "Resolve" })).not.toBeVisible();
       await expect(page.getByText("Resolved").first()).toBeVisible();

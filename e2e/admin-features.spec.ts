@@ -247,8 +247,14 @@ test.describe
       page,
     }) => {
       await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-      await page.goto("/sla-policies");
-      await expect(page.getByRole("heading", { name: "SLA targets" })).toBeVisible();
+      // /sla-policies redirects to /workflow; navigate directly to avoid relying
+      // on the redirect timing in a serial block.
+      await page.goto("/workflow");
+      await expect(page.getByRole("heading", { name: "Workflow" })).toBeVisible();
+
+      // Switch to the SLA targets tab to reveal the SLA panel.
+      await page.getByRole("tab", { name: "SLA targets" }).click();
+      await expect(page.getByText("Targets by priority")).toBeVisible();
 
       const input = page.getByRole("spinbutton", { name: FIRST_RESPONSE_INPUT });
       await expect(input).toBeVisible();
@@ -260,15 +266,18 @@ test.describe
       const newValue = "3";
       await input.fill(newValue);
 
-      // The header "Save targets" button should appear once the form is dirty.
-      await page.getByRole("button", { name: "Save targets" }).click();
+      // The header "Save changes" button should appear once the form is dirty.
+      await page.getByRole("button", { name: "Save changes" }).click();
 
       // A "Saved" confirmation chip should appear briefly.
       await expect(page.getByText("Saved")).toBeVisible();
 
-      // Reload the page — the new value should survive.
+      // Reload the page — the new value should survive. The page opens on
+      // the "Lifecycle rules" tab by default, so switch back to "SLA targets".
       await page.reload();
-      await expect(page.getByRole("heading", { name: "SLA targets" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Workflow" })).toBeVisible();
+      await page.getByRole("tab", { name: "SLA targets" }).click();
+      await expect(page.getByText("Targets by priority")).toBeVisible();
       await expect(
         page.getByRole("spinbutton", { name: FIRST_RESPONSE_INPUT }),
       ).toHaveValue(newValue);
@@ -278,8 +287,12 @@ test.describe
       page,
     }) => {
       await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-      await page.goto("/sla-policies");
-      await expect(page.getByRole("heading", { name: "SLA targets" })).toBeVisible();
+      await page.goto("/workflow");
+      await expect(page.getByRole("heading", { name: "Workflow" })).toBeVisible();
+
+      // Switch to the SLA targets tab.
+      await page.getByRole("tab", { name: "SLA targets" }).click();
+      await expect(page.getByText("Targets by priority")).toBeVisible();
 
       const input = page.getByRole("spinbutton", { name: FIRST_RESPONSE_INPUT });
       await expect(input).toBeVisible();
@@ -296,13 +309,13 @@ test.describe
       // The field should return to the persisted value.
       await expect(input).toHaveValue(persistedValue);
 
-      // "Save targets" should no longer be present (form is clean).
-      await expect(page.getByRole("button", { name: "Save targets" })).not.toBeVisible();
+      // "Save changes" should no longer be present (form is clean).
+      await expect(page.getByRole("button", { name: "Save changes" })).not.toBeVisible();
 
       // Restore original value to leave the DB in a clean state.
       if (originalValue && originalValue !== persistedValue) {
         await input.fill(originalValue);
-        await page.getByRole("button", { name: "Save targets" }).click();
+        await page.getByRole("button", { name: "Save changes" }).click();
         await expect(page.getByText("Saved")).toBeVisible();
       }
     });

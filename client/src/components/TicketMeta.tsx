@@ -22,6 +22,7 @@ import { useSession } from "@/lib/auth-client";
 import { MY_OPEN_COUNT_QUERY_KEY } from "@/lib/my-tickets";
 import { PERSONAL_STATS_QUERY_KEY } from "@/lib/personal-stats";
 import { CATEGORY_LABELS, isTriagingStatus, PRIORITY_LABELS } from "@/lib/ticket-ui";
+import { useWorkflowSettings } from "@/lib/workflow-settings";
 
 interface Props {
   ticket: TicketDetail;
@@ -84,6 +85,9 @@ export default function TicketMeta({ ticket }: Props) {
     queryKey: AGENTS_QUERY_KEY,
     queryFn: ({ signal }) => fetchAgents(signal),
   });
+
+  // Drives the resolve-gate reflection (the server enforces the same rules).
+  const { data: workflowSettings } = useWorkflowSettings();
 
   // Deduped with ActivityFeed's identical query — no extra request. Used only
   // to tell whether an agent has overridden the AI's on-arrival classification.
@@ -171,6 +175,19 @@ export default function TicketMeta({ ticket }: Props) {
   const overflowActions = validNextStatuses.filter((s) => s !== primaryAction);
   const PrimaryIcon = primaryAction ? STATUS_ACTION[primaryAction].Icon : undefined;
 
+  // Resolution gates (workflow rules): block resolving until the required fields
+  // are set, matching the server-side 422. Evaluated against the current
+  // (optimistic) category/assignee so the button re-enables as the agent fills
+  // them in.
+  const resolveBlockedReason =
+    workflowSettings?.requireCategory && !currentCategory
+      ? "Set a category before resolving."
+      : workflowSettings?.requireAssignee && !currentAssigneeId
+        ? "Assign this ticket before resolving."
+        : null;
+  const resolveBlocked = resolveBlockedReason !== null;
+  const canResolve = validNextStatuses.includes(TicketStatus.resolved);
+
   // Every inbound ticket is auto-categorised by Gemini on arrival; a human
   // override is recorded as a `category_changed` audit event. So a category
   // with no such event still reflects the AI's classification.
@@ -200,7 +217,10 @@ export default function TicketMeta({ ticket }: Props) {
                 size="xs"
                 variant={primaryAction === TicketStatus.resolved ? "outline" : "ghost"}
                 onClick={() => statusMutation.mutate(primaryAction)}
-                disabled={statusMutation.isPending}
+                disabled={
+                  statusMutation.isPending ||
+                  (primaryAction === TicketStatus.resolved && resolveBlocked)
+                }
               >
                 {PrimaryIcon && <PrimaryIcon aria-hidden />}
                 {STATUS_ACTION[primaryAction].label}
@@ -213,12 +233,20 @@ export default function TicketMeta({ ticket }: Props) {
                 variant="ghost"
                 className="text-muted-foreground"
                 onClick={() => statusMutation.mutate(s)}
-                disabled={statusMutation.isPending}
+                disabled={
+                  statusMutation.isPending ||
+                  (s === TicketStatus.resolved && resolveBlocked)
+                }
               >
                 {STATUS_ACTION[s].label}
               </Button>
             ))}
           </div>
+        )}
+        {!isTriaging && canResolve && resolveBlockedReason && (
+          <p className="mt-1.5 text-[11px] text-muted-foreground">
+            {resolveBlockedReason}
+          </p>
         )}
       </MetaField>
 

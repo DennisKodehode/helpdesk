@@ -7,6 +7,10 @@ import { initAiUserId } from "../lib/ai-user";
 import boss from "../lib/boss";
 import { prisma } from "../lib/prisma";
 import resend from "../lib/resend";
+import {
+  WORKFLOW_SETTINGS_DEFAULTS,
+  WORKFLOW_SETTINGS_ID,
+} from "../lib/workflow-settings";
 
 vi.mock("../lib/resend", () => ({
   default: {
@@ -394,6 +398,70 @@ describe("POST /api/inbound-email", () => {
     });
     expect(refreshed!.status).toBe(TicketStatus.open);
     expect(refreshed!.resolvedAt).toBeNull();
+  });
+
+  it("does not reopen a resolved ticket when reopenOnReply is off — appends the reply, stays resolved", async () => {
+    await prisma.workflowSettings.upsert({
+      where: { id: WORKFLOW_SETTINGS_ID },
+      create: {
+        id: WORKFLOW_SETTINGS_ID,
+        ...WORKFLOW_SETTINGS_DEFAULTS,
+        reopenOnReply: false,
+      },
+      update: { reopenOnReply: false },
+    });
+    const existing = await prisma.ticket.create({
+      data: {
+        fromName: "Nora",
+        fromEmail: "nora-noreopen@example.com",
+        subject: "Quiet",
+        body: "First message",
+        status: TicketStatus.resolved,
+        resolvedAt: new Date(),
+      },
+    });
+    createdTicketId = existing.id;
+
+    vi.mocked(resend.emails.receiving.get).mockResolvedValueOnce({
+      data: { text: "One more thing", html: null } as any,
+      error: null,
+      headers: null,
+    });
+
+    try {
+      const res = await request(app)
+        .post("/api/inbound-email")
+        .set(SVIX_HEADERS)
+        .send(
+          makeEvent({
+            from: "Nora <nora-noreopen@example.com>",
+            subject: "Re: Quiet",
+          }),
+        );
+
+      expect(res.status).toBe(201);
+      expect(res.body.type).toBe("reply");
+      expect(res.body.reopened).toBe(false);
+      createdReplyId = res.body.reply.id;
+
+      const refreshed = await prisma.ticket.findUnique({
+        where: { id: existing.id },
+        select: { status: true, resolvedAt: true },
+      });
+      // Reply appended, but the ticket stays resolved with no reopen.
+      expect(refreshed!.status).toBe(TicketStatus.resolved);
+      expect(refreshed!.resolvedAt).not.toBeNull();
+      const events = await prisma.auditEvent.findMany({
+        where: { ticketId: existing.id },
+      });
+      expect(events.some((e) => e.type === "auto_reopened")).toBe(false);
+    } finally {
+      await prisma.workflowSettings.upsert({
+        where: { id: WORKFLOW_SETTINGS_ID },
+        create: { id: WORKFLOW_SETTINGS_ID, ...WORKFLOW_SETTINGS_DEFAULTS },
+        update: { reopenOnReply: WORKFLOW_SETTINGS_DEFAULTS.reopenOnReply },
+      });
+    }
   });
 
   it("does not reopen when the reply lands on an already-open ticket", async () => {

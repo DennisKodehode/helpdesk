@@ -5,13 +5,20 @@ import type { Job } from "pg-boss";
 import { recordAuditEvent } from "./audit";
 import { logger } from "./logger";
 import { prisma } from "./prisma";
+import { getWorkflowSettings } from "./workflow-settings";
 
 export const AUTO_CLOSE_TICKETS_QUEUE = "auto-close-tickets";
-export const AUTO_CLOSE_AGE_HOURS = 96;
 export const AUTO_CLOSE_CRON = "*/15 * * * *";
 
 export async function runAutoCloseTickets(): Promise<{ closedCount: number }> {
-  const cutoff = new Date(Date.now() - AUTO_CLOSE_AGE_HOURS * 60 * 60 * 1000);
+  const settings = await getWorkflowSettings();
+  // Auto-close is a workflow rule: when off, resolved tickets stay resolved
+  // until an admin closes them manually.
+  if (!settings.autoCloseOn) {
+    logger.info("auto-close-tickets: disabled by workflow settings — skipping");
+    return { closedCount: 0 };
+  }
+  const cutoff = new Date(Date.now() - settings.autoCloseDays * 24 * 60 * 60 * 1000);
   const now = new Date();
 
   // Per-ticket transactions so each closed ticket gets its own auto_closed
@@ -41,7 +48,7 @@ export async function runAutoCloseTickets(): Promise<{ closedCount: number }> {
 
   if (ticketsToClose.length > 0) {
     logger.info(
-      { closedCount: ticketsToClose.length, ageHours: AUTO_CLOSE_AGE_HOURS },
+      { closedCount: ticketsToClose.length, ageDays: settings.autoCloseDays },
       "auto-close-tickets: closed resolved tickets older than threshold",
     );
   }

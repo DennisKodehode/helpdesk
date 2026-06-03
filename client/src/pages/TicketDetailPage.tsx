@@ -1,17 +1,16 @@
-import type { TicketDetail, TicketStatus } from "@helpdesk/core";
+import type { TicketDetail } from "@helpdesk/core";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { useParams } from "react-router";
 import ActivityFeed from "@/components/ActivityFeed";
-import ReplyForm from "@/components/ReplyForm";
 import ReplyThread from "@/components/ReplyThread";
 import TicketDetails from "@/components/TicketDetails";
 import TicketMeta from "@/components/TicketMeta";
+import TicketReplyArea from "@/components/TicketReplyArea";
 import BackLink from "@/components/ui/BackLink";
 import ErrorAlert from "@/components/ui/ErrorAlert";
 import PageContainer from "@/components/ui/PageContainer";
 import { Skeleton } from "@/components/ui/skeleton";
-import { isTriagingStatus } from "@/lib/ticket-ui";
 
 async function fetchTicket(id: string, signal?: AbortSignal): Promise<TicketDetail> {
   const { data } = await axios.get<TicketDetail>(`/api/tickets/${id}`, { signal });
@@ -59,17 +58,7 @@ export default function TicketDetailPage() {
           <div className="mt-10 grid grid-cols-1 gap-x-9 gap-y-8 lg:grid-cols-[1fr_312px] lg:items-start">
             <div className="min-w-0 space-y-8">
               <ReplyThread ticket={ticket} />
-              {isTriagingStatus(ticket.status as TicketStatus) ? (
-                <div
-                  role="status"
-                  className="rounded-[var(--r-md)] border border-dashed border-border bg-card px-5 py-6 text-center text-[13px] text-muted-foreground"
-                >
-                  AI is triaging this ticket — actions unlock once it has been opened or
-                  auto-resolved.
-                </div>
-              ) : (
-                <ReplyForm ticketId={id!} />
-              )}
+              <TicketReplyArea ticket={ticket} />
             </div>
 
             <aside className="lg:sticky lg:top-6">

@@ -9,7 +9,7 @@ import {
   LineChart,
   LogOut,
   Moon,
-  ShieldCheck,
+  RotateCcw,
   Sun,
   UserCheck,
   Users,
@@ -153,7 +153,7 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
 
   const adminNav: NavItem[] = [
     { to: "/users", label: "Agents", icon: Users },
-    { to: "/sla-policies", label: "SLA targets", icon: ShieldCheck },
+    { to: "/workflow", label: "Workflow", icon: RotateCcw },
     { to: "/activity", label: "Activity", icon: Activity },
   ];
 

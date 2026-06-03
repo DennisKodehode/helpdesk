@@ -35,6 +35,7 @@ import { prisma } from "../lib/prisma";
 import { SEND_REPLY_EMAIL_QUEUE } from "../lib/send-reply-email-job";
 import { safeFilename, storage } from "../lib/storage";
 import { firstIssue } from "../lib/validation";
+import { getWorkflowSettings } from "../lib/workflow-settings";
 import { requireAuth } from "../middleware/auth-middleware";
 import { aiEndpointLimiter } from "../middleware/rate-limit";
 
@@ -315,6 +316,25 @@ router.patch("/:id", requireAuth, async (req, res) => {
     return;
   }
 
+  const settings = await getWorkflowSettings();
+
+  // Lock closed tickets (workflow rule): when on, a closed ticket is read-only
+  // except for the reopen transition. Reject field edits (category/priority/
+  // assignee) until it's reopened; a status-only PATCH (e.g. closed → open)
+  // still passes through.
+  if (ticket.status === TicketStatus.closed && settings.lockClosed) {
+    const editsFields =
+      result.data.category !== undefined ||
+      result.data.priority !== undefined ||
+      result.data.assignedToId !== undefined;
+    if (editsFields) {
+      res
+        .status(422)
+        .json({ error: "This ticket is closed and locked. Reopen it before editing." });
+      return;
+    }
+  }
+
   if (result.data.assignedToId !== undefined && result.data.assignedToId !== null) {
     const user = await prisma.user.findFirst({
       where: { id: result.data.assignedToId, role: Role.agent, deletedAt: null },
@@ -348,6 +368,26 @@ router.patch("/:id", requireAuth, async (req, res) => {
       isAiAssigned(ticket.assignedToId)
     ) {
       reopenUnassigns = true;
+    }
+
+    // Resolution gates (workflow rules): a ticket can't move to resolved until
+    // it satisfies the required fields. Evaluate against the post-PATCH state so
+    // a request that sets the category/assignee in the same call still passes.
+    if (newStatus === TicketStatus.resolved) {
+      const nextCategory =
+        result.data.category !== undefined ? result.data.category : ticket.category;
+      const nextAssignee =
+        result.data.assignedToId !== undefined
+          ? result.data.assignedToId
+          : ticket.assignedToId;
+      if (settings.requireCategory && !nextCategory) {
+        res.status(422).json({ error: "Set a category before resolving this ticket." });
+        return;
+      }
+      if (settings.requireAssignee && !nextAssignee) {
+        res.status(422).json({ error: "Assign this ticket before resolving it." });
+        return;
+      }
     }
   }
 
@@ -554,6 +594,17 @@ router.post(
     if (!ticket) {
       res.status(404).json({ error: "Ticket not found" });
       return;
+    }
+
+    // Lock closed tickets (workflow rule): no replies or notes until reopened.
+    if (ticket.status === TicketStatus.closed) {
+      const settings = await getWorkflowSettings();
+      if (settings.lockClosed) {
+        res.status(422).json({
+          error: "This ticket is closed and locked. Reopen it to reply.",
+        });
+        return;
+      }
     }
 
     const now = new Date();

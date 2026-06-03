@@ -1,9 +1,10 @@
-import { type SlaHealthResponse, type StatsResponse, TicketView } from "@helpdesk/core";
+import { type SlaHealthResponse, TicketView } from "@helpdesk/core";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { ArrowUpRight } from "lucide-react";
 import { Link } from "@/components/ui/link";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useStats } from "@/lib/stats";
 import { cn } from "@/lib/utils";
 
 type Tone = "amb" | "vio" | "ros" | "eme";
@@ -63,11 +64,7 @@ function CardSkeleton() {
 }
 
 export default function StatCards() {
-  const statsQuery = useQuery<StatsResponse>({
-    queryKey: ["stats"],
-    queryFn: ({ signal }) =>
-      axios.get<StatsResponse>("/api/stats", { signal }).then((r) => r.data),
-  });
+  const statsQuery = useStats();
   const slaQuery = useQuery<SlaHealthResponse>({
     queryKey: ["stats", "sla-health"],
     queryFn: ({ signal }) =>

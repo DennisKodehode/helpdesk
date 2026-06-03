@@ -26,6 +26,7 @@ import { prisma } from "../lib/prisma";
 import resend from "../lib/resend";
 import { safeFilename, storage } from "../lib/storage";
 import { firstIssue } from "../lib/validation";
+import { getWorkflowSettings } from "../lib/workflow-settings";
 import { webhookLimiter } from "../middleware/rate-limit";
 
 const router = Router();
@@ -342,8 +343,14 @@ router.post("/", webhookLimiter, async (req, res) => {
   });
 
   if (existingTicket) {
-    const wasResolved = existingTicket.status === TicketStatus.resolved;
-    const shouldUnassignAi = wasResolved && isAiAssigned(existingTicket.assignedToId);
+    // Reopen-on-reply is a workflow rule: when off, a customer reply to a
+    // resolved ticket is still appended but the ticket stays resolved (no flip
+    // to open, no AI-unassign, no auto_reopened event). Closed tickets aren't
+    // in the query set above — a reply there still spawns a new ticket.
+    const settings = await getWorkflowSettings();
+    const shouldReopen =
+      existingTicket.status === TicketStatus.resolved && settings.reopenOnReply;
+    const shouldUnassignAi = shouldReopen && isAiAssigned(existingTicket.assignedToId);
     const previousAssigneeId = existingTicket.assignedToId;
     const now = new Date();
 
@@ -366,7 +373,7 @@ router.post("/", webhookLimiter, async (req, res) => {
           data: {
             updatedAt: now,
             lastReplySenderType: SenderType.customer,
-            ...(wasResolved && { status: TicketStatus.open, resolvedAt: null }),
+            ...(shouldReopen && { status: TicketStatus.open, resolvedAt: null }),
             ...(shouldUnassignAi && { assignedToId: null }),
           },
           select: { id: true, assignedToId: true, subject: true },
@@ -377,7 +384,7 @@ router.post("/", webhookLimiter, async (req, res) => {
           type: AuditEventType.reply_added,
           data: { replyId: createdReply.id, senderType: SenderType.customer },
         });
-        if (wasResolved) {
+        if (shouldReopen) {
           await recordAuditEvent(tx, {
             ticketId: existingTicket.id,
             actorId: null,
@@ -432,7 +439,7 @@ router.post("/", webhookLimiter, async (req, res) => {
       }
     }
 
-    res.status(201).json({ type: "reply", reply, reopened: wasResolved });
+    res.status(201).json({ type: "reply", reply, reopened: shouldReopen });
     return;
   }
 

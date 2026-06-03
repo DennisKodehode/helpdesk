@@ -4,6 +4,7 @@ import { Role } from "../src/generated/prisma/client";
 import { auth } from "../src/lib/auth";
 import { prisma } from "../src/lib/prisma";
 import { seedSlaPolicies } from "../src/lib/sla-defaults";
+import { seedWorkflowSettings } from "../src/lib/workflow-settings";
 
 const email = process.env.SEED_ADMIN_EMAIL;
 const password = process.env.SEED_ADMIN_PASSWORD;
@@ -86,6 +87,7 @@ async function seed() {
   await seedAdmin();
   await seedAiUser();
   await seedSlaPolicies();
+  await seedWorkflowSettings();
 }
 
 seed()

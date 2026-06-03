@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   AuditEventType,
+  AutoAssignMode,
   NotificationType,
   Role,
   SenderType,
@@ -389,6 +390,41 @@ export const slaHealthResponseSchema = z.object({
 });
 
 export type SlaHealthResponse = z.infer<typeof slaHealthResponseSchema>;
+
+// --- Admin · Workflow settings --------------------------------------------
+// Singleton row governing the configurable ticket-lifecycle rules (auto-assign,
+// AI auto-resolve gates, resolution gates, auto-close, reopen, lock). The SLA
+// targets live in their own schemas above; the Workflow admin screen edits both
+// but the contracts stay separate. `autoResolveThreshold` is stored as an
+// integer percent (50–99); the AI worker compares it against the model's
+// 0–100 confidence. `roundRobinCursor` is internal server state and is
+// deliberately absent here — it is never read or written by the client.
+export const workflowSettingsSchema = z.object({
+  autoAssignOn: z.boolean(),
+  autoAssignMode: z.enum(AutoAssignMode),
+  autoResolveOn: z.boolean(),
+  autoResolveThreshold: z.number().int().min(50).max(99),
+  requireCategory: z.boolean(),
+  requireAssignee: z.boolean(),
+  autoCloseOn: z.boolean(),
+  autoCloseDays: z.number().int().min(1).max(30),
+  reopenOnReply: z.boolean(),
+  lockClosed: z.boolean(),
+  updatedAt: z.string(),
+});
+
+export type WorkflowSettings = z.infer<typeof workflowSettingsSchema>;
+
+// Any field may be omitted to leave it unchanged. Rejects an empty body so a
+// no-op PATCH is a 400 (mirrors updateSlaPolicySchema's .refine()).
+export const updateWorkflowSettingsSchema = workflowSettingsSchema
+  .omit({ updatedAt: true })
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, {
+    message: "At least one field is required",
+  });
+
+export type UpdateWorkflowSettingsData = z.infer<typeof updateWorkflowSettingsSchema>;
 
 export const categoryBreakdownRowSchema = z.object({
   category: z.enum(TicketCategory).nullable(),

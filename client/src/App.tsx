@@ -19,7 +19,7 @@ const TicketDetailPage = lazy(() => import("./pages/TicketDetailPage"));
 const MyTicketsPage = lazy(() => import("./pages/MyTicketsPage"));
 const MyStatsPage = lazy(() => import("./pages/MyStatsPage"));
 const UsersPage = lazy(() => import("./pages/UsersPage"));
-const SlaPoliciesPage = lazy(() => import("./pages/SlaPoliciesPage"));
+const WorkflowPage = lazy(() => import("./pages/WorkflowPage"));
 const ActivityPage = lazy(() => import("./pages/ActivityPage"));
 
 // Shown only while a route's JS chunk is fetching; the sidebar shell stays
@@ -90,7 +90,10 @@ export default function App() {
         <Route path="/my-stats" element={<MyStatsPage />} />
         <Route element={<AdminLayout />}>
           <Route path="/users" element={<UsersPage />} />
-          <Route path="/sla-policies" element={<SlaPoliciesPage />} />
+          <Route path="/workflow" element={<WorkflowPage />} />
+          {/* The SLA targets screen was folded into Workflow; keep the old
+              path working for bookmarks/links. */}
+          <Route path="/sla-policies" element={<Navigate to="/workflow" replace />} />
           <Route path="/activity" element={<ActivityPage />} />
         </Route>
       </Route>

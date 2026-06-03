@@ -19,6 +19,7 @@ import statsRouter from "./routes/stats";
 import testSeedRouter from "./routes/test-seed";
 import ticketsRouter from "./routes/tickets";
 import usersRouter from "./routes/users";
+import workflowSettingsRouter from "./routes/workflow-settings";
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use("/api/stats", statsRouter);
 app.use("/api/inbound-email", inboundEmailRouter);
 app.use("/api/notifications", notificationsRouter);
 app.use("/api/sla-policies", slaPoliciesRouter);
+app.use("/api/workflow-settings", workflowSettingsRouter);
 app.use("/api/replies/:id/attachments", uploadRouter);
 app.use("/api/attachments", attachmentsRouter);
 

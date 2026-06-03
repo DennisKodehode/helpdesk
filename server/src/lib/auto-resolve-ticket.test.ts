@@ -12,6 +12,30 @@ import {
 } from "vitest";
 import { initAiUserId } from "./ai-user";
 import { prisma } from "./prisma";
+import { WORKFLOW_SETTINGS_DEFAULTS, WORKFLOW_SETTINGS_ID } from "./workflow-settings";
+
+// Baseline that lets the "happy path" mock (action=resolve, no confidence → 50)
+// auto-resolve: low threshold, gates off. Individual tests for the gates/
+// threshold/auto-assign live in workflow-settings.test.ts and below.
+async function setWorkflowSettings(overrides: Record<string, unknown> = {}) {
+  const base = {
+    autoResolveOn: true,
+    autoResolveThreshold: 50,
+    requireCategory: false,
+    requireAssignee: false,
+    autoAssignOn: false,
+  };
+  await prisma.workflowSettings.upsert({
+    where: { id: WORKFLOW_SETTINGS_ID },
+    create: {
+      id: WORKFLOW_SETTINGS_ID,
+      ...WORKFLOW_SETTINGS_DEFAULTS,
+      ...base,
+      ...overrides,
+    },
+    update: { ...base, ...overrides },
+  });
+}
 
 const generateTextMock = vi.fn();
 vi.mock("ai", async () => {
@@ -59,10 +83,17 @@ describe("auto-resolve-ticket worker", () => {
 
   afterAll(async () => {
     await prisma.user.deleteMany({ where: { email: "ai@helpdesk.internal" } });
+    // Restore defaults so later suites reading the singleton see them.
+    await prisma.workflowSettings.upsert({
+      where: { id: WORKFLOW_SETTINGS_ID },
+      create: { id: WORKFLOW_SETTINGS_ID, ...WORKFLOW_SETTINGS_DEFAULTS },
+      update: { ...WORKFLOW_SETTINGS_DEFAULTS },
+    });
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     generateTextMock.mockReset();
+    await setWorkflowSettings();
   });
 
   afterEach(async () => {
@@ -193,5 +224,114 @@ describe("auto-resolve-ticket worker", () => {
     expect(events).toHaveLength(1);
     expect(events[0].type).toBe("ai_escalated");
     expect(events[0].data).toEqual({ reason: "json_parse_failure" });
+  });
+
+  it("escalates (below_confidence_threshold) when confidence is under the threshold", async () => {
+    await setWorkflowSettings({ autoResolveThreshold: 85 });
+    const ticket = await seedTicket();
+    generateTextMock.mockResolvedValue({
+      text: JSON.stringify({ action: "resolve", reply: "Answer", confidence: 70 }),
+    });
+
+    await autoResolveTicketWorker(jobFor(ticket));
+
+    const refreshed = await prisma.ticket.findUnique({
+      where: { id: ticket.id },
+      select: { status: true },
+    });
+    expect(refreshed!.status).toBe(TicketStatus.open);
+    const events = await prisma.auditEvent.findMany({ where: { ticketId: ticket.id } });
+    expect(events).toHaveLength(1);
+    expect(events[0].data).toEqual({ reason: "below_confidence_threshold" });
+    // No reply was sent.
+    expect(await prisma.reply.count({ where: { ticketId: ticket.id } })).toBe(0);
+  });
+
+  it("escalates (auto_resolve_disabled) and never sends when auto-resolve is off", async () => {
+    await setWorkflowSettings({ autoResolveOn: false });
+    const ticket = await seedTicket();
+    generateTextMock.mockResolvedValue({
+      text: JSON.stringify({ action: "resolve", reply: "Answer", confidence: 99 }),
+    });
+
+    await autoResolveTicketWorker(jobFor(ticket));
+
+    const refreshed = await prisma.ticket.findUnique({
+      where: { id: ticket.id },
+      select: { status: true },
+    });
+    expect(refreshed!.status).toBe(TicketStatus.open);
+    const events = await prisma.auditEvent.findMany({ where: { ticketId: ticket.id } });
+    expect(events[0].data).toEqual({ reason: "auto_resolve_disabled" });
+    expect(await prisma.reply.count({ where: { ticketId: ticket.id } })).toBe(0);
+  });
+
+  it("escalates (resolution_gate_category) when requireCategory is on and category is null", async () => {
+    await setWorkflowSettings({ requireCategory: true, autoResolveThreshold: 50 });
+    const ticket = await seedTicket(); // seeded with no category
+    generateTextMock.mockResolvedValue({
+      text: JSON.stringify({ action: "resolve", reply: "Answer", confidence: 95 }),
+    });
+
+    await autoResolveTicketWorker(jobFor(ticket));
+
+    const refreshed = await prisma.ticket.findUnique({
+      where: { id: ticket.id },
+      select: { status: true },
+    });
+    expect(refreshed!.status).toBe(TicketStatus.open);
+    const events = await prisma.auditEvent.findMany({ where: { ticketId: ticket.id } });
+    expect(events[0].data).toEqual({ reason: "resolution_gate_category" });
+  });
+
+  it("auto-assigns the escalated ticket to an active agent when autoAssignOn is true", async () => {
+    const agentId = generateId();
+    const now = new Date();
+    await prisma.user.create({
+      data: {
+        id: agentId,
+        name: "RR Agent",
+        email: "auto-assign-agent@example.com",
+        emailVerified: true,
+        role: "agent",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await setWorkflowSettings({ autoAssignOn: true, autoResolveOn: false });
+    const ticket = await seedTicket();
+    generateTextMock.mockResolvedValue({
+      text: JSON.stringify({ action: "resolve", reply: "Answer", confidence: 99 }),
+    });
+
+    try {
+      await autoResolveTicketWorker(jobFor(ticket));
+
+      const refreshed = await prisma.ticket.findUnique({
+        where: { id: ticket.id },
+        select: { status: true, assignedToId: true },
+      });
+      expect(refreshed!.status).toBe(TicketStatus.open);
+      // The only active human agent is the one created above.
+      expect(refreshed!.assignedToId).toBe(agentId);
+
+      const events = await prisma.auditEvent.findMany({
+        where: { ticketId: ticket.id },
+        orderBy: { createdAt: "asc" },
+      });
+      expect(events.map((e) => e.type)).toContain("assignee_changed");
+      const notif = await prisma.notification.findFirst({
+        where: {
+          ticketId: ticket.id,
+          userId: refreshed!.assignedToId!,
+          type: "ticket_assigned",
+        },
+      });
+      expect(notif).not.toBeNull();
+    } finally {
+      await prisma.notification.deleteMany({ where: { ticketId: ticket.id } });
+      await prisma.user.deleteMany({ where: { id: agentId } });
+    }
   });
 });
