@@ -8,15 +8,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Custom breakpoint for the dense ticket queue. At the desktop tier the content
-   area is (viewport − 256px sidebar − padding), so all seven queue columns only
-   have full breathing room once the viewport reaches ~1510px. Below it, the
-   Subject and From cells truncate to tighter caps so every column still fits
-   without clipping; at `qcols:` and up they expand to their roomy widths. */
-@theme {
-  --breakpoint-qcols: 1510px;
-}
-
 @theme inline {
   --font-sans: 'Hanken Grotesk Variable', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;

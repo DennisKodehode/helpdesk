@@ -95,11 +95,13 @@ const columns: ColumnDef<Ticket, unknown>[] = [
     id: "subject",
     accessorKey: "subject",
     header: "Subject",
+    // No width set: in the table-fixed layout Subject is the one flexible
+    // column, so it absorbs whatever the fixed-width columns leave and truncates.
     cell: ({ row }) => (
       <div className="min-w-0">
         <Link
           to={`/tickets/${row.original.id}`}
-          className="block max-w-[11rem] truncate text-[14.5px] font-medium text-foreground underline-offset-4 hover:underline qcols:max-w-[20rem]"
+          className="block truncate text-[14.5px] font-medium text-foreground underline-offset-4 hover:underline"
         >
           {row.original.subject}
         </Link>
@@ -113,9 +115,9 @@ const columns: ColumnDef<Ticket, unknown>[] = [
     id: "fromName",
     accessorKey: "fromName",
     header: "From",
-    meta: { cellClass: "hidden xl:table-cell" } as ColumnMeta,
+    meta: { cellClass: "w-[150px] whitespace-nowrap" } as ColumnMeta,
     cell: ({ row }) => (
-      <div className="min-w-0 max-w-[8rem] qcols:max-w-[12rem]">
+      <div className="min-w-0">
         <p className="truncate text-[13px] text-foreground">{row.original.fromName}</p>
         <div className="flex items-center gap-2">
           <p className="truncate font-mono text-[11px] text-muted-foreground">
@@ -130,19 +132,21 @@ const columns: ColumnDef<Ticket, unknown>[] = [
     id: "status",
     accessorKey: "status",
     header: "Status",
+    meta: { cellClass: "w-[112px] whitespace-nowrap" } as ColumnMeta,
     cell: ({ row }) => <StatusPill status={row.original.status as TicketStatus} />,
   },
   {
     id: "category",
     accessorKey: "category",
     header: "Category",
-    meta: { cellClass: "hidden xl:table-cell" } as ColumnMeta,
+    meta: { cellClass: "w-[140px] whitespace-nowrap" } as ColumnMeta,
     cell: ({ row }) => <CategoryCell ticket={row.original} />,
   },
   {
     id: "priority",
     accessorKey: "priority",
     header: "Priority",
+    meta: { cellClass: "w-[104px] whitespace-nowrap" } as ColumnMeta,
     cell: ({ row }) => (
       <PriorityCell priority={row.original.priority as TicketPriority} />
     ),
@@ -151,13 +155,14 @@ const columns: ColumnDef<Ticket, unknown>[] = [
     id: "sla",
     header: "SLA",
     enableSorting: false,
-    meta: { cellClass: "hidden xl:table-cell" } as ColumnMeta,
+    meta: { cellClass: "w-[112px] whitespace-nowrap" } as ColumnMeta,
     cell: ({ row }) => <SlaBadge ticket={row.original} fallback={SLA_DASH} />,
   },
   {
     id: "createdAt",
     accessorKey: "createdAt",
     header: "Received",
+    meta: { cellClass: "w-[104px] whitespace-nowrap" } as ColumnMeta,
     cell: ({ row }) => (
       <span className="font-mono tabular text-[12px] text-muted-foreground">
         {formatRelative(row.original.createdAt)}
@@ -181,19 +186,19 @@ function SkeletonRows() {
           <td className="px-4 py-[15px]">
             <Skeleton className="h-3.5 w-56" />
           </td>
-          <td className="hidden xl:table-cell px-4 py-[15px]">
+          <td className="px-4 py-[15px]">
             <Skeleton className="h-3.5 w-36" />
           </td>
           <td className="px-4 py-[15px]">
             <Skeleton className="h-5 w-20 rounded-full" />
           </td>
-          <td className="hidden xl:table-cell px-4 py-[15px]">
+          <td className="px-4 py-[15px]">
             <Skeleton className="h-5 w-20 rounded-full" />
           </td>
           <td className="px-4 py-[15px]">
             <Skeleton className="h-5 w-20 rounded-full" />
           </td>
-          <td className="hidden xl:table-cell px-4 py-[15px]">
+          <td className="px-4 py-[15px]">
             <Skeleton className="h-5 w-20 rounded-full" />
           </td>
           <td className="px-4 py-[15px]">
@@ -270,12 +275,17 @@ export default function TicketsTable({
 
   return (
     <>
-      {/* Desktop table — lg+ only. Below lg the mobile card list takes over.
-          Subject is capped at 22rem and From at 14rem so the table always
-          fits its content area at every breakpoint — overflow-hidden keeps
-          the rounded card aesthetic clean (no inner scrollbar). */}
+      {/* Desktop table — only mounted in the desktop tier (≥1280px); the mobile
+          card list / tablet master-detail cover narrower widths. overflow-hidden
+          keeps the rounded-card aesthetic clean (no inner scrollbar). */}
       <div className="hidden overflow-hidden rounded-[var(--r-lg)] border border-border bg-card lg:block">
-        <table className="min-w-full">
+        {/* table-fixed forces the table to the card width and distributes
+            columns by the per-column widths in `columns` above — without it an
+            auto-layout table sizes to its content's preferred width and
+            overflows the card (clipping the right columns) instead of letting
+            cells truncate. Subject is the one unsized column, so it absorbs all
+            remaining space and truncates. */}
+        <table className="w-full table-fixed">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id} className="hairline-b bg-panel-2">

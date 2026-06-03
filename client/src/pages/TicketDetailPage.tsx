@@ -66,16 +66,16 @@ function TicketDetailView() {
       {isError && <ErrorAlert message="Failed to load ticket" />}
 
       {ticket && (
-        <div>
+        <div className="@container/detail">
           <TicketDetails ticket={ticket} />
 
-          <div className="mt-10 grid grid-cols-1 gap-x-9 gap-y-8 lg:grid-cols-[1fr_312px] lg:items-start">
+          <div className="mt-10 grid grid-cols-1 gap-x-9 gap-y-8 @min-[48rem]/detail:grid-cols-[1fr_312px] @min-[48rem]/detail:items-start">
             <div className="min-w-0 space-y-8">
               <ReplyThread ticket={ticket} />
               <TicketReplyArea ticket={ticket} />
             </div>
 
-            <aside className="lg:sticky lg:top-6">
+            <aside className="@min-[48rem]/detail:sticky @min-[48rem]/detail:top-6">
               <TicketMeta ticket={ticket} />
               <ActivityFeed ticketId={id!} />
             </aside>
