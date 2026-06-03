@@ -159,11 +159,13 @@ export default function ReplyThread({ ticket }: Props) {
               id={msg.id === "original" ? undefined : `reply-${msg.id}`}
               className="relative scroll-mt-20"
             >
-              {/* Vertical thread line */}
+              {/* Vertical thread line — starts at the avatar's center so it
+                  tucks behind the opaque (z-[1]) avatar and emerges flush at
+                  its bottom, reading as anchored rather than floating. */}
               {idx < messages.length - 1 && (
                 <span
                   aria-hidden
-                  className="absolute left-[15px] top-9 bottom-[-1.75rem] w-px bg-border"
+                  className="absolute left-[15px] top-4 bottom-[-1.75rem] w-px bg-border"
                 />
               )}
 
