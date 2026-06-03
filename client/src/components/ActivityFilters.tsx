@@ -4,7 +4,7 @@ import {
   AuditEventType,
   type RosterAgent,
 } from "@helpdesk/core";
-import { Input } from "@/components/ui/input";
+import DatePicker from "@/components/ui/DatePicker";
 import {
   Select,
   SelectContent,
@@ -92,21 +92,19 @@ export default function ActivityFilters({
         </SelectContent>
       </Select>
 
-      <Input
-        type="date"
-        aria-label="From date"
+      <DatePicker
+        ariaLabel="From date"
         value={from}
         max={to || undefined}
-        onChange={(e) => onFromChange(e.target.value)}
-        className="h-10 w-full text-[13px] sm:h-9 sm:w-40"
+        onChange={onFromChange}
+        className="w-full sm:w-40"
       />
-      <Input
-        type="date"
-        aria-label="To date"
+      <DatePicker
+        ariaLabel="To date"
         value={to}
         min={from || undefined}
-        onChange={(e) => onToChange(e.target.value)}
-        className="h-10 w-full text-[13px] sm:h-9 sm:w-40"
+        onChange={onToChange}
+        className="w-full sm:w-40"
       />
     </div>
   );

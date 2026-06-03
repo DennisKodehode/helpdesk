@@ -2,7 +2,7 @@ import { type AuditEventRow, AuditEventType } from "@helpdesk/core";
 import userEvent from "@testing-library/user-event";
 import axios from "axios";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, renderWithProviders, screen, waitFor } from "../test/utils";
+import { cleanup, renderWithProviders, screen, waitFor, within } from "../test/utils";
 import ActivityPage from "./ActivityPage";
 
 vi.mock("axios", () => ({
@@ -120,15 +120,22 @@ describe("ActivityPage", () => {
     renderWithProviders(<ActivityPage />, { initialEntries: ["/activity?page=3"] });
     await screen.findByText(/Alice Agent changed status/i);
 
-    fireEvent.change(screen.getByLabelText("From date"), {
-      target: { value: "2026-06-15" },
-    });
+    // Pick a date via the calendar popover. The default month follows the real
+    // clock, so assert the shape of `from` (a valid ISO date) rather than an
+    // exact value — the behavior under test is "filter change resets to page 1".
+    await userEvent.click(screen.getByRole("button", { name: "From date" }));
+    const grid = await screen.findByRole("grid");
+    const day15 = within(grid)
+      .getAllByRole("button")
+      .find((b) => b.textContent?.trim() === "15");
+    if (!day15) throw new Error("day 15 not found in calendar");
+    await userEvent.click(day15);
 
     await waitFor(() => {
       expect(
         auditCalls().some((c) => {
           const params = (c[1] as { params: { from?: string; page: number } }).params;
-          return params.from === "2026-06-15" && params.page === 1;
+          return /^\d{4}-\d{2}-\d{2}$/.test(params.from ?? "") && params.page === 1;
         }),
       ).toBe(true);
     });

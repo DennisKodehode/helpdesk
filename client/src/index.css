@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "react-day-picker/style.css"; /* base calendar layout; themed in the .rdp-root block below */
 /* Fontsource is imported as JS in main.tsx so Vite can trace the woff2
    files. CSS @import here would inline the rules but break the relative
    url() references — woff2 wouldn't end up in dist/. */
@@ -105,6 +106,10 @@
    accent reserved for AI / interactive moments. Hairline rules.
    ───────────────────────────────────────────────────────── */
 :root {
+  /* Native controls (date picker calendar, segment text, scrollbars) follow
+     the app theme, which is class-toggled — not the OS preference. */
+  color-scheme: light;
+
   /* Raw design tokens (ported from the prototype's :root) */
   --paper: oklch(0.984 0.004 75); /* app canvas, warm off-white */
   --panel: oklch(0.998 0.0015 75); /* cards / surfaces */
@@ -215,6 +220,8 @@
    DARK — Quiet Operations (deep cool slate)
    ───────────────────────────────────────────────────────── */
 .dark {
+  color-scheme: dark;
+
   --paper: oklch(0.165 0.006 280);
   --panel: oklch(0.205 0.007 280);
   --panel-2: oklch(0.235 0.008 280);
@@ -465,4 +472,84 @@ input:-webkit-autofill:focus {
 ::selection {
   background-color: color-mix(in oklch, var(--primary) 22%, transparent);
   color: var(--foreground);
+}
+
+/* react-day-picker — themed to the warm-paper / soft-violet system. Structural
+   layout comes from the imported base stylesheet; here we only repaint the
+   `--rdp-*` tokens and the few selectors the base leaves un-themed. Tokens swap
+   under .dark automatically, so the calendar follows the app theme for free. */
+.rdp-root {
+  --rdp-accent-color: var(--foreground);
+  --rdp-accent-background-color: var(--accent-tint);
+  --rdp-today-color: var(--accent-ink);
+  --rdp-day-width: 2.3rem;
+  --rdp-day-height: 2.3rem;
+  --rdp-day_button-width: 2rem;
+  --rdp-day_button-height: 2rem;
+  --rdp-day_button-border-radius: var(--radius-md);
+  --rdp-day_button-border: 1px solid transparent;
+  --rdp-selected-border: none;
+  --rdp-nav_button-width: 1.9rem;
+  --rdp-nav_button-height: 1.9rem;
+  --rdp-nav-height: 2.1rem;
+  --rdp-outside-opacity: 0.4;
+  --rdp-disabled-opacity: 0.3;
+  --rdp-weekday-opacity: 1;
+  font-size: 13px;
+  color: var(--foreground);
+}
+.rdp-root .rdp-day_button {
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
+}
+.rdp-root .rdp-day_button:hover {
+  background-color: var(--panel-2);
+}
+/* Selected day: a solid ink chip (text color as fill) — the same hue-free
+   authority treatment used elsewhere, and high-contrast in either theme. */
+.rdp-root .rdp-selected {
+  font-weight: 600;
+  font-size: inherit;
+}
+.rdp-root .rdp-selected .rdp-day_button,
+.rdp-root .rdp-selected .rdp-day_button:hover {
+  background-color: var(--foreground);
+  color: var(--background);
+  border: none;
+}
+.rdp-root .rdp-today:not(.rdp-outside) {
+  font-weight: 600;
+}
+.rdp-root .rdp-weekday,
+.rdp-root .rdp-caption_label {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-4);
+}
+.rdp-root .rdp-caption_label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--foreground);
+}
+.rdp-root .rdp-weekday {
+  font-size: 10px;
+}
+.rdp-root .rdp-button_previous,
+.rdp-root .rdp-button_next {
+  color: var(--ink-3);
+  border-radius: var(--radius-md);
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
+}
+.rdp-root .rdp-button_previous:hover,
+.rdp-root .rdp-button_next:hover {
+  background-color: var(--panel-2);
+  color: var(--foreground);
+}
+.rdp-root .rdp-chevron {
+  fill: currentColor;
 }

@@ -1,6 +1,6 @@
 import { AuditEventType, type RosterAgent } from "@helpdesk/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, renderWithProviders, screen } from "../test/utils";
+import { cleanup, renderWithProviders, screen } from "../test/utils";
 import ActivityFilters from "./ActivityFilters";
 
 const ACTORS = [
@@ -47,16 +47,13 @@ describe("ActivityFilters", () => {
     expect(screen.getByText("Status changed")).toBeInTheDocument();
   });
 
-  it("calls the date change handlers when the date inputs change", () => {
-    const handlers = setup();
-    fireEvent.change(screen.getByLabelText("From date"), {
-      target: { value: "2026-05-01" },
-    });
-    expect(handlers.onFromChange).toHaveBeenCalledWith("2026-05-01");
-
-    fireEvent.change(screen.getByLabelText("To date"), {
-      target: { value: "2026-05-31" },
-    });
-    expect(handlers.onToChange).toHaveBeenCalledWith("2026-05-31");
+  it("renders the date pickers and shows provided values as dd.mm.yyyy", () => {
+    setup({ from: "2026-05-01", to: "2026-05-31" });
+    expect(screen.getByRole("button", { name: "From date" })).toHaveTextContent(
+      "01.05.2026",
+    );
+    expect(screen.getByRole("button", { name: "To date" })).toHaveTextContent(
+      "31.05.2026",
+    );
   });
 });
