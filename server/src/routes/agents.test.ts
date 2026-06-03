@@ -1,4 +1,4 @@
-import { Role } from "@helpdesk/core";
+import { Role, UserStatus } from "@helpdesk/core";
 import { generateId } from "better-auth";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -114,5 +114,51 @@ describe("GET /api/agents", () => {
     expect(ids).not.toContain(deletedId);
 
     await prisma.user.delete({ where: { id: deletedId } });
+  });
+
+  it("includes invited agents (they are assignable)", async () => {
+    const invitedId = generateId();
+    const now = new Date();
+    await prisma.user.create({
+      data: {
+        id: invitedId,
+        name: "Invited Agent",
+        email: "invited-agents@example.com",
+        emailVerified: true,
+        role: Role.agent,
+        status: UserStatus.invited,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+
+    const res = await request(app).get("/api/agents").set("Cookie", authCookie);
+    const ids = (res.body as { id: string }[]).map((a) => a.id);
+    expect(ids).toContain(invitedId);
+
+    await prisma.user.delete({ where: { id: invitedId } });
+  });
+
+  it("does not include inactive (deactivated) agents", async () => {
+    const inactiveId = generateId();
+    const now = new Date();
+    await prisma.user.create({
+      data: {
+        id: inactiveId,
+        name: "Inactive Agent",
+        email: "inactive-agents@example.com",
+        emailVerified: true,
+        role: Role.agent,
+        status: UserStatus.inactive,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+
+    const res = await request(app).get("/api/agents").set("Cookie", authCookie);
+    const ids = (res.body as { id: string }[]).map((a) => a.id);
+    expect(ids).not.toContain(inactiveId);
+
+    await prisma.user.delete({ where: { id: inactiveId } });
   });
 });

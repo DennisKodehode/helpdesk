@@ -9,6 +9,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 
 export const ROSTER_QUERY_KEY = ["roster"] as const;
+// The assignable-agents list behind the ticket "Assigned to" picker (and the
+// activity-feed actor-name map). Exported so every consumer keys off the same
+// constant — see TicketMeta / ActivityFeed.
+export const AGENTS_QUERY_KEY = ["agents"] as const;
 
 export function useRoster() {
   return useQuery<RosterAgent[]>({
@@ -20,9 +24,16 @@ export function useRoster() {
   });
 }
 
+// Any roster mutation (invite, role, status, remove) changes who is assignable,
+// so refresh BOTH the Agents-screen roster and the assignable-agents list — the
+// latter feeds the ticket "Assigned to" dropdown, which otherwise stays stale
+// (global staleTime is 30s) until a hard reload.
 function useInvalidateRoster() {
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: ROSTER_QUERY_KEY });
+  return () => {
+    queryClient.invalidateQueries({ queryKey: ROSTER_QUERY_KEY });
+    queryClient.invalidateQueries({ queryKey: AGENTS_QUERY_KEY });
+  };
 }
 
 export function useInviteAgent() {

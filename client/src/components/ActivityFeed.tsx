@@ -23,6 +23,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { AGENTS_QUERY_KEY } from "@/lib/agents";
 import {
   CATEGORY_LABELS,
   formatRelative,
@@ -248,7 +249,7 @@ export default function ActivityFeed({ ticketId }: Props) {
     queryFn: ({ signal }) => fetchAuditEvents(ticketId, signal),
   });
   const { data: agents = [] } = useQuery({
-    queryKey: ["agents"],
+    queryKey: AGENTS_QUERY_KEY,
     queryFn: ({ signal }) => fetchAgents(signal),
   });
 

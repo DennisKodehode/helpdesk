@@ -17,6 +17,7 @@ import { SlaBadge } from "@/components/SlaBadge";
 import StatusPill from "@/components/StatusPill";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
+import { AGENTS_QUERY_KEY } from "@/lib/agents";
 import { useSession } from "@/lib/auth-client";
 import { MY_OPEN_COUNT_QUERY_KEY } from "@/lib/my-tickets";
 import { PERSONAL_STATS_QUERY_KEY } from "@/lib/personal-stats";
@@ -80,7 +81,7 @@ export default function TicketMeta({ ticket }: Props) {
   const isAdmin = (session?.user as Record<string, unknown>)?.role === Role.admin;
 
   const { data: agents = [] } = useQuery({
-    queryKey: ["agents"],
+    queryKey: AGENTS_QUERY_KEY,
     queryFn: ({ signal }) => fetchAgents(signal),
   });
 
