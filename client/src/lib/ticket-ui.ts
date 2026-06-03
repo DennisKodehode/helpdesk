@@ -1,4 +1,5 @@
 import {
+  Role,
   SlaMetric,
   type SlaState,
   TicketCategory,
@@ -96,6 +97,17 @@ export const PRIORITY_LABELS: Record<TicketPriority, string> = {
   [TicketPriority.normal]: "Normal",
   [TicketPriority.high]: "High",
   [TicketPriority.urgent]: "Urgent",
+};
+
+// Role is authority, not a ticket status — so it deliberately avoids every
+// reserved semantic hue (especially violet, the AI/automation accent). Admin
+// reads as a solid ink chip: text color as fill, page color as text. Both vars
+// swap under .dark, so it inverts to a light chip with dark text for free —
+// still high-contrast, still unmistakably "elevated", never confused with AI.
+// Agent stays the quiet neutral outline pill.
+export const ROLE_BADGE: Record<Role, string> = {
+  [Role.admin]: "border-foreground bg-foreground text-background",
+  [Role.agent]: "border-hairline-strong bg-transparent text-ink-2",
 };
 
 // Zero-padded case number for display, e.g. 42 → "0042". Call sites prepend

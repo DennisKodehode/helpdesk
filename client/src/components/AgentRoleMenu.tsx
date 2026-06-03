@@ -6,7 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { BADGE_BASE } from "@/lib/ticket-ui";
+import { BADGE_BASE, ROLE_BADGE } from "@/lib/ticket-ui";
 
 interface Props {
   role: Role;
@@ -22,9 +22,7 @@ export default function AgentRoleMenu({ role, onChange, disabled }: Props) {
         disabled={disabled}
         aria-label="Change role"
         className={`${BADGE_BASE} cursor-pointer pr-1.5 outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
-          isAdmin
-            ? "border-vio-dot/30 bg-vio-bg text-vio-fg"
-            : "border-hairline-strong bg-transparent text-ink-2"
+          isAdmin ? ROLE_BADGE[Role.admin] : ROLE_BADGE[Role.agent]
         }`}
       >
         {isAdmin && <ShieldCheck className="size-3" aria-hidden />}
