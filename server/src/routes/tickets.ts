@@ -642,7 +642,10 @@ router.get("/:id/audit-events", requireAuth, async (req, res) => {
       createdAt: true,
       actor: { select: { id: true, name: true } },
     },
-    orderBy: { createdAt: "asc" },
+    // Newest-first, matching the global audit feed (/api/audit-events) and the
+    // dashboard recent-activity feed — the ticket-detail Activity log reads
+    // top-to-bottom newest → oldest.
+    orderBy: { createdAt: "desc" },
   });
 
   res.json(events);

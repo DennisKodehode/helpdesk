@@ -2128,7 +2128,7 @@ describe("GET /api/tickets/:id/audit-events", () => {
     expect(res.status).toBe(404);
   });
 
-  it("returns events ordered by createdAt asc with actor info", async () => {
+  it("returns events ordered by createdAt desc (newest first) with actor info", async () => {
     // Generate two events: a priority change then a status change
     await request(app)
       .patch(`/api/tickets/${ticketId}`)
@@ -2146,8 +2146,9 @@ describe("GET /api/tickets/:id/audit-events", () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(2);
-    expect(res.body[0].type).toBe("priority_changed");
-    expect(res.body[1].type).toBe("status_changed");
+    // Newest first: the status change (sent second) precedes the priority change.
+    expect(res.body[0].type).toBe("status_changed");
+    expect(res.body[1].type).toBe("priority_changed");
     expect(res.body[0].actor).toMatchObject({
       id: testUserId,
       name: "Audit Events Agent",
