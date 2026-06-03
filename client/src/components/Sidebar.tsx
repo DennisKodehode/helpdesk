@@ -1,38 +1,22 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Role } from "@helpdesk/core";
-import { useQueryClient } from "@tanstack/react-query";
-import {
-  Activity,
-  ChevronsUpDown,
-  Inbox,
-  LayoutDashboard,
-  LineChart,
-  LogOut,
-  Moon,
-  RotateCcw,
-  Sun,
-  UserCheck,
-  Users,
-} from "lucide-react";
+import { ChevronsUpDown, LogOut, Moon, Sun } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router";
 import { Link } from "@/components/ui/link";
 import { useMyOpenCount } from "@/lib/my-tickets";
+import {
+  ADMIN_NAV,
+  AGENT_NAV,
+  isNavActive as isActive,
+  type NavItem,
+  PRIMARY_NAV,
+} from "@/lib/nav";
 import { useTheme } from "@/lib/theme";
+import { useSignOut } from "@/lib/use-sign-out";
 import { cn } from "@/lib/utils";
-import { signOut, useSession } from "../lib/auth-client";
+import { useSession } from "../lib/auth-client";
 import NotificationBell from "./NotificationBell";
-
-interface NavItem {
-  to: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-}
-
-function isActive(path: string, current: string): boolean {
-  if (path === "/") return current === "/";
-  return current.startsWith(path);
-}
 
 function SidebarLink({
   item,
@@ -86,7 +70,7 @@ function SidebarLink({
 
 function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
   const { data: session, isPending } = useSession();
-  const queryClient = useQueryClient();
+  const signOut = useSignOut();
   const { pathname } = useLocation();
   const { theme, toggleTheme } = useTheme();
 
@@ -118,44 +102,15 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
 
   async function handleSignOut() {
     setMenuOpen(false);
-    // Abort any genuinely in-flight authenticated request before the session
-    // is invalidated, so a polling tick mid-flight doesn't land on the server
-    // after signOut() deletes the session row. cancelQueries() fires
-    // AbortSignal.abort() on each query; every authenticated queryFn forwards
-    // that signal into axios so the underlying fetch actually closes.
-    await queryClient.cancelQueries();
     await signOut();
-    // Do NOT call navigate("/login") here, and do NOT call queryClient.clear().
-    // Better Auth's useSession transitions to null on its own get-session
-    // revalidation after signOut, at which point ProtectedLayout returns
-    // <Navigate to="/login" /> and the dashboard subtree unmounts cleanly.
-    // Imperatively navigating before useSession is null caused a / → /login →
-    // / → /login bounce: LoginPage's already-logged-in redirect saw the still-
-    // stale session and sent us back to the dashboard, which remounted, and
-    // its 5 useQuery observers refetched (twice each under StrictMode) with a
-    // now-cleared cookie — the 10-request, 6-visible 401 burst this is meant
-    // to prevent. Cache hygiene happens in LoginPage.onSubmit on next sign-in.
   }
 
-  const primaryNav: NavItem[] = [
-    { to: "/", label: "Dashboard", icon: LayoutDashboard },
-    { to: "/tickets", label: "Tickets", icon: Inbox },
-  ];
-
   const isAgent = !isPending && role === Role.agent;
-  const myTicketsItem: NavItem = {
-    to: "/my-tickets",
-    label: "My tickets",
-    icon: UserCheck,
-  };
-  const myStatsItem: NavItem = { to: "/my-stats", label: "My stats", icon: LineChart };
   const { data: myOpenCount } = useMyOpenCount(isAgent);
 
-  const adminNav: NavItem[] = [
-    { to: "/users", label: "Agents", icon: Users },
-    { to: "/workflow", label: "Workflow", icon: RotateCcw },
-    { to: "/activity", label: "Activity", icon: Activity },
-  ];
+  // The badge (open-ticket count) only belongs on "My tickets".
+  const badgeFor = (item: NavItem) =>
+    item.to === "/my-tickets" ? myOpenCount?.count : undefined;
 
   return (
     <>
@@ -183,34 +138,16 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
           <p className="eyebrow">Workspace</p>
         </div>
         <ul className="space-y-1">
-          {primaryNav.map((item) => (
+          {[...PRIMARY_NAV, ...(isAgent ? AGENT_NAV : [])].map((item) => (
             <li key={item.to}>
               <SidebarLink
                 item={item}
                 active={isActive(item.to, pathname)}
                 onNavigate={onNavigate}
+                badge={badgeFor(item)}
               />
             </li>
           ))}
-          {isAgent && (
-            <>
-              <li>
-                <SidebarLink
-                  item={myTicketsItem}
-                  active={isActive(myTicketsItem.to, pathname)}
-                  onNavigate={onNavigate}
-                  badge={myOpenCount?.count}
-                />
-              </li>
-              <li>
-                <SidebarLink
-                  item={myStatsItem}
-                  active={isActive(myStatsItem.to, pathname)}
-                  onNavigate={onNavigate}
-                />
-              </li>
-            </>
-          )}
         </ul>
 
         {!isPending && role === Role.admin && (
@@ -219,7 +156,7 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
               <p className="eyebrow">Administration</p>
             </div>
             <ul className="space-y-1">
-              {adminNav.map((item) => (
+              {ADMIN_NAV.map((item) => (
                 <li key={item.to}>
                   <SidebarLink
                     item={item}

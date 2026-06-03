@@ -1,11 +1,13 @@
 import { Role } from "@helpdesk/core";
-import { lazy, Suspense, useEffect, useState } from "react";
-import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
-import MobileTopbar from "./components/MobileTopbar";
-import Sidebar from "./components/Sidebar";
+import { lazy, Suspense } from "react";
+import { Navigate, Outlet, Route, Routes } from "react-router";
+import DesktopShell from "./components/DesktopShell";
+import MobileShell from "./components/mobile/MobileShell";
+import TabletShell from "./components/tablet/TabletShell";
 import { Skeleton } from "./components/ui/skeleton";
 import { useSession } from "./lib/auth-client";
 import { useUnauthorizedRedirect } from "./lib/auth-redirect";
+import { useLayoutTier } from "./lib/useBreakpoint";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
 import LoginPage from "./pages/LoginPage";
 
@@ -35,13 +37,7 @@ function RouteFallback() {
 
 function ProtectedLayout() {
   const { data: session, isPending } = useSession();
-  const { pathname } = useLocation();
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: pathname is the trigger — body doesn't read it
-  useEffect(() => {
-    setMobileNavOpen(false);
-  }, [pathname]);
+  const tier = useLayoutTier();
 
   // Only block on the very first load (no cached session yet). If we already
   // have a session, keep rendering even while a background revalidation is in
@@ -50,24 +46,30 @@ function ProtectedLayout() {
   if (isPending && !session) return null;
   if (!session) return <Navigate to="/login" replace />;
 
-  return (
-    <div className="min-h-screen bg-background">
-      <MobileTopbar onMenuClick={() => setMobileNavOpen(true)} />
-      <Sidebar mobileOpen={mobileNavOpen} onMobileOpenChange={setMobileNavOpen} />
-      <div className="pt-14 md:pt-0 md:pl-64">
-        <Suspense fallback={<RouteFallback />}>
-          <Outlet />
-        </Suspense>
-      </div>
-    </div>
+  // One shell at a time, chosen in JS — see lib/useBreakpoint. The Suspense +
+  // Outlet are identical across shells so route chunks load once and the page
+  // mounts once per tier.
+  const content = (
+    <Suspense fallback={<RouteFallback />}>
+      <Outlet />
+    </Suspense>
   );
+
+  if (tier === "mobile") return <MobileShell>{content}</MobileShell>;
+  if (tier === "tablet") return <TabletShell>{content}</TabletShell>;
+  return <DesktopShell>{content}</DesktopShell>;
 }
 
 function AdminLayout() {
   const { data: session, isPending } = useSession();
+  const tier = useLayoutTier();
 
   // Same reasoning as ProtectedLayout: don't unmount on background revalidation.
   if (isPending && !session) return null;
+
+  // The phone build is agent-only — admin tooling (Agents/Workflow/Activity)
+  // is not part of the mobile experience, so redirect rather than merely hide.
+  if (tier === "mobile") return <Navigate to="/" replace />;
 
   const role = (session?.user as Record<string, unknown>)?.role;
   if (role !== Role.admin) return <Navigate to="/" replace />;

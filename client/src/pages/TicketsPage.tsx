@@ -1,16 +1,13 @@
 import {
-  type PaginatedTickets,
   type TicketCategory,
   type TicketPriority,
   type TicketSortField,
   TicketView,
   UNCATEGORIZED_FILTER_VALUE,
 } from "@helpdesk/core";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { SortingState } from "@tanstack/react-table";
-import axios from "axios";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import TicketFilters, {
   type CategoryFilterValue,
   type StatusFilterValue,
@@ -18,18 +15,36 @@ import TicketFilters, {
 import TicketPagination from "@/components/TicketPagination";
 import TicketsTable from "@/components/TicketsTable";
 import TicketViewChips from "@/components/TicketViewChips";
+import TabletTicketsMasterDetail from "@/components/tablet/TabletTicketsMasterDetail";
 import PageContainer from "@/components/ui/PageContainer";
 import PageHeader from "@/components/ui/PageHeader";
+import { type SlaStateFilterValue, useTickets } from "@/lib/tickets";
+import { useDebounce } from "@/lib/use-debounce";
+import { useLayoutTier } from "@/lib/useBreakpoint";
 
 const PAGE_SIZE = 10;
 
-function useDebounce<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-  return debounced;
+/**
+ * Route dispatcher for `/tickets`. The tablet tier gets the two-pane
+ * master-detail (no ticket selected here — bare `/tickets` shows the "select a
+ * ticket" empty state; selection navigates to `/tickets/:id`). Desktop (and, for
+ * now, mobile via the desktop shell) get the queue table.
+ */
+export default function TicketsPage() {
+  const tier = useLayoutTier();
+  const navigate = useNavigate();
+
+  if (tier === "tablet") {
+    return (
+      <TabletTicketsMasterDetail
+        scope="all"
+        selectedId={undefined}
+        onSelect={(id) => navigate(`/tickets/${id}`)}
+      />
+    );
+  }
+
+  return <TicketsQueue />;
 }
 
 function setParam(params: URLSearchParams, key: string, value: string | number | null) {
@@ -40,47 +55,9 @@ function setParam(params: URLSearchParams, key: string, value: string | number |
 
 const VALID_VIEWS = new Set<string>(Object.values(TicketView));
 
-type SlaStateFilterValue = "at_risk" | "ok" | "";
 const VALID_SLA_STATES = new Set<string>(["at_risk", "ok"]);
 
-async function fetchTickets(
-  sortBy: TicketSortField,
-  sortOrder: "asc" | "desc",
-  status: StatusFilterValue,
-  category: CategoryFilterValue,
-  priority: TicketPriority | "",
-  assignee: string,
-  search: string,
-  breachedOnly: boolean,
-  slaState: SlaStateFilterValue,
-  view: TicketView | null,
-  page: number,
-  signal?: AbortSignal,
-): Promise<PaginatedTickets> {
-  const { data } = await axios.get<PaginatedTickets>("/api/tickets", {
-    params: {
-      sortBy,
-      sortOrder,
-      // When `view` is set the server applies its preset and ignores the
-      // per-field filters, so we don't bother sending them. Keeps the
-      // request URL meaningful.
-      ...(view ? { view } : null),
-      ...(!view && status && { status }),
-      ...(!view && category && { category }),
-      ...(!view && priority && { priority }),
-      ...(!view && assignee && { assignee }),
-      ...(!view && breachedOnly && { breachedOnly: "true" }),
-      ...(!view && slaState && { slaState }),
-      ...(search.trim() && { search: search.trim() }),
-      page,
-      pageSize: PAGE_SIZE,
-    },
-    signal,
-  });
-  return data;
-}
-
-export default function TicketsPage() {
+function TicketsQueue() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const status = (searchParams.get("status") ?? "") as StatusFilterValue;
@@ -127,37 +104,19 @@ export default function TicketsPage() {
   const sortBy = (sorting[0]?.id ?? "createdAt") as TicketSortField;
   const sortOrder = sorting[0]?.desc === false ? "asc" : "desc";
 
-  const { data, isPending, isError } = useQuery({
-    queryKey: [
-      "tickets",
-      sortBy,
-      sortOrder,
-      status,
-      category,
-      priority,
-      assignee,
-      searchFromUrl,
-      breachedOnly,
-      slaState,
-      view,
-      page,
-    ],
-    queryFn: ({ signal }) =>
-      fetchTickets(
-        sortBy,
-        sortOrder,
-        status,
-        category,
-        priority,
-        assignee,
-        searchFromUrl,
-        breachedOnly,
-        slaState,
-        view,
-        page,
-        signal,
-      ),
-    placeholderData: keepPreviousData,
+  const { data, isPending, isError } = useTickets({
+    sortBy,
+    sortOrder,
+    status,
+    category,
+    priority,
+    assignee,
+    search: searchFromUrl,
+    breachedOnly,
+    slaState,
+    view,
+    page,
+    pageSize: PAGE_SIZE,
   });
 
   const tickets = data?.data ?? [];

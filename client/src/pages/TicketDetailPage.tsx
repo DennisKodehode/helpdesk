@@ -1,21 +1,16 @@
-import type { TicketDetail } from "@helpdesk/core";
-import { useQuery } from "@tanstack/react-query";
-import axios from "axios";
-import { useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import ActivityFeed from "@/components/ActivityFeed";
 import ReplyThread from "@/components/ReplyThread";
 import TicketDetails from "@/components/TicketDetails";
 import TicketMeta from "@/components/TicketMeta";
 import TicketReplyArea from "@/components/TicketReplyArea";
+import TabletTicketsMasterDetail from "@/components/tablet/TabletTicketsMasterDetail";
 import BackLink from "@/components/ui/BackLink";
 import ErrorAlert from "@/components/ui/ErrorAlert";
 import PageContainer from "@/components/ui/PageContainer";
 import { Skeleton } from "@/components/ui/skeleton";
-
-async function fetchTicket(id: string, signal?: AbortSignal): Promise<TicketDetail> {
-  const { data } = await axios.get<TicketDetail>(`/api/tickets/${id}`, { signal });
-  return data;
-}
+import { useTicket } from "@/lib/tickets";
+import { useLayoutTier } from "@/lib/useBreakpoint";
 
 function TicketDetailSkeleton() {
   return (
@@ -28,18 +23,33 @@ function TicketDetailSkeleton() {
   );
 }
 
+/**
+ * Route dispatcher for `/tickets/:id`. On tablet this renders the same two-pane
+ * master-detail as `/tickets`, with the URL `:id` driving the selected ticket
+ * (so deep links + the back button work). Desktop/mobile get the full-page view.
+ */
 export default function TicketDetailPage() {
+  const tier = useLayoutTier();
+  const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
 
-  const {
-    data: ticket,
-    isPending,
-    isError,
-  } = useQuery({
-    queryKey: ["ticket", id],
-    queryFn: ({ signal }) => fetchTicket(id!, signal),
-    enabled: !!id,
-  });
+  if (tier === "tablet") {
+    return (
+      <TabletTicketsMasterDetail
+        scope="all"
+        selectedId={id}
+        onSelect={(next) => navigate(`/tickets/${next}`)}
+      />
+    );
+  }
+
+  return <TicketDetailView />;
+}
+
+function TicketDetailView() {
+  const { id } = useParams<{ id: string }>();
+
+  const { data: ticket, isPending, isError } = useTicket(id);
 
   return (
     <PageContainer width="content">
