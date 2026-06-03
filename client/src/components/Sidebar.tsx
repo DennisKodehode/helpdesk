@@ -1,4 +1,3 @@
-import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Role } from "@helpdesk/core";
 import { ChevronsUpDown, LogOut, Moon, Sun } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -228,30 +227,12 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
   );
 }
 
-interface Props {
-  mobileOpen: boolean;
-  onMobileOpenChange: (open: boolean) => void;
-}
-
-export default function Sidebar({ mobileOpen, onMobileOpenChange }: Props) {
+// Desktop-only nav. The tablet tier uses TabletIconRail and the mobile tier
+// uses MobileShell, so this is rendered solely inside DesktopShell (>=1280px).
+export default function Sidebar() {
   return (
-    <>
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-sidebar md:flex">
-        <SidebarContents />
-      </aside>
-
-      <DialogPrimitive.Root open={mobileOpen} onOpenChange={onMobileOpenChange}>
-        <DialogPrimitive.Portal>
-          <DialogPrimitive.Backdrop className="fixed inset-0 z-40 bg-foreground/40 duration-150 supports-backdrop-filter:backdrop-blur-[2px] data-open:animate-in data-open:fade-in-0 motion-reduce:animate-none md:hidden" />
-          <DialogPrimitive.Popup
-            aria-label="Navigation"
-            className="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col border-r border-border bg-sidebar shadow-2xl outline-none duration-200 data-open:animate-in data-open:slide-in-from-left motion-reduce:animate-none md:hidden"
-          >
-            <DialogPrimitive.Title className="sr-only">Navigation</DialogPrimitive.Title>
-            <SidebarContents onNavigate={() => onMobileOpenChange(false)} />
-          </DialogPrimitive.Popup>
-        </DialogPrimitive.Portal>
-      </DialogPrimitive.Root>
-    </>
+    <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-border bg-sidebar">
+      <SidebarContents />
+    </aside>
   );
 }
