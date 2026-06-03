@@ -7,13 +7,26 @@ import TicketViewChips from "./TicketViewChips";
 afterEach(cleanup);
 
 describe("TicketViewChips", () => {
-  it("renders all three view chips with their labels", () => {
+  it("renders all four view chips with their labels", () => {
     renderWithProviders(<TicketViewChips activeView={null} onChange={vi.fn()} />);
     expect(screen.getByRole("button", { name: /unassigned/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /triage/i })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /awaiting a customer response/i }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /resolved in the last 7 days/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("clicking the Resolved · 7d chip calls onChange with recently_resolved", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(<TicketViewChips activeView={null} onChange={onChange} />);
+    await user.click(
+      screen.getByRole("button", { name: /resolved in the last 7 days/i }),
+    );
+    expect(onChange.mock.calls[0][0]).toBe(TicketView.recently_resolved);
   });
 
   it("marks the active chip with aria-pressed=true and others false", () => {

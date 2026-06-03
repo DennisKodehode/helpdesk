@@ -1,5 +1,5 @@
 import { TicketView } from "@helpdesk/core";
-import { Hourglass, Inbox, Sparkles, UserX } from "lucide-react";
+import { CircleCheck, Hourglass, Inbox, Sparkles, UserX } from "lucide-react";
 import { Toggle } from "@/components/ui/toggle";
 
 const VIEWS: ReadonlyArray<{
@@ -25,6 +25,12 @@ const VIEWS: ReadonlyArray<{
     label: "Awaiting customer",
     ariaLabel: "Show open tickets awaiting a customer response",
     icon: Hourglass,
+  },
+  {
+    key: TicketView.recently_resolved,
+    label: "Resolved · 7d",
+    ariaLabel: "Show tickets resolved in the last 7 days",
+    icon: CircleCheck,
   },
 ];
 

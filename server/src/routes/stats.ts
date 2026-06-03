@@ -4,6 +4,7 @@ import {
   type CategoryBreakdownResponse,
   computeSlaState,
   type NeedsAttentionResponse,
+  RECENT_RESOLVED_DAYS,
   type RecentActivityResponse,
   SenderType,
   type SlaComplianceResponse,
@@ -56,7 +57,9 @@ const router = Router();
 
 router.get("/", requireAuth, async (_req, res) => {
   const aiUserId = getAiUserId();
-  const sevenDaysAgo = new Date(Date.now() - 7 * DAY_MS);
+  // Shared window with the `recently_resolved` ticket view, so the card's count
+  // matches the list it links to.
+  const recentResolvedSince = new Date(Date.now() - RECENT_RESOLVED_DAYS * DAY_MS);
 
   // The SQL function carries the bulk of the headline numbers; triaging and
   // resolved-7d are cheap counts that feed the dashboard stat cards.
@@ -64,7 +67,10 @@ router.get("/", requireAuth, async (_req, res) => {
     prisma.$queryRaw<[TicketStatsRow]>`SELECT * FROM get_ticket_stats(${aiUserId})`,
     prisma.ticket.count({ where: { status: { in: TRIAGING_STATUSES } } }),
     prisma.ticket.count({
-      where: { status: { in: COMPLETED_STATUSES }, resolvedAt: { gte: sevenDaysAgo } },
+      where: {
+        status: { in: COMPLETED_STATUSES },
+        resolvedAt: { gte: recentResolvedSince },
+      },
     }),
   ]);
 

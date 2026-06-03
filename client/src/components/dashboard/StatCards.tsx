@@ -1,4 +1,4 @@
-import type { SlaHealthResponse, StatsResponse } from "@helpdesk/core";
+import { type SlaHealthResponse, type StatsResponse, TicketView } from "@helpdesk/core";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { ArrowUpRight } from "lucide-react";
@@ -119,7 +119,7 @@ export default function StatCards() {
         tone="ros"
       />
       <DashboardStatCard
-        to={`/tickets?status=resolved`}
+        to={`/tickets?view=${TicketView.recently_resolved}`}
         label="Resolved · 7d"
         value={stats.resolvedLast7d}
         caption="last 7 days"

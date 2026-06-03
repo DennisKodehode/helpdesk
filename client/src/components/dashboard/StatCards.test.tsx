@@ -80,5 +80,11 @@ describe("StatCards", () => {
       "href",
       "/tickets?breachedOnly=true",
     );
+    // Resolved · 7d links to the matching `recently_resolved` view (resolved or
+    // closed within 7 days) — not status=resolved, which would undercount.
+    expect(screen.getByRole("link", { name: /resolved · 7d: 18/i })).toHaveAttribute(
+      "href",
+      "/tickets?view=recently_resolved",
+    );
   });
 });

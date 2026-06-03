@@ -8,6 +8,7 @@ import {
   createReplySchema,
   NotificationType,
   polishReplySchema,
+  RECENT_RESOLVED_DAYS,
   Role,
   SenderType,
   type SuggestReplyResponse,
@@ -79,6 +80,9 @@ router.get("/", requireAuth, async (req, res) => {
   // and the per-field filters (status/category/priority/assignee/
   // breachedOnly) are ignored. The client also clears them on chip click,
   // but the server-side gate is the source of truth.
+  const recentResolvedSince = new Date(
+    Date.now() - RECENT_RESOLVED_DAYS * 24 * 60 * 60 * 1000,
+  );
   const viewWhere: Prisma.TicketWhereInput | null =
     view === TicketView.unassigned
       ? { assignedToId: null }
@@ -86,7 +90,14 @@ router.get("/", requireAuth, async (req, res) => {
         ? { status: { in: TRIAGING_STATUSES } }
         : view === TicketView.awaiting_customer
           ? { status: TicketStatus.open, lastReplySenderType: SenderType.agent }
-          : null;
+          : view === TicketView.recently_resolved
+            ? {
+                // Mirrors the dashboard "Resolved · 7d" stat: resolved OR
+                // closed, by resolvedAt within the shared window.
+                status: { in: [TicketStatus.resolved, TicketStatus.closed] },
+                resolvedAt: { gte: recentResolvedSince },
+              }
+            : null;
 
   const categoryFilter: Prisma.TicketWhereInput["category"] =
     category === UNCATEGORIZED_FILTER_VALUE ? null : category ? category : undefined;

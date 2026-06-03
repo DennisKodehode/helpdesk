@@ -709,6 +709,54 @@ describe("GET /api/tickets — sorting", () => {
     expect(ids).not.toContain(resolvedAgentLast.id);
   });
 
+  it("?view=recently_resolved returns resolved or closed tickets within 7 days", async () => {
+    const now = new Date();
+    const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+    const recentlyResolved = await prisma.ticket.create({
+      data: {
+        fromName: "Recently Resolved",
+        fromEmail: "recent-resolved@example.com",
+        subject: "Resolved yesterday",
+        body: "",
+        status: TicketStatus.resolved,
+        resolvedAt: now,
+      },
+    });
+    const recentlyClosed = await prisma.ticket.create({
+      data: {
+        fromName: "Recently Closed",
+        fromEmail: "recent-closed@example.com",
+        subject: "Resolved then auto-closed this week",
+        body: "",
+        status: TicketStatus.closed,
+        resolvedAt: now,
+      },
+    });
+    // Resolved long ago — outside the 7-day window, must not appear.
+    const oldResolved = await prisma.ticket.create({
+      data: {
+        fromName: "Old Resolved",
+        fromEmail: "old-resolved@example.com",
+        subject: "Resolved last month",
+        body: "",
+        status: TicketStatus.resolved,
+        resolvedAt: eightDaysAgo,
+      },
+    });
+    createdTicketIds.push(recentlyResolved.id, recentlyClosed.id, oldResolved.id);
+
+    const res = await request(app)
+      .get("/api/tickets?view=recently_resolved&pageSize=100")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
+    expect(ids).toContain(recentlyResolved.id);
+    expect(ids).toContain(recentlyClosed.id);
+    expect(ids).not.toContain(oldResolved.id);
+    // The open unassigned tickets from beforeEach are excluded too.
+    expect(ids).not.toContain(createdTicketIds[0]);
+  });
+
   it("returns 400 for an invalid view value", async () => {
     const res = await request(app)
       .get("/api/tickets?view=garbage")

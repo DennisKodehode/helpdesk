@@ -62,7 +62,13 @@ export enum TicketView {
   unassigned = "unassigned",
   triage = "triage",
   awaiting_customer = "awaiting_customer",
+  recently_resolved = "recently_resolved",
 }
+
+// Window (in days) for the dashboard "Resolved · 7d" stat and the matching
+// `recently_resolved` ticket view. Shared so the card's count and the list it
+// links to use the same cutoff and can't drift apart.
+export const RECENT_RESOLVED_DAYS = 7;
 
 export enum NotificationType {
   customer_reply = "customer_reply",
