@@ -102,15 +102,17 @@ router.get("/", requireAuth, async (req, res) => {
   const categoryFilter: Prisma.TicketWhereInput["category"] =
     category === UNCATEGORIZED_FILTER_VALUE ? null : category ? category : undefined;
 
-  // slaState filtering needs the real-time computed state (at_risk fires
-  // at >=75% of the policy window, ok is the residual). There's no
-  // denormalized column for these, so mirror the /api/stats/sla-health
-  // pattern: fetch active tickets + policies, compute states in JS, then
-  // narrow the main query by `id: { in: ... }`. Bounded by active-ticket
-  // count (O(few hundred) at portfolio scale); skip when slaState is not
-  // set so the cost only lands on requests that asked for it.
-  let slaStateIdFilter: number[] | null = null;
-  if (slaState !== undefined && viewWhere === null) {
+  // SLA filtering (slaState at_risk/ok, and breachedOnly) needs the real-time
+  // computed state — there's no denormalized column. `breachedOnly` is
+  // deliberately NOT keyed off sla_breach_warning notifications: those persist
+  // after a ticket is resolved/reopened, so they'd surface tickets that no
+  // longer carry a breached badge. Computing it here keeps the filter in lock-
+  // step with the badge (SlaBadge) and the dashboard count (/stats/sla-health),
+  // which both use computeSlaState. Mirrors that pattern: fetch active tickets +
+  // policies, compute in JS, narrow by `id: { in: ... }`. Bounded by active-
+  // ticket count (O(few hundred) at portfolio scale); skipped unless asked for.
+  let slaIdFilter: number[] | null = null;
+  if ((slaState !== undefined || breachedOnly) && viewWhere === null) {
     const [activeTickets, policies] = await Promise.all([
       prisma.ticket.findMany({
         where: {
@@ -141,7 +143,7 @@ router.get("/", requireAuth, async (req, res) => {
       ]),
     );
 
-    slaStateIdFilter = activeTickets
+    slaIdFilter = activeTickets
       .filter((t) => {
         const computed = computeSlaState(
           {
@@ -152,8 +154,10 @@ router.get("/", requireAuth, async (req, res) => {
             status: t.status as TicketStatus,
           },
           policyMap.get(t.priority),
-        );
-        return computed.state === slaState;
+        ).state;
+        if (breachedOnly && computed !== "breached") return false;
+        if (slaState !== undefined && computed !== slaState) return false;
+        return true;
       })
       .map((t) => t.id);
   }
@@ -167,10 +171,7 @@ router.get("/", requireAuth, async (req, res) => {
           ...(priority && { priority }),
           ...(assignee === "unassigned" && { assignedToId: null }),
           ...(assignee === "me" && { assignedToId: req.user!.id }),
-          ...(breachedOnly && {
-            notifications: { some: { type: NotificationType.sla_breach_warning } },
-          }),
-          ...(slaStateIdFilter !== null && { id: { in: slaStateIdFilter } }),
+          ...(slaIdFilter !== null && { id: { in: slaIdFilter } }),
         };
 
   const where: Prisma.TicketWhereInput = {

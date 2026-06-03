@@ -78,7 +78,11 @@ export async function runSlaBreachCheck(): Promise<{ notified: number }> {
   );
 
   const tickets = await prisma.ticket.findMany({
-    where: { status: { in: [TicketStatus.open, TicketStatus.processing] } },
+    // `open` only — triaging tickets (new/processing) have no finalized
+    // priority yet, so SLA targets don't apply (see computeSlaState). Notifying
+    // on them would fire breaches on the default `normal` policy before a human
+    // can act.
+    where: { status: TicketStatus.open },
     select: {
       id: true,
       priority: true,

@@ -1,4 +1,4 @@
-import { SlaMetric, type TicketPriority, TicketStatus } from "./types";
+import { SlaMetric, type TicketPriority, TicketStatus, TRIAGING_STATUSES } from "./types";
 
 // computeSlaState only needs the two per-metric targets — typing the param
 // narrowly keeps server callers from having to fake `priority`/`updatedAt`
@@ -39,6 +39,11 @@ export function computeSlaState(
   if (ticket.status === TicketStatus.resolved) return { state: "ok" };
   if (ticket.status === TicketStatus.closed) return { state: "ok" };
   if (ticket.resolvedAt != null) return { state: "ok" };
+  // Tickets still being triaged (AI classifying) have no finalized priority yet
+  // — they default to `normal`, so applying that policy's targets would make a
+  // ticket "breach" before a human can act. No SLA badge until it flips to
+  // `open`/`resolved`. Mirrored by the sla-breach worker (open-only).
+  if (TRIAGING_STATUSES.includes(ticket.status)) return { state: "ok" };
 
   const now = Date.now();
   const created = new Date(ticket.createdAt).getTime();

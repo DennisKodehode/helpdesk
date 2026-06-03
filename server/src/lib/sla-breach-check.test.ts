@@ -325,6 +325,23 @@ describe("runSlaBreachCheck", () => {
     expect(count).toBe(0);
   });
 
+  it("ignores tickets still in 'processing' status (still triaging)", async () => {
+    // Triaging tickets have no finalized priority — the default `normal` policy
+    // must not breach them before classification flips them to `open`.
+    const ticket = await createTicket({
+      priority: TicketPriority.urgent,
+      createdAt: new Date(Date.now() - 100 * HOUR),
+      status: TicketStatus.processing,
+      firstAgentReplyAt: null,
+      assignedToId: testAgentId,
+    });
+
+    await runSlaBreachCheck();
+
+    const count = await prisma.notification.count({ where: { ticketId: ticket.id } });
+    expect(count).toBe(0);
+  });
+
   it("does not notify when the ticket age is within the target window", async () => {
     const ticket = await createTicket({
       priority: TicketPriority.normal,

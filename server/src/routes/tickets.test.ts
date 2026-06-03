@@ -506,35 +506,6 @@ describe("GET /api/tickets — sorting", () => {
     }
   });
 
-  it("?breachedOnly=true returns only tickets with an sla_breach_warning notification", async () => {
-    // Seed: createdTicketIds[0] gets a breach notification; [1] does not.
-    await prisma.notification.create({
-      data: {
-        userId: testUserId,
-        type: NotificationType.sla_breach_warning,
-        ticketId: createdTicketIds[0],
-        data: {
-          metric: "first_response",
-          policyMinutes: 60,
-          breachedAt: new Date().toISOString(),
-        },
-      },
-    });
-
-    const res = await request(app)
-      .get("/api/tickets?breachedOnly=true&pageSize=100")
-      .set("Cookie", authCookie);
-    expect(res.status).toBe(200);
-    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
-    expect(ids).toContain(createdTicketIds[0]);
-    expect(ids).not.toContain(createdTicketIds[1]);
-
-    // Cleanup: the afterEach cascades via ticket FK, but be explicit.
-    await prisma.notification.deleteMany({
-      where: { ticketId: createdTicketIds[0] },
-    });
-  });
-
   it("filters by search term across subject, fromName, and fromEmail", async () => {
     const matchTicket = await prisma.ticket.create({
       data: {
@@ -942,6 +913,55 @@ describe("GET /api/tickets — slaState filter", () => {
       const ids = (res.body.data as { id: number }[]).map((t) => t.id);
       expect(ids).not.toContain(resolved.id);
     }
+  });
+
+  it("?breachedOnly=true returns only computeSlaState-breached tickets (matches the badge)", async () => {
+    // breachedOnly is computed from computeSlaState, NOT from persisted
+    // sla_breach_warning notifications — so it stays in lockstep with the badge.
+    const breached = await createTicket({
+      priority: TicketPriority.urgent, // first-response = 60min
+      createdAt: new Date(Date.now() - 3 * HOUR),
+    });
+    const atRisk = await createTicket({
+      priority: TicketPriority.urgent,
+      createdAt: new Date(Date.now() - 50 * MINUTE),
+    });
+    const healthy = await createTicket({
+      priority: TicketPriority.urgent,
+      createdAt: new Date(Date.now() - 2 * MINUTE),
+    });
+
+    const res = await request(app)
+      .get("/api/tickets?breachedOnly=true&pageSize=100")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
+    expect(ids).toContain(breached.id);
+    expect(ids).not.toContain(atRisk.id);
+    expect(ids).not.toContain(healthy.id);
+  });
+
+  it("?breachedOnly=true excludes triaging tickets even when aged past target", async () => {
+    // new/processing tickets have no finalized priority — the default `normal`
+    // policy must not make them breach (computeSlaState returns ok for triaging).
+    const newTriaging = await createTicket({
+      priority: TicketPriority.normal,
+      createdAt: new Date(Date.now() - 100 * HOUR),
+      status: TicketStatus.new,
+    });
+    const processingTriaging = await createTicket({
+      priority: TicketPriority.normal,
+      createdAt: new Date(Date.now() - 100 * HOUR),
+      status: TicketStatus.processing,
+    });
+
+    const res = await request(app)
+      .get("/api/tickets?breachedOnly=true&pageSize=100")
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as { id: number }[]).map((t) => t.id);
+    expect(ids).not.toContain(newTriaging.id);
+    expect(ids).not.toContain(processingTriaging.id);
   });
 });
 
