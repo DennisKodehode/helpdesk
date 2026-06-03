@@ -62,7 +62,7 @@ export default function RecentActivityCard() {
               className="absolute left-[13px] top-4 bottom-4 w-px bg-border"
             />
             {query.data.map((row) => (
-              <li key={row.id} className="flex items-start gap-3">
+              <li key={row.id} className="relative flex items-start gap-3">
                 <ActivityIcon type={row.type} />
                 <div className="min-w-0 flex-1">
                   <p className="text-[13px] text-foreground">
