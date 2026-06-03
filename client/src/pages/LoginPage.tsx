@@ -2,6 +2,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router";
 import LoginForm from "@/components/LoginForm";
+import MobileLogin from "@/components/mobile/MobileLogin";
+import { useLayoutTier } from "@/lib/useBreakpoint";
 import { signIn, useSession } from "../lib/auth-client";
 
 export default function LoginPage() {
@@ -9,6 +11,7 @@ export default function LoginPage() {
   const queryClient = useQueryClient();
   const { data: session, isPending } = useSession();
   const [serverError, setServerError] = useState<string | null>(null);
+  const tier = useLayoutTier();
 
   if (!isPending && session) {
     return <Navigate to="/" replace />;
@@ -27,6 +30,10 @@ export default function LoginPage() {
       queryClient.clear();
       navigate("/", { replace: true });
     }
+  }
+
+  if (tier === "mobile") {
+    return <MobileLogin onSubmit={onSubmit} serverError={serverError} />;
   }
 
   return (

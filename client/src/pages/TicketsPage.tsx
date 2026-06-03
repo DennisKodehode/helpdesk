@@ -8,6 +8,7 @@ import {
 import type { SortingState } from "@tanstack/react-table";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
+import MobileTicketsList from "@/components/mobile/MobileTicketsList";
 import TicketFilters, {
   type CategoryFilterValue,
   type StatusFilterValue,
@@ -25,14 +26,16 @@ import { useLayoutTier } from "@/lib/useBreakpoint";
 const PAGE_SIZE = 10;
 
 /**
- * Route dispatcher for `/tickets`. The tablet tier gets the two-pane
- * master-detail (no ticket selected here — bare `/tickets` shows the "select a
- * ticket" empty state; selection navigates to `/tickets/:id`). Desktop (and, for
- * now, mobile via the desktop shell) get the queue table.
+ * Route dispatcher for `/tickets`. Mobile gets the bespoke master list; tablet
+ * gets the two-pane master-detail (bare `/tickets` shows the "select a ticket"
+ * empty state; selection navigates to `/tickets/:id`); desktop gets the queue
+ * table.
  */
 export default function TicketsPage() {
   const tier = useLayoutTier();
   const navigate = useNavigate();
+
+  if (tier === "mobile") return <MobileTicketsList scope="all" />;
 
   if (tier === "tablet") {
     return (

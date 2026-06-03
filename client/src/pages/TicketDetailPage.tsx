@@ -1,5 +1,6 @@
 import { useNavigate, useParams } from "react-router";
 import ActivityFeed from "@/components/ActivityFeed";
+import MobileTicketDetail from "@/components/mobile/MobileTicketDetail";
 import ReplyThread from "@/components/ReplyThread";
 import TicketDetails from "@/components/TicketDetails";
 import TicketMeta from "@/components/TicketMeta";
@@ -24,14 +25,17 @@ function TicketDetailSkeleton() {
 }
 
 /**
- * Route dispatcher for `/tickets/:id`. On tablet this renders the same two-pane
- * master-detail as `/tickets`, with the URL `:id` driving the selected ticket
- * (so deep links + the back button work). Desktop/mobile get the full-page view.
+ * Route dispatcher for `/tickets/:id`. Mobile gets a full-screen detail with a
+ * back bar; tablet renders the same two-pane master-detail as `/tickets` with
+ * the URL `:id` driving selection (deep links + back button work); desktop gets
+ * the full-page view.
  */
 export default function TicketDetailPage() {
   const tier = useLayoutTier();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+
+  if (tier === "mobile") return id ? <MobileTicketDetail id={id} /> : null;
 
   if (tier === "tablet") {
     return (

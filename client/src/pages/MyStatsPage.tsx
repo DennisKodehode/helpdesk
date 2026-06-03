@@ -1,4 +1,5 @@
 import { ArrowUpRight, Inbox } from "lucide-react";
+import MobileStats from "@/components/mobile/MobileStats";
 import ErrorAlert from "@/components/ui/ErrorAlert";
 import { Link } from "@/components/ui/link";
 import PageContainer from "@/components/ui/PageContainer";
@@ -7,6 +8,7 @@ import StatCard from "@/components/ui/StatCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatMinutes } from "@/lib/format";
 import { usePersonalStats } from "@/lib/personal-stats";
+import { useLayoutTier } from "@/lib/useBreakpoint";
 import { cn } from "@/lib/utils";
 
 const RESOLVED_DRILL = "/my-tickets?active=resolved";
@@ -50,6 +52,12 @@ function StatCardLink({
 }
 
 export default function MyStatsPage() {
+  const tier = useLayoutTier();
+  if (tier === "mobile") return <MobileStats />;
+  return <MyStatsView />;
+}
+
+function MyStatsView() {
   const { data: stats, isPending, isError } = usePersonalStats(true);
 
   return (

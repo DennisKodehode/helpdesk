@@ -5,11 +5,19 @@ import NeedsAttentionCard from "@/components/dashboard/NeedsAttentionCard";
 import RecentActivityCard from "@/components/dashboard/RecentActivityCard";
 import SlaRingsCard from "@/components/dashboard/SlaRingsCard";
 import StatCards from "@/components/dashboard/StatCards";
+import MobileDashboard from "@/components/mobile/MobileDashboard";
 import { Link } from "@/components/ui/link";
 import PageContainer from "@/components/ui/PageContainer";
 import PageHeader from "@/components/ui/PageHeader";
+import { useLayoutTier } from "@/lib/useBreakpoint";
 
 export default function HomePage() {
+  const tier = useLayoutTier();
+  if (tier === "mobile") return <MobileDashboard />;
+  return <DashboardView />;
+}
+
+function DashboardView() {
   return (
     <PageContainer width="dashboard">
       <PageHeader

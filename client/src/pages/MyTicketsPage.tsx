@@ -1,5 +1,6 @@
 import { useState } from "react";
 import MyTicketsSection from "@/components/MyTicketsSection";
+import MobileTicketsList from "@/components/mobile/MobileTicketsList";
 import TabletTicketsMasterDetail from "@/components/tablet/TabletTicketsMasterDetail";
 import PageContainer from "@/components/ui/PageContainer";
 import PageHeader from "@/components/ui/PageHeader";
@@ -7,6 +8,7 @@ import { useLayoutTier } from "@/lib/useBreakpoint";
 
 export default function MyTicketsPage() {
   const tier = useLayoutTier();
+  if (tier === "mobile") return <MobileTicketsList scope="mine" />;
   if (tier === "tablet") return <MyTicketsMasterDetail />;
   return <MyTicketsList />;
 }
