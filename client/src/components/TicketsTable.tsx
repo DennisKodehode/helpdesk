@@ -99,7 +99,7 @@ const columns: ColumnDef<Ticket, unknown>[] = [
       <div className="min-w-0">
         <Link
           to={`/tickets/${row.original.id}`}
-          className="block max-w-[20rem] truncate text-[14.5px] font-medium text-foreground underline-offset-4 hover:underline"
+          className="block max-w-[11rem] truncate text-[14.5px] font-medium text-foreground underline-offset-4 hover:underline qcols:max-w-[20rem]"
         >
           {row.original.subject}
         </Link>
@@ -115,7 +115,7 @@ const columns: ColumnDef<Ticket, unknown>[] = [
     header: "From",
     meta: { cellClass: "hidden xl:table-cell" } as ColumnMeta,
     cell: ({ row }) => (
-      <div className="min-w-0 xl:max-w-[12rem]">
+      <div className="min-w-0 max-w-[8rem] qcols:max-w-[12rem]">
         <p className="truncate text-[13px] text-foreground">{row.original.fromName}</p>
         <div className="flex items-center gap-2">
           <p className="truncate font-mono text-[11px] text-muted-foreground">
