@@ -3,6 +3,7 @@ import {
   type HealthSignal,
   type HealthSignalId,
   type HealthSignalsResponse,
+  TicketStatus,
 } from "@helpdesk/core";
 import { prisma as defaultPrisma } from "./prisma";
 
@@ -51,14 +52,6 @@ function classify(
   return "ok";
 }
 
-type EventRow = {
-  ticketId: number;
-  type: AuditEventType;
-  data: unknown;
-  createdAt: Date;
-};
-type TicketRow = { id: number; createdAt: Date; resolvedAt: Date | null };
-
 const emptyCounts = () => Array.from({ length: WEEKS }, () => 0);
 const emptySets = () => Array.from({ length: WEEKS }, () => new Set<number>());
 const pct = (num: number, den: number) => (den > 0 ? Math.round((num / den) * 100) : 0);
@@ -80,16 +73,15 @@ export async function computeHealthSignals(
             AuditEventType.assignee_changed,
             AuditEventType.priority_changed,
             AuditEventType.auto_reopened,
+            AuditEventType.status_changed,
           ],
         },
       },
       select: { ticketId: true, type: true, data: true, createdAt: true },
     }),
     db.ticket.findMany({
-      where: {
-        OR: [{ createdAt: { gte: since } }, { resolvedAt: { gte: since } }],
-      },
-      select: { id: true, createdAt: true, resolvedAt: true },
+      where: { createdAt: { gte: since } },
+      select: { id: true, createdAt: true },
     }),
   ]);
 
@@ -111,6 +103,11 @@ export async function computeHealthSignals(
   const assignmentsByTicket = new Map<number, number>(); // assignee_changed → non-null assignee
   const priorityChangedTickets = new Set<number>();
   const reopenTimesByTicket = new Map<number, number[]>();
+  // Each resolution attempt (auto_resolved, or a status→resolved transition) is
+  // a denominator unit for the `reopened` signal, bucketed by when it happened.
+  // Sourced from the audit log — not the ticket's resolvedAt column, which the
+  // customer-reply reopen flow nulls (see the reopened computation below).
+  const resolutions: { ticketId: number; time: number; wi: number }[] = [];
 
   for (const e of events) {
     const data = (e.data ?? {}) as Record<string, unknown>;
@@ -127,6 +124,15 @@ export async function computeHealthSignals(
     } else if (e.type === AuditEventType.auto_resolved) {
       const wi = weekIndex(e.createdAt);
       if (wi >= 0) handledTickets[wi].add(e.ticketId);
+      resolutions.push({ ticketId: e.ticketId, time: e.createdAt.getTime(), wi });
+    } else if (e.type === AuditEventType.status_changed) {
+      if (data.to === TicketStatus.resolved) {
+        resolutions.push({
+          ticketId: e.ticketId,
+          time: e.createdAt.getTime(),
+          wi: weekIndex(e.createdAt),
+        });
+      }
     } else if (e.type === AuditEventType.assignee_changed) {
       if (data.to != null) {
         assignmentsByTicket.set(
@@ -143,7 +149,7 @@ export async function computeHealthSignals(
     }
   }
 
-  // ── Ticket-based signals (reassignment, priority by createdAt; reopened by resolvedAt) ──
+  // ── Ticket-based signals (reassignment, priority — both bucketed by createdAt) ──
   const churnNum = emptyCounts();
   const churnDen = emptyCounts();
   const churnAssignTotal = emptyCounts();
@@ -163,16 +169,19 @@ export async function computeHealthSignals(
       priorityDen[ci]++;
       if (priorityChangedTickets.has(t.id)) priorityNum[ci]++;
     }
-    if (t.resolvedAt) {
-      const ri = weekIndex(t.resolvedAt);
-      if (ri >= 0) {
-        reopenedDen[ri]++;
-        const resolvedMs = t.resolvedAt.getTime();
-        const reopens = reopenTimesByTicket.get(t.id) ?? [];
-        if (reopens.some((r) => r >= resolvedMs && r - resolvedMs <= REOPEN_WINDOW_MS)) {
-          reopenedNum[ri]++;
-        }
-      }
+  }
+
+  // ── `reopened`: of resolution attempts each week, the fraction a customer
+  // reopened (`auto_reopened`) within 24h. Bucketed by the resolution EVENT
+  // time from the audit log — NOT the ticket's resolvedAt column, which the
+  // customer-reply reopen flow nulls (inbound-email.ts), leaving a
+  // resolvedAt-based signal unable to fire on real data. ──
+  for (const r of resolutions) {
+    if (r.wi < 0) continue;
+    reopenedDen[r.wi]++;
+    const reopens = reopenTimesByTicket.get(r.ticketId) ?? [];
+    if (reopens.some((t) => t >= r.time && t - r.time <= REOPEN_WINDOW_MS)) {
+      reopenedNum[r.wi]++;
     }
   }
 

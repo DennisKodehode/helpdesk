@@ -74,15 +74,32 @@ beforeAll(async () => {
   const tOld = await makeTicket(outside);
   await event(tOld, AuditEventType.ai_escalated, outside, { reason: "ai_call_failed" });
 
-  // Resolved-this-week tickets (resolvedAt-bucketed): 1 reopened in 24h, 1 after
-  // 24h (excluded), 1 not reopened → 1 of 3.
-  const tD = await makeTicket(outside, cw);
-  const tE = await makeTicket(outside, cw);
-  const tF = await makeTicket(outside, cw);
+  // Reopened signal is bucketed by resolution EVENTS, not the resolvedAt column
+  // (the production reopen flow nulls resolvedAt — these tickets deliberately
+  // leave it null, which the old resolvedAt-based signal scored as 0).
+  //
+  // tC already has an auto_resolved event this week (AI-handled) — reopen it 3h
+  // later to prove the auto_resolved resolution path counts, without touching
+  // the ai-escalation denominator.
+  await event(
+    tC,
+    AuditEventType.auto_reopened,
+    new Date(cw.getTime() + 3 * 60 * 60 * 1000),
+  );
+  // Four human-resolved-this-week tickets via status_changed→resolved, all with
+  // resolvedAt left null. tD reopened 5h later (counts), tF reopened 30h later
+  // (excluded, >24h), tE/tG not reopened.
+  // → resolution events: tC, tD, tE, tF, tG = 5; reopened ≤24h: tC, tD = 2.
+  const tD = await makeTicket(outside);
+  const tE = await makeTicket(outside);
+  const tF = await makeTicket(outside);
+  const tG = await makeTicket(outside);
+  for (const id of [tD, tE, tF, tG])
+    await event(id, AuditEventType.status_changed, cw, { from: "open", to: "resolved" });
   await event(
     tD,
     AuditEventType.auto_reopened,
-    new Date(cw.getTime() + 3 * 60 * 60 * 1000),
+    new Date(cw.getTime() + 5 * 60 * 60 * 1000),
   );
   await event(
     tF,
@@ -90,6 +107,7 @@ beforeAll(async () => {
     new Date(cw.getTime() + 30 * 60 * 60 * 1000),
   );
   void tE;
+  void tG;
 
   signals = (await computeHealthSignals(prisma, NOW)).signals;
 });
@@ -139,10 +157,10 @@ describe("computeHealthSignals", () => {
     expect(s.avgHandoffs).toBe(0.2); // 2 assignments / 12 tickets
   });
 
-  it("counts only reopens within 24h of resolution", () => {
+  it("counts reopens within 24h of resolution events, ignoring nulled resolvedAt", () => {
     const s = byId(signals, "reopened");
-    expect(s.numerator).toBe(1); // 3h reopen counts; 30h does not
-    expect(s.denominator).toBe(3);
-    expect(s.value).toBe(33);
+    expect(s.numerator).toBe(2); // tC (3h) + tD (5h); tF (30h) excluded
+    expect(s.denominator).toBe(5); // tC, tD, tE, tF, tG resolution events
+    expect(s.value).toBe(40);
   });
 });
