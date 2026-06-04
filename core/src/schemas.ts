@@ -468,6 +468,36 @@ export const slaComplianceResponseSchema = z.object({
 
 export type SlaComplianceResponse = z.infer<typeof slaComplianceResponseSchema>;
 
+// Activity-page health signals (Watchlist) — operational-health metrics derived
+// from the audit stream over a trailing 7-day window. Each signal pairs a value
+// with a threshold `state`, a signed week-over-week `delta`, and a 10-point
+// weekly `spark` trend (oldest → newest; the last point is the current week, so
+// it equals `value`). The server returns computed numbers only — the static
+// presentation copy (label/read/unit/worseDir/drill) lives client-side.
+export const healthSignalSchema = z.object({
+  id: z.enum(["ai-escalation", "ai-failures", "reassignment", "reopened", "priority"]),
+  value: z.number(),
+  numerator: z.number().int().nonnegative(),
+  denominator: z.number().int().nonnegative(),
+  state: z.enum(["alert", "watch", "ok"]),
+  delta: z.number(),
+  spark: z.array(z.number()).length(10),
+  // Denominator too small to be meaningful — render muted, suppress alarm copy.
+  lowSample: z.boolean(),
+  // Only meaningful for the `reassignment` signal; null otherwise.
+  avgHandoffs: z.number().nullable(),
+});
+
+export const healthSignalsResponseSchema = z.object({
+  signals: z.array(healthSignalSchema),
+  windowDays: z.number().int().positive(),
+});
+
+export type HealthSignal = z.infer<typeof healthSignalSchema>;
+export type HealthSignalsResponse = z.infer<typeof healthSignalsResponseSchema>;
+export type HealthSignalId = HealthSignal["id"];
+export type HealthSignalState = HealthSignal["state"];
+
 // Dashboard recent-activity timeline — global audit events across all tickets.
 export const recentActivityRowSchema = z.object({
   id: z.string(),

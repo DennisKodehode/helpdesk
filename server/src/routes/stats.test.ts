@@ -1144,3 +1144,89 @@ describe("dashboard aggregation endpoints", () => {
     });
   });
 });
+
+describe("GET /api/stats/health-signals", () => {
+  let adminCookie: string;
+  let agentCookie: string;
+  const userIds: string[] = [];
+
+  async function createUser(email: string, role: "admin" | "agent"): Promise<string> {
+    const ctx = await auth.$context;
+    const hashedPassword = await ctx.password.hash("Testpassword1!");
+    const now = new Date();
+    const id = generateId();
+    await prisma.user.create({
+      data: {
+        id,
+        name: email,
+        email,
+        emailVerified: true,
+        role,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await prisma.account.create({
+      data: {
+        id: generateId(),
+        accountId: id,
+        providerId: "credential",
+        userId: id,
+        password: hashedPassword,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    userIds.push(id);
+    return id;
+  }
+
+  async function signIn(email: string): Promise<string> {
+    const res = await request(app)
+      .post("/api/auth/sign-in/email")
+      .send({ email, password: "Testpassword1!" });
+    const cookies = res.headers["set-cookie"] as string[] | string;
+    return Array.isArray(cookies) ? cookies.join("; ") : cookies;
+  }
+
+  beforeAll(async () => {
+    await createUser("test-hs-admin@example.com", "admin");
+    await createUser("test-hs-agent@example.com", "agent");
+    adminCookie = await signIn("test-hs-admin@example.com");
+    agentCookie = await signIn("test-hs-agent@example.com");
+  });
+
+  afterAll(async () => {
+    await prisma.session.deleteMany({ where: { userId: { in: userIds } } });
+    await prisma.account.deleteMany({ where: { userId: { in: userIds } } });
+    await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+  });
+
+  it("returns 401 when not authenticated", async () => {
+    const res = await request(app).get("/api/stats/health-signals");
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 403 for a non-admin agent", async () => {
+    const res = await request(app)
+      .get("/api/stats/health-signals")
+      .set("Cookie", agentCookie);
+    expect(res.status).toBe(403);
+  });
+
+  it("returns the five signals with a 10-point spark for an admin", async () => {
+    const res = await request(app)
+      .get("/api/stats/health-signals")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.windowDays).toBe(7);
+    const ids = (res.body.signals as Array<{ id: string }>).map((s) => s.id).sort();
+    expect(ids).toEqual(
+      ["ai-escalation", "ai-failures", "priority", "reassignment", "reopened"].sort(),
+    );
+    for (const s of res.body.signals as Array<{ spark: number[]; state: string }>) {
+      expect(s.spark).toHaveLength(10);
+      expect(["alert", "watch", "ok"]).toContain(s.state);
+    }
+  });
+});

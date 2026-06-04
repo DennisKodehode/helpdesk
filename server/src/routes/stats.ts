@@ -16,8 +16,9 @@ import {
 } from "@helpdesk/core";
 import { Router } from "express";
 import { getAiUserId } from "../lib/ai-user";
+import { computeHealthSignals } from "../lib/health-signals";
 import { prisma } from "../lib/prisma";
-import { requireAuth } from "../middleware/auth-middleware";
+import { requireAdminChain, requireAuth } from "../middleware/auth-middleware";
 
 const ACTIVE_STATUSES = [TicketStatus.new, TicketStatus.processing, TicketStatus.open];
 const TRIAGING_STATUSES = [TicketStatus.new, TicketStatus.processing];
@@ -470,6 +471,15 @@ router.get("/needs-attention", requireAuth, async (req, res) => {
   });
 
   res.json(rows.slice(0, limit));
+});
+
+// Activity-page Watchlist — operational-health signals derived from the audit
+// stream. Admin-only, matching the activity log (the page lives under
+// AdminLayout and /api/audit-events is admin-gated). Heavier aggregation lives
+// in lib/health-signals.ts.
+router.get("/health-signals", ...requireAdminChain, async (_req, res) => {
+  const response = await computeHealthSignals();
+  res.json(response);
 });
 
 export default router;

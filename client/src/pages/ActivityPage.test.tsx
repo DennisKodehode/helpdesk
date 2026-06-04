@@ -1,4 +1,8 @@
-import { type AuditEventRow, AuditEventType } from "@helpdesk/core";
+import {
+  type AuditEventRow,
+  AuditEventType,
+  type HealthSignalsResponse,
+} from "@helpdesk/core";
 import userEvent from "@testing-library/user-event";
 import axios from "axios";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -25,6 +29,23 @@ const ROW: AuditEventRow = {
   createdAt: new Date().toISOString(),
 };
 
+const HEALTH_SIGNALS: HealthSignalsResponse = {
+  windowDays: 7,
+  signals: [
+    {
+      id: "ai-escalation",
+      value: 38,
+      numerator: 62,
+      denominator: 163,
+      state: "alert",
+      delta: 7,
+      spark: [22, 24, 21, 26, 29, 31, 30, 34, 33, 38],
+      lowSample: false,
+      avgHandoffs: null,
+    },
+  ],
+};
+
 function mockApi({
   events = [] as AuditEventRow[],
   total = 0,
@@ -32,6 +53,8 @@ function mockApi({
 } = {}) {
   vi.mocked(axios.get).mockImplementation((url: string) => {
     if (url === "/api/users/roster") return Promise.resolve({ data: [] });
+    if (url === "/api/stats/health-signals")
+      return Promise.resolve({ data: HEALTH_SIGNALS });
     if (url === "/api/audit-events") {
       return rejectAudit
         ? Promise.reject(new Error("boom"))
@@ -81,6 +104,24 @@ describe("ActivityPage", () => {
     renderWithProviders(<ActivityPage />, { initialEntries: ["/activity"] });
     expect(await screen.findByText(/Alice Agent changed status/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "#0042" })).toBeInTheDocument();
+  });
+
+  it("renders the health-signals watchlist and a row drills into the activity filter", async () => {
+    mockApi({ events: [ROW], total: 1 });
+    renderWithProviders(<ActivityPage />, { initialEntries: ["/activity"] });
+
+    // The watchlist signal renders above the log.
+    await screen.findByText("AI escalation rate");
+
+    // Clicking the row sets ?type=ai_escalated → the log refetches with that type.
+    await userEvent.click(screen.getByRole("button", { name: /AI escalation rate/i }));
+    await waitFor(() => {
+      expect(
+        auditCalls().some(
+          (c) => (c[1] as { params: { type?: string } }).params.type === "ai_escalated",
+        ),
+      ).toBe(true);
+    });
   });
 
   it("renders an empty state", async () => {

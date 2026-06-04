@@ -82,6 +82,10 @@ Nobody is ever handed a password. Inviting a teammate — as agent **or** admin 
 
 SLAs aren't hard-coded — admins set first-response and resolution windows per priority (urgent → low), each with its own at-risk threshold. A live health bar at the top shows how the current queue is tracking against those targets in real time. Tickets flip to **At risk** once 75% of a window has elapsed and **Breached** when it passes; resolved and closed tickets stop carrying a badge. A metric with no target set is simply skipped.
 
+### Reading the room — Activity health signals
+
+The Activity page (the global audit log) opens with a **Watchlist**: a handful of operational-health signals read straight from the audit stream over the last 7 days — AI escalation rate, AI hard failures (API/parse faults, separated from content gaps), reassignment churn, resolutions that didn't stick (reopened < 24h), and priority re-triage. Each pairs a number with a threshold state (Needs attention / Watch / Healthy), a week-over-week delta coloured by *direction of harm*, and a one-line plain-English read of the underlying problem — a high escalation rate points at knowledge-base gaps; heavy reassignment churn points at routing. Rows are severity-sorted, and clicking one filters the log below to the relevant event. The intent is to surface *why* something's off at a glance, not just *that* it is.
+
 ---
 
 ## How it works
@@ -187,6 +191,7 @@ This is a portfolio-stage project. It works end-to-end but is intentionally scop
 - **No real-time updates.** The UI refetches on focus and after mutations; it doesn't push via WebSocket.
 - **English only.** No internationalization. Gemini will reply in whatever language the customer wrote in, but UI strings are English.
 - **No business-hours awareness in SLAs.** Timers run on wall-clock time. A weekend ticket counts against the same deadline as a Monday one.
+- **Activity health-signal thresholds are hard-coded.** The alert/watch/healthy cutoffs for the Activity Watchlist live as named constants in `server/src/lib/health-signals.ts` (research-grounded defaults). They aren't admin-configurable yet — a v2 could expose them as settings, the way the dashboard SLA-compliance ring thresholds already are.
 - **Single currency / no billing integration.** This is a support tool, not a billing platform.
 - **Email reply parsing is heuristic.** [`email-reply-parser`](https://github.com/crisp-oss/email-reply-parser) handles most clients well, but exotic quoting styles can leak signatures into the visible body.
 - **No full-text search across replies.** Tickets are searchable by name / email / subject; reply bodies aren't indexed.

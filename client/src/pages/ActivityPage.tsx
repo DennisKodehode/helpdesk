@@ -1,6 +1,8 @@
+import type { AuditEventType } from "@helpdesk/core";
 import { useSearchParams } from "react-router";
 import ActivityFilters from "@/components/ActivityFilters";
 import ActivityTable from "@/components/ActivityTable";
+import HealthSignalsWatchlist from "@/components/HealthSignalsWatchlist";
 import TicketPagination from "@/components/TicketPagination";
 import PageContainer from "@/components/ui/PageContainer";
 import PageHeader from "@/components/ui/PageHeader";
@@ -56,6 +58,11 @@ export default function ActivityPage() {
         eyebrow="Audit"
         title="Activity"
         description="Every action across all tickets — who did what, and when."
+      />
+
+      <HealthSignalsWatchlist
+        currentType={type}
+        onDrill={(t: AuditEventType) => updateFilter("type", t)}
       />
 
       <ActivityFilters
