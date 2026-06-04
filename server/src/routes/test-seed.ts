@@ -20,7 +20,12 @@ router.post("/seed-ticket", async (req, res) => {
     return;
   }
 
-  const { fromName, fromEmail, subject, body, status, priority } = req.body ?? {};
+  const { fromName, fromEmail, subject, body, status, priority, createdAt } =
+    req.body ?? {};
+
+  // `createdAt` may be supplied as an ISO string to backdate the ticket (e.g.
+  // to put it into a breached SLA state for dashboard regression tests).
+  const createdAtDate = createdAt ? new Date(createdAt) : new Date();
 
   const ticket = await prisma.ticket.create({
     data: {
@@ -30,6 +35,8 @@ router.post("/seed-ticket", async (req, res) => {
       body: body ?? "Test ticket body.",
       status: (status as TicketStatus) ?? TicketStatus.open,
       priority: (priority as TicketPriority) ?? TicketPriority.normal,
+      createdAt: createdAtDate,
+      updatedAt: createdAtDate,
     },
     select: { id: true, subject: true, fromName: true, fromEmail: true, body: true },
   });

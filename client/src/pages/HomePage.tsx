@@ -43,8 +43,13 @@ function DashboardView() {
           two-column split holds from `md` up (matching the prototype's fixed,
           non-collapsing grid) so the dashboard stays compact on the ~900–1024px
           effective widths common on scaled Windows displays — collapsing to a
-          single column only on true mobile/tablet-portrait below 768px. */}
-      <div className="mt-4 grid gap-4 md:grid-cols-[1.55fr_1fr] md:items-start">
+          single column only on true mobile/tablet-portrait below 768px.
+          Tracks are `minmax(0,…)` (not bare `1.55fr`/`1fr`): a bare `fr` track
+          is `minmax(auto, …)`, so the cards' `truncate` subjects (which are
+          `white-space: nowrap`, making min-content = the full line) would force
+          each track to the longest subject's width and overflow the page at
+          ~900px. `minmax(0,…)` lets the tracks shrink so truncation kicks in. */}
+      <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] md:items-start">
         <div className="space-y-4">
           <AiThisWeekCard />
           <RecentActivityCard />
