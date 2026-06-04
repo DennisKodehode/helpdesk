@@ -9,7 +9,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import axios from "axios";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, renderWithProviders, screen, waitFor } from "../test/utils";
+import { cleanup, fireEvent, renderWithProviders, screen, waitFor } from "../test/utils";
 import WorkflowPage from "./WorkflowPage";
 
 vi.mock("axios", () => ({
@@ -33,6 +33,8 @@ const SETTINGS: WorkflowSettings = {
   autoCloseDays: 7,
   reopenOnReply: true,
   lockClosed: true,
+  slaGreenMin: 90,
+  slaYellowMin: 60,
   updatedAt: "2026-01-01T00:00:00.000Z",
 };
 
@@ -149,5 +151,39 @@ describe("WorkflowPage", () => {
     expect(
       await screen.findByRole("switch", { name: "Auto-assign new tickets" }),
     ).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("saves an edited SLA-compliance threshold via PATCH", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<WorkflowPage />);
+    await screen.findByText("Auto-assign new tickets");
+
+    await user.click(screen.getByRole("tab", { name: /SLA targets/i }));
+    const greenInput = await screen.findByLabelText(/healthy \(green\)/i);
+    fireEvent.change(greenInput, { target: { value: "95" } });
+
+    expect(await screen.findByText(/unsaved changes/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Save changes/i }));
+
+    await waitFor(() => {
+      expect(axios.patch).toHaveBeenCalledWith(
+        "/api/workflow-settings",
+        expect.objectContaining({ slaGreenMin: 95 }),
+      );
+    });
+  });
+
+  it("disables save when the green threshold is not above the yellow threshold", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<WorkflowPage />);
+    await screen.findByText("Auto-assign new tickets");
+
+    await user.click(screen.getByRole("tab", { name: /SLA targets/i }));
+    const greenInput = await screen.findByLabelText(/healthy \(green\)/i);
+    // green 50 <= yellow 60 → invalid ordering.
+    fireEvent.change(greenInput, { target: { value: "50" } });
+
+    expect(await screen.findByText(/unsaved changes/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Save changes/i })).toBeDisabled();
   });
 });

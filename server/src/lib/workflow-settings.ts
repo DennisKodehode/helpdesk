@@ -19,6 +19,8 @@ export const WORKFLOW_SETTINGS_DEFAULTS = {
   autoCloseDays: 7,
   reopenOnReply: true,
   lockClosed: true,
+  slaGreenMin: 90,
+  slaYellowMin: 60,
   roundRobinCursor: 0,
 };
 

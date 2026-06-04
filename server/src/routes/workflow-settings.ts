@@ -25,6 +25,8 @@ function toResponse(row: WorkflowSettingsRow) {
     autoCloseDays: row.autoCloseDays,
     reopenOnReply: row.reopenOnReply,
     lockClosed: row.lockClosed,
+    slaGreenMin: row.slaGreenMin,
+    slaYellowMin: row.slaYellowMin,
     updatedAt: row.updatedAt.toISOString(),
   };
 }
@@ -41,6 +43,18 @@ router.patch("/", ...requireAdminChain, async (req, res) => {
   const result = updateWorkflowSettingsSchema.safeParse(req.body);
   if (!result.success) {
     res.status(400).json({ error: firstIssue(result.error) });
+    return;
+  }
+
+  // The green > yellow ordering must hold on the merged row — a PATCH may touch
+  // only one threshold, so validate against current values, not just the body.
+  const current = await getWorkflowSettings();
+  const greenMin = result.data.slaGreenMin ?? current.slaGreenMin;
+  const yellowMin = result.data.slaYellowMin ?? current.slaYellowMin;
+  if (greenMin <= yellowMin) {
+    res
+      .status(400)
+      .json({ error: "Green threshold must be greater than the yellow threshold" });
     return;
   }
 

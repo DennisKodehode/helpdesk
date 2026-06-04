@@ -95,6 +95,8 @@ describe("workflow-settings API", () => {
         autoCloseDays: expect.any(Number),
         reopenOnReply: expect.any(Boolean),
         lockClosed: expect.any(Boolean),
+        slaGreenMin: expect.any(Number),
+        slaYellowMin: expect.any(Number),
       });
       expect(typeof res.body.updatedAt).toBe("string");
       // Internal round-robin cursor is never exposed.
@@ -164,6 +166,47 @@ describe("workflow-settings API", () => {
       });
       expect(row!.autoAssignOn).toBe(true);
       expect(row!.autoResolveThreshold).toBe(92);
+    });
+
+    it("returns 400 when slaGreenMin is out of range", async () => {
+      const res = await request(app)
+        .patch("/api/workflow-settings")
+        .set("Cookie", adminCookie)
+        .send({ slaGreenMin: 150 });
+      expect(res.status).toBe(400);
+    });
+
+    it("returns 400 when both thresholds are sent inverted", async () => {
+      const res = await request(app)
+        .patch("/api/workflow-settings")
+        .set("Cookie", adminCookie)
+        .send({ slaGreenMin: 50, slaYellowMin: 60 });
+      expect(res.status).toBe(400);
+    });
+
+    it("returns 400 when a single-field patch inverts the merged ordering", async () => {
+      // Green is 90 (default); raising yellow to 95 alone breaks green > yellow.
+      const res = await request(app)
+        .patch("/api/workflow-settings")
+        .set("Cookie", adminCookie)
+        .send({ slaYellowMin: 95 });
+      expect(res.status).toBe(400);
+    });
+
+    it("updates the compliance thresholds and persists them", async () => {
+      const res = await request(app)
+        .patch("/api/workflow-settings")
+        .set("Cookie", adminCookie)
+        .send({ slaGreenMin: 80, slaYellowMin: 50 });
+      expect(res.status).toBe(200);
+      expect(res.body.slaGreenMin).toBe(80);
+      expect(res.body.slaYellowMin).toBe(50);
+
+      const row = await prisma.workflowSettings.findUnique({
+        where: { id: WORKFLOW_SETTINGS_ID },
+      });
+      expect(row!.slaGreenMin).toBe(80);
+      expect(row!.slaYellowMin).toBe(50);
     });
   });
 });

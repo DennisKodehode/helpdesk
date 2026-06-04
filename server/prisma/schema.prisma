@@ -269,6 +269,8 @@ model WorkflowSettings {
   autoCloseDays        Int            @default(7)
   reopenOnReply        Boolean        @default(true)
   lockClosed           Boolean        @default(true)
+  slaGreenMin          Int            @default(90)
+  slaYellowMin         Int            @default(60)
   roundRobinCursor     Int            @default(0)
   updatedAt            DateTime       @updatedAt
 

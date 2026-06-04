@@ -410,19 +410,32 @@ export const workflowSettingsSchema = z.object({
   autoCloseDays: z.number().int().min(1).max(30),
   reopenOnReply: z.boolean(),
   lockClosed: z.boolean(),
+  // Dashboard SLA-compliance ring colours: >= green is healthy, >= yellow is
+  // warning, below yellow is breaching. Stored as integer percents; the
+  // green > yellow ordering is enforced on update (see updateWorkflowSettingsSchema).
+  slaGreenMin: z.number().int().min(0).max(100),
+  slaYellowMin: z.number().int().min(0).max(100),
   updatedAt: z.string(),
 });
 
 export type WorkflowSettings = z.infer<typeof workflowSettingsSchema>;
 
 // Any field may be omitted to leave it unchanged. Rejects an empty body so a
-// no-op PATCH is a 400 (mirrors updateSlaPolicySchema's .refine()).
+// no-op PATCH is a 400 (mirrors updateSlaPolicySchema's .refine()). The cross-
+// field green > yellow rule can only be fully checked against the merged row
+// (a PATCH may touch just one), so the route does that; here we catch the
+// obvious case where both are sent inverted.
 export const updateWorkflowSettingsSchema = workflowSettingsSchema
   .omit({ updatedAt: true })
   .partial()
   .refine((v) => Object.keys(v).length > 0, {
     message: "At least one field is required",
-  });
+  })
+  .refine(
+    (v) =>
+      v.slaGreenMin == null || v.slaYellowMin == null || v.slaGreenMin > v.slaYellowMin,
+    { message: "Green threshold must be greater than the yellow threshold" },
+  );
 
 export type UpdateWorkflowSettingsData = z.infer<typeof updateWorkflowSettingsSchema>;
 

@@ -1,5 +1,6 @@
 import type { TicketPriority } from "@helpdesk/core";
 import { Target } from "lucide-react";
+import SlaComplianceThresholdsCard from "@/components/SlaComplianceThresholdsCard";
 import SlaHealthCard from "@/components/SlaHealthCard";
 import SlaTargetCard, { type EditablePolicy } from "@/components/SlaTargetCard";
 
@@ -10,12 +11,21 @@ interface Props {
     which: "firstResponseMinutes" | "resolutionMinutes",
     value: number | null,
   ) => void;
+  greenMin: number;
+  yellowMin: number;
+  onThresholdChange: (field: "slaGreenMin" | "slaYellowMin", value: number) => void;
 }
 
 // Panel 2 of the Workflow screen: the SLA targets, re-housed from the standalone
 // SLA page. Pure reuse of the existing SLA components — the contract and math
 // are untouched. The page's unified save bar drives persistence.
-export default function SlaTargetsPanel({ policies, onChange }: Props) {
+export default function SlaTargetsPanel({
+  policies,
+  onChange,
+  greenMin,
+  yellowMin,
+  onThresholdChange,
+}: Props) {
   return (
     <div className="animate-in fade-in duration-200">
       <SlaHealthCard />
@@ -29,6 +39,11 @@ export default function SlaTargetsPanel({ policies, onChange }: Props) {
         {policies.map((policy) => (
           <SlaTargetCard key={policy.priority} policy={policy} onChange={onChange} />
         ))}
+        <SlaComplianceThresholdsCard
+          greenMin={greenMin}
+          yellowMin={yellowMin}
+          onChange={onThresholdChange}
+        />
       </div>
 
       <p className="mt-[26px] max-w-[780px] font-mono text-[11.5px] leading-[1.7] text-ink-4">

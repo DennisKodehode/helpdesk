@@ -4,18 +4,35 @@ import axios from "axios";
 import ErrorAlert from "@/components/ui/ErrorAlert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { useWorkflowSettings } from "@/lib/workflow-settings";
 
 const RADIUS = 34;
 const CIRC = 2 * Math.PI * RADIUS;
 
-function ringStroke(pct: number | null): string {
+// Fallback thresholds while workflow settings load (mirrors the server defaults).
+const DEFAULT_GREEN_MIN = 90;
+const DEFAULT_YELLOW_MIN = 60;
+
+// Ring tone by compliance: green (healthy) / amber (slipping) / red (breaching).
+// Thresholds are admin-configurable (Workflow → SLA targets).
+function ringStroke(pct: number | null, greenMin: number, yellowMin: number): string {
   if (pct == null) return "stroke-ink-4";
-  if (pct >= 90) return "stroke-eme-dot";
-  if (pct >= 80) return "stroke-amb-dot";
+  if (pct >= greenMin) return "stroke-eme-dot";
+  if (pct >= yellowMin) return "stroke-amb-dot";
   return "stroke-ros-dot";
 }
 
-function Ring({ label, pct }: { label: string; pct: number | null }) {
+function Ring({
+  label,
+  pct,
+  greenMin,
+  yellowMin,
+}: {
+  label: string;
+  pct: number | null;
+  greenMin: number;
+  yellowMin: number;
+}) {
   const value = pct ?? 0;
   const offset = CIRC * (1 - value / 100);
   return (
@@ -42,7 +59,7 @@ function Ring({ label, pct }: { label: string; pct: number | null }) {
               strokeLinecap="round"
               className={cn(
                 "transition-[stroke-dashoffset] duration-500",
-                ringStroke(pct),
+                ringStroke(pct, greenMin, yellowMin),
               )}
               style={{ strokeDasharray: CIRC, strokeDashoffset: offset }}
             />
@@ -68,6 +85,11 @@ export default function SlaRingsCard() {
         .then((r) => r.data),
   });
 
+  // Admin-configured colour thresholds; fall back to defaults while loading.
+  const settings = useWorkflowSettings();
+  const greenMin = settings.data?.slaGreenMin ?? DEFAULT_GREEN_MIN;
+  const yellowMin = settings.data?.slaYellowMin ?? DEFAULT_YELLOW_MIN;
+
   return (
     <section
       aria-labelledby="sla-compliance-heading"
@@ -85,8 +107,18 @@ export default function SlaRingsCard() {
         <ErrorAlert message="Failed to load SLA compliance" />
       ) : (
         <div className="flex justify-around">
-          <Ring label="First response" pct={query.data?.firstResponse ?? null} />
-          <Ring label="Resolution" pct={query.data?.resolution ?? null} />
+          <Ring
+            label="First response"
+            pct={query.data?.firstResponse ?? null}
+            greenMin={greenMin}
+            yellowMin={yellowMin}
+          />
+          <Ring
+            label="Resolution"
+            pct={query.data?.resolution ?? null}
+            greenMin={greenMin}
+            yellowMin={yellowMin}
+          />
         </div>
       )}
     </section>

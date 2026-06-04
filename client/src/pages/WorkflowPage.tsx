@@ -139,6 +139,10 @@ export default function WorkflowPage() {
     JSON.stringify(policies) !== JSON.stringify(baselinePolicies);
   const dirty = lifeDirty || policiesDirty;
 
+  // The SLA-compliance ring thresholds must stay ordered (green above yellow);
+  // block the save while they're inverted (the server rejects it too).
+  const thresholdsValid = life == null || life.slaGreenMin > life.slaYellowMin;
+
   const counts: PipelineCounts = {
     triaging: statsQuery.data?.triagingTickets ?? 0,
     open: statsQuery.data?.openTickets ?? 0,
@@ -231,7 +235,12 @@ export default function WorkflowPage() {
               <Button variant="ghost" size="sm" onClick={handleRevert} disabled={saving}>
                 <RotateCcw aria-hidden /> Revert
               </Button>
-              <Button variant="accent" size="sm" onClick={handleSave} disabled={saving}>
+              <Button
+                variant="accent"
+                size="sm"
+                onClick={handleSave}
+                disabled={saving || !thresholdsValid}
+              >
                 <Check aria-hidden /> Save changes
               </Button>
             </div>
@@ -265,8 +274,14 @@ export default function WorkflowPage() {
         ) : (
           <PanelSkeleton />
         )
-      ) : policies ? (
-        <SlaTargetsPanel policies={policies} onChange={changePolicy} />
+      ) : policies && life ? (
+        <SlaTargetsPanel
+          policies={policies}
+          onChange={changePolicy}
+          greenMin={life.slaGreenMin}
+          yellowMin={life.slaYellowMin}
+          onThresholdChange={(field, value) => setLifeField(field, value)}
+        />
       ) : (
         <PanelSkeleton />
       )}
