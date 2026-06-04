@@ -825,6 +825,832 @@ async function seedTickets(agentIds: Record<AgentKey, string>, aiUserId: string)
   console.log(`Created ${ticketCount} tickets, ${replyCount} replies + audit trail.`);
 }
 
+// ===========================================================================
+// Procedural backfill — high-volume "background" traffic so the aggregate
+// views (dashboard 30-day chart, SLA compliance ring, and especially the
+// Activity Watchlist's 10-week sparklines + 7-day signal thresholds) read like
+// a real, busy desk rather than a handful of hand-written tickets.
+//
+// The hero tickets above stay the curated, readable threads people click into;
+// these are the statistics underneath them. Spread across the full 10-week
+// (~70-day) Watchlist window, with the CURRENT 7-day week tuned to land the
+// five health signals in a deliberate mix of states (see WK9_* below).
+// ===========================================================================
+
+// Stable PRNG (mulberry32) so re-runs produce the same dataset — a demo that
+// looks identical each seed is easier to talk through than one that drifts.
+function mulberry32(seed: number) {
+  return () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rnd = mulberry32(0xc0ffee);
+const randInt = (a: number, b: number) => Math.floor(a + rnd() * (b - a + 1));
+const randFloat = (a: number, b: number) => a + rnd() * (b - a);
+const pick = <T>(arr: readonly T[]): T => arr[Math.floor(rnd() * arr.length)];
+const chance = (p: number) => rnd() < p;
+
+const DAY = 24 * HOUR;
+
+// Per-priority SLA targets — mirrors SLA_POLICY_DEFAULTS in sla-defaults.ts.
+// Used to place firstAgentReplyAt / resolvedAt mostly inside target (so the
+// compliance ring lands ~85–90%, not a flat 100%).
+const SLA_TARGETS: Record<TicketPriority, { fr: number | null; res: number | null }> = {
+  [TicketPriority.urgent]: { fr: 60, res: 240 },
+  [TicketPriority.high]: { fr: 240, res: 1440 },
+  [TicketPriority.normal]: { fr: 480, res: 4320 },
+  [TicketPriority.low]: { fr: 1440, res: null },
+};
+
+// Active agents take live load; yuki (now inactive) only owns older tickets,
+// reflecting her tenure before deactivation.
+const ACTIVE_POOL: AgentKey[] = ["alice", "noah", "priya", "kofi", "mara"];
+const HIST_POOL: AgentKey[] = ["alice", "noah", "priya", "kofi", "mara", "yuki"];
+
+// Escalation reasons, split by what they signal. Content-gap reasons drive the
+// ai-escalation signal; the two HARD ones additionally drive ai-failures.
+// Mirrors escalateToOpen(...) in auto-resolve-ticket.ts.
+const CONTENT_REASONS = [
+  "ai_chose_escalate",
+  "below_confidence_threshold",
+  "resolution_gate_category",
+  "resolution_gate_assignee",
+];
+const HARD_REASONS = ["ai_call_failed", "json_parse_failure"];
+
+const FIRST_NAMES = [
+  "Oliver",
+  "Amara",
+  "Lucas",
+  "Freya",
+  "Mateo",
+  "Nadia",
+  "Ezra",
+  "Lena",
+  "Caleb",
+  "Ines",
+  "Rohan",
+  "Talia",
+  "Bjorn",
+  "Carmen",
+  "Devon",
+  "Esme",
+  "Tobias",
+  "Ruth",
+  "Malik",
+  "Saoirse",
+  "Henrik",
+  "Paloma",
+  "Quinn",
+  "Zara",
+  "Otis",
+  "Marisol",
+  "Cyrus",
+  "Birgit",
+  "Nico",
+  "Aiko",
+  "Soren",
+  "Imani",
+  "Hugo",
+  "Delphine",
+  "Rafael",
+  "Noor",
+  "Levi",
+  "Sana",
+  "Gideon",
+  "Yara",
+];
+const LAST_NAMES = [
+  "Okonkwo",
+  "Vasquez",
+  "Larsen",
+  "Petrov",
+  "Haddad",
+  "Bianchi",
+  "Nguyen",
+  "Sorensen",
+  "Khan",
+  "Rivera",
+  "Adeyemi",
+  "Kowalski",
+  "Mendez",
+  "Falk",
+  "Oduya",
+  "Castellano",
+  "Bauer",
+  "Iqbal",
+  "Holloway",
+  "Romero",
+  "Steiner",
+  "Abara",
+  "Lindgren",
+  "Costa",
+  "Voss",
+  "Maric",
+  "Pereira",
+];
+const DOMAINS = [
+  "northgate.io",
+  "brightpeak.com",
+  "ardent.dev",
+  "lumeo.app",
+  "tessellate.co",
+  "vantix.net",
+  "fernwood.org",
+  "claritus.io",
+  "halcyon.studio",
+  "redpine.com",
+  "boreal.tech",
+  "quill.so",
+  "outset.io",
+  "meridian.works",
+  "cobalt.co",
+];
+
+// Per-category opener templates ({subject} drives the list; {body} is short
+// realistic prose). Kept compact — these are background volume, not hero copy.
+const TEMPLATES: Record<TicketCategory, { subject: string; body: string }[]> = {
+  [TicketCategory.general_question]: [
+    {
+      subject: "How do I add a teammate?",
+      body: "Trying to invite a colleague but can't find where. Can you point me to it?",
+    },
+    {
+      subject: "Where are my invoices?",
+      body: "I need past invoices for our finance team — where do I download them?",
+    },
+    {
+      subject: "Does the export include attachments?",
+      body: "When I export tickets, are file attachments bundled in or just the text?",
+    },
+    {
+      subject: "Time zone for scheduled digests",
+      body: "Which time zone do the daily digest emails use? Ours seem an hour off.",
+    },
+    {
+      subject: "Can I rename a category?",
+      body: "We'd like to rename one of the ticket categories to match our wording.",
+    },
+    {
+      subject: "What happens when an agent is removed?",
+      body: "If I deactivate an agent, what happens to their open tickets?",
+    },
+  ],
+  [TicketCategory.technical_question]: [
+    {
+      subject: "Webhook returning 500s intermittently",
+      body: "About 1 in 20 webhook deliveries fails with a 500 on our end after the last release. Anything change?",
+    },
+    {
+      subject: "API pagination cursor expired",
+      body: "Our sync job gets 'cursor expired' midway through large pulls. How long are cursors valid?",
+    },
+    {
+      subject: "SSO redirect loop",
+      body: "After enabling SSO, some users bounce between the IdP and the app without landing. Logs attached.",
+    },
+    {
+      subject: "Rate limit headers missing",
+      body: "The X-RateLimit headers aren't present on v2 responses — are they being sent?",
+    },
+    {
+      subject: "CSV import drops the last row",
+      body: "Importing a 500-row CSV consistently lands 499 records. Trailing newline issue?",
+    },
+    {
+      subject: "Dashboard slow to load on Firefox",
+      body: "The dashboard takes 8–10s to paint on Firefox but is instant on Chrome.",
+    },
+  ],
+  [TicketCategory.refund_request]: [
+    {
+      subject: "Refund for duplicate charge",
+      body: "I was billed twice for this month's subscription. Please refund the duplicate.",
+    },
+    {
+      subject: "Cancel and refund unused seats",
+      body: "We bought 10 seats but only use 4. Can we refund the 6 unused for this cycle?",
+    },
+    {
+      subject: "Order arrived too late to use",
+      body: "The order showed up after our event. We'd like a refund as it's now useless to us.",
+    },
+    {
+      subject: "Refund after accidental upgrade",
+      body: "I clicked upgrade by mistake and was charged the annual rate. Can you reverse it?",
+    },
+    {
+      subject: "Partial refund for downtime",
+      body: "We had several hours of outage last week — are service credits or a partial refund possible?",
+    },
+    {
+      subject: "Refund to a different card",
+      body: "The card I paid with is closed. Can the refund go to a new card?",
+    },
+  ],
+  [TicketCategory.billing_inquiry]: [
+    {
+      subject: "Why did my invoice go up?",
+      body: "This month's invoice is higher than last with no plan change I'm aware of. Can you break it down?",
+    },
+    {
+      subject: "Update billing email",
+      body: "Invoices go to the wrong address. Where do I change the billing contact?",
+    },
+    {
+      subject: "Proration on mid-cycle upgrade",
+      body: "If I upgrade today, how is the rest of this billing cycle prorated?",
+    },
+    {
+      subject: "VAT number on receipts",
+      body: "Our finance team needs our VAT number printed on receipts. Is that possible?",
+    },
+    {
+      subject: "Switch from monthly to annual",
+      body: "We'd like to move to annual billing — how is the changeover handled?",
+    },
+    {
+      subject: "Failed payment, card is fine",
+      body: "Got a failed-payment notice but the card works elsewhere. Can you retry it?",
+    },
+  ],
+  [TicketCategory.feature_request]: [
+    {
+      subject: "Bulk-assign tickets",
+      body: "Would love to select multiple tickets and assign them to an agent in one action.",
+    },
+    {
+      subject: "Saved filters on the queue",
+      body: "Can we save a filter view (e.g. 'my urgent open') and pin it to the sidebar?",
+    },
+    {
+      subject: "Dark mode for the agent app",
+      body: "Any plans for a dark theme? We stare at this all day.",
+    },
+    {
+      subject: "Slack notifications per category",
+      body: "We'd like Slack pings only for refund_request tickets, not everything.",
+    },
+    {
+      subject: "Customer satisfaction survey",
+      body: "Is a post-resolution CSAT survey on the roadmap? We'd use it.",
+    },
+    {
+      subject: "Keyboard shortcuts",
+      body: "Power users would love j/k navigation and quick-reply shortcuts.",
+    },
+  ],
+};
+
+const AGENT_ACK = [
+  "Thanks for reaching out — taking a look now and will follow up shortly.",
+  "Got it, I can help with this. Digging into the details on our side.",
+  "Appreciate the report — reproducing it now to find the root cause.",
+  "Thanks for flagging this. Pulling up your account to investigate.",
+];
+const AGENT_RESOLVE = [
+  "All sorted on our end — please give it another try and let me know if anything's off.",
+  "Fixed and verified. You should be good now; reopen this if it resurfaces.",
+  "Done — the change is live for your account. Thanks for your patience!",
+  "Resolved. I've also noted it internally so it doesn't recur. Anything else I can do?",
+];
+const AI_RESOLVE = [
+  "Happy to help! You can do this from Settings — here's the exact path and a quick tip. Let us know if you need anything else.",
+  "Great question — the short answer is yes, and here's how it works plus where to find it in the app.",
+  "Here's what you need: the steps below should sort it in under a minute. Reply if anything looks different on your side.",
+];
+const CUSTOMER_FOLLOWUP = [
+  "Thanks — that worked!",
+  "Appreciate the quick turnaround.",
+  "Hmm, still seeing it on my end.",
+  "Perfect, that's exactly what I needed.",
+];
+
+// ── 10-week plan (index 0 = oldest, 9 = current). Counts rise toward the
+// present (a growing desk → upward volume sparkline). Rates encode a story:
+// escalation falling (KB improving), churn rising (routing degrading → the
+// current-week alert). Week 9 numerators are pinned explicitly below so the
+// live signal states are exact despite ~14 hero tickets sharing the window.
+const COUNTS = [10, 11, 11, 12, 13, 13, 14, 15, 17, 20];
+const AI_FRAC = [0.45, 0.45, 0.5, 0.5, 0.5, 0.55, 0.55, 0.6, 0.6, 0.7];
+const ESC_FRAC = [0.55, 0.5, 0.5, 0.45, 0.45, 0.4, 0.4, 0.42, 0.42, 0.43];
+const HARDFAIL = [0, 1, 0, 0, 1, 0, 0, 0, 1, 2];
+const REOPENS = [1, 0, 1, 1, 0, 1, 1, 1, 1, 1];
+const PRI_FRAC = [0.08, 0.1, 0.08, 0.1, 0.09, 0.1, 0.1, 0.11, 0.1, 0.09];
+const CHURN_FRAC = [0.06, 0.06, 0.08, 0.08, 0.1, 0.1, 0.12, 0.15, 0.18, 0.0];
+// Week 9 churn is pinned (not a fraction) so reassignment clears the >15% alert
+// line even with ~14 churn-free hero tickets diluting the denominator.
+const WK9_CHURN = 7;
+
+type BackfillRole = "ai_resolved" | "escalated" | "human";
+
+function priorityFor(): TicketPriority {
+  const r = rnd();
+  if (r < 0.07) return TicketPriority.urgent;
+  if (r < 0.25) return TicketPriority.high;
+  if (r < 0.7) return TicketPriority.normal;
+  return TicketPriority.low;
+}
+
+async function seedBackfill(agentIds: Record<AgentKey, string>, aiUserId: string) {
+  const now = Date.now();
+  let tickets = 0;
+  let replies = 0;
+  let events = 0;
+
+  for (let w = 0; w < 10; w++) {
+    const count = COUNTS[w];
+    const aiHandled = Math.round(count * AI_FRAC[w]);
+    const escalated = Math.round(aiHandled * ESC_FRAC[w]);
+    const aiResolved = aiHandled - escalated;
+    const hardFails = HARDFAIL[w];
+    const reopensLeft0 = REOPENS[w];
+    const priChanges = Math.round(count * PRI_FRAC[w]);
+    const churnCount = w === 9 ? WK9_CHURN : Math.round(count * CHURN_FRAC[w]);
+
+    // Recent weeks keep some tickets live (open); older weeks are fully wound
+    // down (resolved → auto-closed) so ancient tickets don't sit in the queue.
+    const humanCount = count - aiHandled;
+    const humanOpen = w === 9 ? 3 : w === 8 ? 2 : 0;
+
+    // Build role tags for this week's tickets.
+    const roles: BackfillRole[] = [
+      ...Array(escalated).fill("escalated" as BackfillRole),
+      ...Array(aiResolved).fill("ai_resolved" as BackfillRole),
+      ...Array(humanCount).fill("human" as BackfillRole),
+    ];
+
+    let reopensLeft = reopensLeft0;
+    let hardLeft = hardFails;
+    let priLeft = priChanges;
+    let churnLeft = churnCount;
+    let humanOpenLeft = humanOpen;
+
+    for (let i = 0; i < roles.length; i++) {
+      const role = roles[i];
+      // createdAt jittered inside week w's 7-day band: age ∈ [(9-w)*7, (10-w)*7) days.
+      const ageDays = randFloat((9 - w) * 7 + 0.2, (10 - w) * 7 - 0.2);
+      const createdAt = new Date(now - ageDays * DAY);
+      const priority = priorityFor();
+      const category = Object.values(TicketCategory)[randInt(0, 4)] as TicketCategory;
+      const tmpl = pick(TEMPLATES[category]);
+      const tname = `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`;
+      const email = `${tname.toLowerCase().replace(/[^a-z]+/g, ".")}@${pick(DOMAINS)}`;
+      const target = SLA_TARGETS[priority];
+
+      // Decide final status by role + week age.
+      let status: TicketStatus;
+      if (role === "ai_resolved") {
+        status = w <= 6 ? TicketStatus.closed : TicketStatus.resolved;
+      } else if (role === "escalated") {
+        // Escalated to a human: recent ones still open, older ones wound down.
+        status =
+          w >= 9
+            ? TicketStatus.open
+            : w <= 6
+              ? TicketStatus.closed
+              : TicketStatus.resolved;
+      } else {
+        if (humanOpenLeft > 0) {
+          status = TicketStatus.open;
+          humanOpenLeft--;
+        } else {
+          status = w <= 6 ? TicketStatus.closed : TicketStatus.resolved;
+        }
+      }
+      const isOpen = status === TicketStatus.open;
+      const isClosed = status === TicketStatus.closed;
+
+      // Assignee: AI for auto-resolved; a human otherwise (yuki only on old wks).
+      const pool = w <= 4 ? HIST_POOL : ACTIVE_POOL;
+      const assigneeKey: AgentKey | "ai" = role === "ai_resolved" ? "ai" : pick(pool);
+      const assignedToId = assigneeKey === "ai" ? aiUserId : agentIds[assigneeKey];
+
+      // First response: AI-resolved respond near-instantly; humans within (or
+      // sometimes past) target. Open+escalated may have no response yet.
+      const ageMs = now - createdAt.getTime();
+      let firstAgentReplyAt: Date | null = null;
+      const frTarget = target.fr ?? 480;
+      const responded = role === "ai_resolved" || !isOpen || chance(0.6);
+      if (responded) {
+        const frMin =
+          role === "ai_resolved"
+            ? randFloat(1, 6)
+            : (chance(0.82) ? randFloat(0.2, 0.9) : randFloat(1.1, 2.2)) * frTarget;
+        const frMs = Math.min(frMin * 60_000, ageMs * 0.4);
+        firstAgentReplyAt = new Date(createdAt.getTime() + frMs);
+      }
+
+      // Resolution timestamp for resolved/closed tickets.
+      let resolvedAt: Date | null = null;
+      let closedAt: Date | null = null;
+      if (!isOpen) {
+        const resTarget = target.res ?? randInt(720, 4320);
+        const resMin =
+          role === "ai_resolved"
+            ? randFloat(2, 12)
+            : (chance(0.85) ? randFloat(0.3, 0.95) : randFloat(1.05, 1.8)) * resTarget;
+        const resMs = Math.min(resMin * 60_000, ageMs * 0.85);
+        resolvedAt = new Date(
+          createdAt.getTime() +
+            Math.max(
+              resMs,
+              (firstAgentReplyAt
+                ? firstAgentReplyAt.getTime() - createdAt.getTime()
+                : 0) + 60_000,
+            ),
+        );
+        if (isClosed) {
+          // Auto-close after the quiet period (default 7d), clamped to the past.
+          const cAt = resolvedAt.getTime() + 7 * DAY;
+          closedAt = new Date(Math.min(cAt, now - 1 * HOUR));
+        }
+      }
+
+      // Reopen marker: a customer reply reopened the ticket within ~a day of
+      // resolution. Modelled faithfully to production (inbound-email.ts): below,
+      // status flips back to open and resolvedAt is nulled. The reopened signal
+      // reads the resolution audit event + this auto_reopened event, not the
+      // (nulled) resolvedAt column.
+      let reopenedAt: Date | null = null;
+      if (resolvedAt && reopensLeft > 0 && rnd() < 0.5) {
+        const candidate = new Date(resolvedAt.getTime() + randFloat(2, 20) * HOUR);
+        if (candidate.getTime() < now) {
+          reopenedAt = candidate;
+          reopensLeft--;
+        }
+      }
+
+      // Build replies.
+      const replyRows: {
+        authorId: string | null;
+        senderType: SenderType;
+        body: string;
+        createdAt: Date;
+      }[] = [];
+      if (role === "ai_resolved" && firstAgentReplyAt) {
+        replyRows.push({
+          authorId: aiUserId,
+          senderType: SenderType.agent,
+          body: pick(AI_RESOLVE),
+          createdAt: firstAgentReplyAt,
+        });
+      } else if (firstAgentReplyAt) {
+        replyRows.push({
+          authorId: assignedToId,
+          senderType: SenderType.agent,
+          body: pick(AGENT_ACK),
+          createdAt: firstAgentReplyAt,
+        });
+        if (resolvedAt && chance(0.5)) {
+          const followAt = new Date(
+            (firstAgentReplyAt.getTime() + resolvedAt.getTime()) / 2,
+          );
+          replyRows.push({
+            authorId: null,
+            senderType: SenderType.customer,
+            body: pick(CUSTOMER_FOLLOWUP),
+            createdAt: followAt,
+          });
+        }
+        if (resolvedAt) {
+          replyRows.push({
+            authorId: assignedToId,
+            senderType: SenderType.agent,
+            body: pick(AGENT_RESOLVE),
+            createdAt: new Date(resolvedAt.getTime() - 60_000),
+          });
+        }
+      }
+      const lastReplySenderType = replyRows.length
+        ? replyRows[replyRows.length - 1].senderType
+        : null;
+
+      // The (first) resolution still happened — it drives the resolution audit
+      // event and the reopened-signal denominator. A reopen rolls the ticket's
+      // live columns back to open (exactly as the production reopen flow does).
+      // Recent reopens (last ~2 weeks) are left open — freshly bounced, still
+      // being worked. Older ones have since been re-resolved (and auto-closed if
+      // old enough), so the queue doesn't accumulate ancient open tickets.
+      const resolutionAt = resolvedAt;
+      let secondResolutionAt: Date | null = null;
+      if (reopenedAt) {
+        if (w >= 8) {
+          status = TicketStatus.open;
+          resolvedAt = null;
+          closedAt = null;
+        } else {
+          secondResolutionAt = new Date(
+            Math.min(reopenedAt.getTime() + randFloat(1, 8) * HOUR, now - HOUR),
+          );
+          resolvedAt = secondResolutionAt;
+          status = w <= 6 ? TicketStatus.closed : TicketStatus.resolved;
+          closedAt =
+            w <= 6
+              ? new Date(Math.min(secondResolutionAt.getTime() + 7 * DAY, now - HOUR))
+              : null;
+        }
+      }
+
+      const ticket = await prisma.ticket.create({
+        data: {
+          fromName: tname,
+          fromEmail: email,
+          subject: tmpl.subject,
+          body: `${tmpl.body}\n\n${tname.split(" ")[0]}`,
+          category,
+          priority,
+          status,
+          assignedToId,
+          createdAt,
+          updatedAt: closedAt ?? resolvedAt ?? reopenedAt ?? firstAgentReplyAt ?? createdAt,
+          resolvedAt,
+          closedAt,
+          firstAgentReplyAt,
+          lastReplySenderType,
+        },
+      });
+      tickets++;
+
+      let aiReplyId: number | null = null;
+      for (const r of replyRows) {
+        const row = await prisma.reply.create({ data: { ticketId: ticket.id, ...r } });
+        if (r.authorId === aiUserId) aiReplyId = row.id;
+        replies++;
+      }
+
+      // ── Audit events ──
+      const ev: {
+        type: AuditEventType;
+        actorId: string | null;
+        data?: object;
+        at: Date;
+      }[] = [
+        {
+          type: AuditEventType.ticket_created,
+          actorId: null,
+          at: createdAt,
+          data: { fromEmail: email },
+        },
+        // AI auto-classification — drives the dashboard "auto-classified" count.
+        {
+          type: AuditEventType.category_changed,
+          actorId: aiUserId,
+          at: minsAfter(createdAt, 1),
+          data: { to: category },
+        },
+      ];
+
+      // Assignment / churn: churn tickets get ≥2 assignee_changed (handoffs).
+      const wantChurn = role !== "ai_resolved" && churnLeft > 0;
+      if (assigneeKey === "ai") {
+        ev.push({
+          type: AuditEventType.assignee_changed,
+          actorId: null,
+          at: minsAfter(createdAt, 2),
+          data: { to: assignedToId },
+        });
+      } else if (wantChurn) {
+        churnLeft--;
+        const hops = randInt(2, 3);
+        let prev: string | null = null;
+        for (let h = 0; h < hops; h++) {
+          const toKey = pick(pool);
+          const toId = h === hops - 1 ? assignedToId : agentIds[toKey];
+          ev.push({
+            type: AuditEventType.assignee_changed,
+            actorId: prev,
+            at: minsAfter(createdAt, 2 + h * randInt(20, 180)),
+            data: { from: prev, to: toId },
+          });
+          prev = toId;
+        }
+      } else {
+        ev.push({
+          type: AuditEventType.assignee_changed,
+          actorId: assignedToId,
+          at: minsAfter(createdAt, 2),
+          data: { to: assignedToId },
+        });
+      }
+
+      // Priority re-grade.
+      if (priLeft > 0 && role !== "ai_resolved" && chance(0.6)) {
+        priLeft--;
+        ev.push({
+          type: AuditEventType.priority_changed,
+          actorId: assignedToId,
+          at: minsAfter(createdAt, randInt(10, 120)),
+          data: { from: TicketPriority.normal, to: priority },
+        });
+      }
+
+      // Escalation marker (+ hard-failure reason for ai-failures signal).
+      if (role === "escalated") {
+        const useHard = hardLeft > 0;
+        if (useHard) hardLeft--;
+        ev.push({
+          type: AuditEventType.ai_escalated,
+          actorId: aiUserId,
+          at: minsAfter(createdAt, randInt(1, 4)),
+          data: { reason: useHard ? pick(HARD_REASONS) : pick(CONTENT_REASONS) },
+        });
+      }
+
+      // Resolution / auto-resolution / close. Use resolutionAt (the original
+      // resolve time) so a reopened ticket — whose resolvedAt column is now
+      // nulled — still records when it was resolved, feeding the reopened signal.
+      if (role === "ai_resolved" && resolutionAt) {
+        ev.push({
+          type: AuditEventType.auto_resolved,
+          actorId: aiUserId,
+          at: resolutionAt,
+          data: { replyId: aiReplyId },
+        });
+      } else if (resolutionAt) {
+        ev.push({
+          type: AuditEventType.status_changed,
+          actorId: assignedToId,
+          at: resolutionAt,
+          data: { from: TicketStatus.open, to: TicketStatus.resolved },
+        });
+      }
+      if (reopenedAt) {
+        ev.push({ type: AuditEventType.auto_reopened, actorId: null, at: reopenedAt });
+      }
+      // Older reopened tickets were re-resolved by a human after the bounce — a
+      // second resolution event (no reopen follows it, so it lands in the
+      // reopened-signal denominator but not the numerator).
+      if (secondResolutionAt) {
+        ev.push({
+          type: AuditEventType.status_changed,
+          actorId: assignedToId,
+          at: secondResolutionAt,
+          data: { from: TicketStatus.open, to: TicketStatus.resolved },
+        });
+      }
+      if (closedAt) {
+        ev.push({
+          type: AuditEventType.auto_closed,
+          actorId: null,
+          at: closedAt,
+          data: { from: TicketStatus.resolved, to: TicketStatus.closed },
+        });
+      }
+
+      for (const e of ev) {
+        await prisma.auditEvent.create({
+          data: {
+            ticketId: ticket.id,
+            actorId: e.actorId,
+            type: e.type,
+            data: e.data,
+            createdAt: e.at,
+          },
+        });
+        events++;
+      }
+
+      // A few unread bells on recent live tickets so the indicator shows life.
+      if (
+        isOpen &&
+        w === 9 &&
+        lastReplySenderType === SenderType.customer &&
+        assigneeKey !== "ai"
+      ) {
+        await prisma.notification.create({
+          data: {
+            userId: assignedToId,
+            type: NotificationType.customer_reply,
+            ticketId: ticket.id,
+            data: { subject: tmpl.subject, fromName: tname },
+            createdAt: minsAfter(createdAt, 5),
+          },
+        });
+      }
+    }
+  }
+
+  // ── At-risk showcase ── A handful of open tickets pinned into the 75–100%
+  // SLA band (between the at_risk threshold and breach) so the amber SLA state
+  // is actually represented — the rate-based backfill above leaves open tickets
+  // either fresh (ok) or aged-out (breached), never mid-window. Ages are derived
+  // from the LIVE policy rows (not the SLA_TARGETS constant) so the band is
+  // correct even when an admin has customised a target on the Workflow screen.
+  const livePolicies = await prisma.slaPolicy.findMany();
+  const liveTarget = new Map(livePolicies.map((p) => [p.priority, p]));
+  const bandFraction = 0.82; // ~82% elapsed: safely inside [0.75, 1.0).
+  const atRisk: {
+    priority: TicketPriority;
+    metric: "fr" | "res";
+    category: TicketCategory;
+  }[] = [
+    {
+      priority: TicketPriority.urgent,
+      metric: "fr",
+      category: TicketCategory.billing_inquiry,
+    },
+    {
+      priority: TicketPriority.high,
+      metric: "fr",
+      category: TicketCategory.technical_question,
+    },
+    {
+      priority: TicketPriority.normal,
+      metric: "fr",
+      category: TicketCategory.general_question,
+    },
+    // fr satisfied (early reply) but approaching the resolution target:
+    {
+      priority: TicketPriority.high,
+      metric: "res",
+      category: TicketCategory.refund_request,
+    },
+  ];
+  for (const a of atRisk) {
+    const pol = liveTarget.get(a.priority);
+    const targetMin =
+      a.metric === "fr" ? pol?.firstResponseMinutes : pol?.resolutionMinutes;
+    if (targetMin == null) continue; // no target for this metric → can't be at-risk
+    const minutesAgo = Math.round(targetMin * bandFraction);
+    const responded = a.metric === "res"; // res-band tickets have answered first response
+    const createdAt = new Date(now - minutesAgo * 60_000);
+    const tmpl = pick(TEMPLATES[a.category]);
+    const tname = `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`;
+    const email = `${tname.toLowerCase().replace(/[^a-z]+/g, ".")}@${pick(DOMAINS)}`;
+    const agentKey = pick(ACTIVE_POOL);
+    const assignedToId = agentIds[agentKey];
+    const firstAgentReplyAt = responded ? minsAfter(createdAt, randInt(8, 25)) : null;
+    const ticket = await prisma.ticket.create({
+      data: {
+        fromName: tname,
+        fromEmail: email,
+        subject: tmpl.subject,
+        body: `${tmpl.body}\n\n${tname.split(" ")[0]}`,
+        category: a.category,
+        priority: a.priority,
+        status: TicketStatus.open,
+        assignedToId,
+        createdAt,
+        updatedAt: firstAgentReplyAt ?? createdAt,
+        firstAgentReplyAt,
+        lastReplySenderType: firstAgentReplyAt ? SenderType.agent : null,
+      },
+    });
+    tickets++;
+    if (firstAgentReplyAt) {
+      await prisma.reply.create({
+        data: {
+          ticketId: ticket.id,
+          authorId: assignedToId,
+          senderType: SenderType.agent,
+          body: pick(AGENT_ACK),
+          createdAt: firstAgentReplyAt,
+        },
+      });
+      replies++;
+    }
+    for (const e of [
+      {
+        type: AuditEventType.ticket_created,
+        actorId: null as string | null,
+        data: { fromEmail: email },
+        at: createdAt,
+      },
+      {
+        type: AuditEventType.category_changed,
+        actorId: aiUserId,
+        data: { to: a.category },
+        at: minsAfter(createdAt, 1),
+      },
+      {
+        type: AuditEventType.assignee_changed,
+        actorId: assignedToId,
+        data: { to: assignedToId },
+        at: minsAfter(createdAt, 2),
+      },
+    ]) {
+      await prisma.auditEvent.create({
+        data: {
+          ticketId: ticket.id,
+          actorId: e.actorId,
+          type: e.type,
+          data: e.data,
+          createdAt: e.at,
+        },
+      });
+      events++;
+    }
+  }
+
+  console.log(
+    `Backfill: ${tickets} tickets, ${replies} replies, ${events} audit events across 10 weeks.`,
+  );
+}
+
 async function main() {
   const aiUser = await prisma.user.findUnique({ where: { email: AI_USER_EMAIL } });
   if (!aiUser) {
@@ -835,6 +1661,7 @@ async function main() {
   await seedSlaPolicies(); // idempotent; ensures the four policies exist
   const agentIds = await seedUsers();
   await seedTickets(agentIds, aiUser.id);
+  await seedBackfill(agentIds, aiUser.id);
 
   const counts = {
     users: await prisma.user.count({ where: { deletedAt: null } }),
