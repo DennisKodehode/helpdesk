@@ -69,7 +69,7 @@ function renderEvent(
   event: AuditEvent,
   agentsById: Map<string, string>,
 ): { icon: ReactNode; content: ReactNode } {
-  const actorName = event.actor?.name ?? "Someone";
+  const actorName = event.actor?.name ?? "System";
 
   if (event.type === AuditEventType.status_changed) {
     const { from, to } = event.data as ChangeData<TicketStatus>;

@@ -66,7 +66,7 @@ export function auditVisual(type: AuditEventType): {
 // A compact, plain-text action summary for one global activity row. Keeps the
 // actor's name out front when we have it; otherwise leans on the verb.
 export function auditSummary(row: RecentActivityRow): string {
-  const who = row.actorName ?? "Someone";
+  const who = row.actorName ?? "System";
   const data = (row.data ?? {}) as Record<string, unknown>;
   switch (row.type) {
     case AuditEventType.status_changed:
