@@ -1,5 +1,6 @@
 import {
   AutoAssignMode,
+  type SlaComplianceResponse,
   type SlaHealthResponse,
   type SlaPolicy,
   type StatsResponse,
@@ -9,7 +10,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import axios from "axios";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, renderWithProviders, screen, waitFor } from "../test/utils";
+import { cleanup, renderWithProviders, screen, waitFor, within } from "../test/utils";
 import WorkflowPage from "./WorkflowPage";
 
 vi.mock("axios", () => ({
@@ -89,17 +90,23 @@ const HEALTH: SlaHealthResponse = {
   },
 };
 
-function mockGet(url: string) {
-  if (url === "/api/workflow-settings") return Promise.resolve({ data: SETTINGS });
-  if (url === "/api/sla-policies") return Promise.resolve({ data: POLICIES });
-  if (url === "/api/stats") return Promise.resolve({ data: STATS });
-  if (url === "/api/stats/sla-health") return Promise.resolve({ data: HEALTH });
-  return Promise.reject(new Error(`unexpected GET ${url}`));
+const COMPLIANCE: SlaComplianceResponse = { firstResponse: 94, resolution: 88 };
+
+// `settings` is overridable so a test can load inverted thresholds (bad data).
+function makeMockGet(settings: WorkflowSettings = SETTINGS) {
+  return (url: string) => {
+    if (url === "/api/workflow-settings") return Promise.resolve({ data: settings });
+    if (url === "/api/sla-policies") return Promise.resolve({ data: POLICIES });
+    if (url === "/api/stats") return Promise.resolve({ data: STATS });
+    if (url === "/api/stats/sla-health") return Promise.resolve({ data: HEALTH });
+    if (url === "/api/stats/sla-compliance") return Promise.resolve({ data: COMPLIANCE });
+    return Promise.reject(new Error(`unexpected GET ${url}`));
+  };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(axios.get).mockImplementation((url: string) => mockGet(url) as never);
+  vi.mocked(axios.get).mockImplementation((url: string) => makeMockGet()(url) as never);
   vi.mocked(axios.patch).mockResolvedValue({ data: SETTINGS } as never);
 });
 
@@ -123,9 +130,12 @@ describe("WorkflowPage", () => {
 
     await user.click(toggle);
 
-    expect(await screen.findByText(/Lifecycle has unsaved changes/i)).toBeInTheDocument();
-    const saveBtn = screen.getByRole("button", { name: /Save changes/i });
-    await user.click(saveBtn);
+    // The hint shows both inline (by the tabs) and in the sticky save bar.
+    expect(
+      (await screen.findAllByText(/Lifecycle has unsaved changes/i)).length,
+    ).toBeGreaterThan(0);
+    const bar = screen.getByRole("region", { name: /unsaved changes/i });
+    await user.click(within(bar).getByRole("button", { name: /Save changes/i }));
 
     await waitFor(() => {
       expect(axios.patch).toHaveBeenCalledWith(
@@ -140,50 +150,80 @@ describe("WorkflowPage", () => {
     renderWithProviders(<WorkflowPage />);
     const toggle = await screen.findByRole("switch", { name: "Auto-assign new tickets" });
     await user.click(toggle);
-    expect(await screen.findByText(/Lifecycle has unsaved changes/i)).toBeInTheDocument();
+    expect(
+      (await screen.findAllByText(/Lifecycle has unsaved changes/i)).length,
+    ).toBeGreaterThan(0);
 
     // Switch to SLA targets and back — the edit (and dirty state) must survive.
     await user.click(screen.getByRole("tab", { name: /SLA targets/i }));
     expect(await screen.findByText(/Targets by priority/i)).toBeInTheDocument();
     await user.click(screen.getByRole("tab", { name: /Lifecycle rules/i }));
 
-    expect(await screen.findByText(/Lifecycle has unsaved changes/i)).toBeInTheDocument();
+    expect(
+      (await screen.findAllByText(/Lifecycle has unsaved changes/i)).length,
+    ).toBeGreaterThan(0);
     expect(
       await screen.findByRole("switch", { name: "Auto-assign new tickets" }),
     ).toHaveAttribute("aria-checked", "true");
   });
 
-  it("saves an edited SLA-compliance threshold via PATCH", async () => {
+  it("saves an edited SLA-compliance threshold via PATCH and labels it as SLA", async () => {
     const user = userEvent.setup();
     renderWithProviders(<WorkflowPage />);
     await screen.findByText("Auto-assign new tickets");
 
     await user.click(screen.getByRole("tab", { name: /SLA targets/i }));
-    const greenInput = await screen.findByLabelText(/healthy \(green\)/i);
-    fireEvent.change(greenInput, { target: { value: "95" } });
+    // Stepper, not a number input: bump green 90 → 91.
+    await user.click(await screen.findByRole("button", { name: /increase healthy/i }));
 
-    expect(await screen.findByText(/unsaved changes/i)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /Save changes/i }));
+    // Threshold edits read as SLA, not Lifecycle (they live in workflow_settings
+    // but are edited on the SLA tab).
+    expect(
+      (await screen.findAllByText(/SLA targets have unsaved changes/i)).length,
+    ).toBeGreaterThan(0);
+
+    const bar = screen.getByRole("region", { name: /unsaved changes/i });
+    await user.click(within(bar).getByRole("button", { name: /Save changes/i }));
 
     await waitFor(() => {
       expect(axios.patch).toHaveBeenCalledWith(
         "/api/workflow-settings",
-        expect.objectContaining({ slaGreenMin: 95 }),
+        expect.objectContaining({ slaGreenMin: 91 }),
       );
     });
   });
 
-  it("disables save when the green threshold is not above the yellow threshold", async () => {
+  it("shows a sticky save bar once there are unsaved changes", async () => {
     const user = userEvent.setup();
     renderWithProviders(<WorkflowPage />);
-    await screen.findByText("Auto-assign new tickets");
+    const toggle = await screen.findByRole("switch", { name: "Auto-assign new tickets" });
 
-    await user.click(screen.getByRole("tab", { name: /SLA targets/i }));
-    const greenInput = await screen.findByLabelText(/healthy \(green\)/i);
-    // green 50 <= yellow 60 → invalid ordering.
-    fireEvent.change(greenInput, { target: { value: "50" } });
+    expect(
+      screen.queryByRole("region", { name: /unsaved changes/i }),
+    ).not.toBeInTheDocument();
+    await user.click(toggle);
+    expect(
+      await screen.findByRole("region", { name: /unsaved changes/i }),
+    ).toBeInTheDocument();
+  });
 
-    expect(await screen.findByText(/unsaved changes/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Save changes/i })).toBeDisabled();
+  it("blocks save when loaded thresholds are inverted (green ≤ amber)", async () => {
+    // Bad data: green 50 ≤ amber 60. The cross-clamped steppers can't reach this
+    // state, but the page must still refuse to save it.
+    vi.mocked(axios.get).mockImplementation(
+      (url: string) =>
+        makeMockGet({ ...SETTINGS, slaGreenMin: 50, slaYellowMin: 60 })(url) as never,
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<WorkflowPage />);
+    // Make the page dirty via an unrelated lifecycle edit so the save bar shows.
+    const toggle = await screen.findByRole("switch", { name: "Auto-assign new tickets" });
+    await user.click(toggle);
+
+    const bar = await screen.findByRole("region", { name: /unsaved changes/i });
+    expect(
+      within(bar).getByText(/Green must sit above amber to save/i),
+    ).toBeInTheDocument();
+    expect(within(bar).getByRole("button", { name: /Save changes/i })).toBeDisabled();
   });
 });

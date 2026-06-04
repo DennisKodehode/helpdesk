@@ -15,6 +15,7 @@ server/.attachments/
 # Claude Design handoff — local-only implementation reference, not app code
 design_handoff_helpdesk_redesign/
 claude-design-handoff-admincontrols/
+Design handoff/
 
 # Visual-fidelity harness output (screenshots + Playwright artifacts)
 tools/fidelity/.out/

@@ -39,6 +39,13 @@ function toEditable(policies: SlaPolicy[]): EditablePolicy[] {
   });
 }
 
+// The lifecycle rules minus the two SLA-ring thresholds — used so the dirty
+// label can tell "Lifecycle" edits apart from threshold edits (which read SLA).
+function stripThresholds(life: LifecycleDraft) {
+  const { slaGreenMin: _g, slaYellowMin: _y, ...rest } = life;
+  return rest;
+}
+
 type Tab = "lifecycle" | "sla";
 
 function Segmented({ value, onChange }: { value: Tab; onChange: (v: Tab) => void }) {
@@ -139,6 +146,22 @@ export default function WorkflowPage() {
     JSON.stringify(policies) !== JSON.stringify(baselinePolicies);
   const dirty = lifeDirty || policiesDirty;
 
+  // slaGreenMin/slaYellowMin live in workflow_settings (life) but are edited on
+  // the SLA tab — so count their dirtiness toward SLA, not Lifecycle, for the
+  // unsaved-changes label. Persistence is unchanged: they still PATCH with the
+  // rest of `life` (see handleSave's lifeDirty branch).
+  const thresholdsDirty =
+    life != null &&
+    baselineLife != null &&
+    (life.slaGreenMin !== baselineLife.slaGreenMin ||
+      life.slaYellowMin !== baselineLife.slaYellowMin);
+  const rulesDirty =
+    life != null &&
+    baselineLife != null &&
+    JSON.stringify(stripThresholds(life)) !==
+      JSON.stringify(stripThresholds(baselineLife));
+  const slaDirty = policiesDirty || thresholdsDirty;
+
   // The SLA-compliance ring thresholds must stay ordered (green above yellow);
   // block the save while they're inverted (the server rejects it too).
   const thresholdsValid = life == null || life.slaGreenMin > life.slaYellowMin;
@@ -213,11 +236,11 @@ export default function WorkflowPage() {
     if (results.every((r) => r.status === "fulfilled")) setSaved(true);
   }
 
-  const dirtyCount = (lifeDirty ? 1 : 0) + (policiesDirty ? 1 : 0);
+  const dirtyCount = (rulesDirty ? 1 : 0) + (slaDirty ? 1 : 0);
   const dirtyLabel =
     dirtyCount === 2
       ? "Lifecycle & SLA have"
-      : lifeDirty
+      : rulesDirty
         ? "Lifecycle has"
         : "SLA targets have";
 
@@ -284,6 +307,45 @@ export default function WorkflowPage() {
         />
       ) : (
         <PanelSkeleton />
+      )}
+
+      {/* Sticky save bar — keeps Revert/Save reachable from the bottom of a long
+          page (the header actions scroll off). Duplicate of the header actions. */}
+      {dirty && (
+        <section aria-label="Unsaved changes" className="sticky bottom-[18px] z-30 mt-7">
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-[var(--r-lg)] border border-hairline-strong bg-card py-[11px] pr-3.5 pl-5 shadow-[var(--shadow-lg)]">
+            <span
+              className={cn(
+                "inline-flex items-center gap-2 font-mono text-[11.5px]",
+                thresholdsValid ? "text-amb-fg" : "text-ros-fg",
+              )}
+            >
+              <span
+                aria-hidden
+                className={cn(
+                  "size-[7px] flex-none rounded-full",
+                  thresholdsValid ? "bg-amb-dot" : "bg-ros-dot",
+                )}
+              />
+              {thresholdsValid
+                ? `${dirtyLabel} unsaved changes`
+                : "Green must sit above amber to save"}
+            </span>
+            <div className="flex gap-2.5">
+              <Button variant="ghost" size="sm" onClick={handleRevert} disabled={saving}>
+                <RotateCcw aria-hidden /> Revert
+              </Button>
+              <Button
+                variant="accent"
+                size="sm"
+                onClick={handleSave}
+                disabled={saving || !thresholdsValid}
+              >
+                <Check aria-hidden /> Save changes
+              </Button>
+            </div>
+          </div>
+        </section>
       )}
     </PageContainer>
   );

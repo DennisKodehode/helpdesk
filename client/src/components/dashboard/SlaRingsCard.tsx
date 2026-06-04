@@ -1,8 +1,6 @@
-import type { SlaComplianceResponse } from "@helpdesk/core";
-import { useQuery } from "@tanstack/react-query";
-import axios from "axios";
 import ErrorAlert from "@/components/ui/ErrorAlert";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useSlaCompliance } from "@/lib/stats";
 import { cn } from "@/lib/utils";
 import { useWorkflowSettings } from "@/lib/workflow-settings";
 
@@ -77,13 +75,7 @@ function Ring({
 }
 
 export default function SlaRingsCard() {
-  const query = useQuery<SlaComplianceResponse>({
-    queryKey: ["stats", "sla-compliance"],
-    queryFn: ({ signal }) =>
-      axios
-        .get<SlaComplianceResponse>("/api/stats/sla-compliance", { signal })
-        .then((r) => r.data),
-  });
+  const query = useSlaCompliance();
 
   // Admin-configured colour thresholds; fall back to defaults while loading.
   const settings = useWorkflowSettings();

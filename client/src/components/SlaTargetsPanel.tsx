@@ -1,5 +1,5 @@
 import type { TicketPriority } from "@helpdesk/core";
-import { Target } from "lucide-react";
+import { Gauge, Target } from "lucide-react";
 import SlaComplianceThresholdsCard from "@/components/SlaComplianceThresholdsCard";
 import SlaHealthCard from "@/components/SlaHealthCard";
 import SlaTargetCard, { type EditablePolicy } from "@/components/SlaTargetCard";
@@ -39,12 +39,17 @@ export default function SlaTargetsPanel({
         {policies.map((policy) => (
           <SlaTargetCard key={policy.priority} policy={policy} onChange={onChange} />
         ))}
-        <SlaComplianceThresholdsCard
-          greenMin={greenMin}
-          yellowMin={yellowMin}
-          onChange={onThresholdChange}
-        />
       </div>
+
+      <div className="mt-[26px] mb-3.5 flex items-center gap-2.5 px-0.5">
+        <Gauge aria-hidden className="size-4 text-ink-3" />
+        <h2 className="eyebrow">Dashboard compliance rings</h2>
+      </div>
+      <SlaComplianceThresholdsCard
+        greenMin={greenMin}
+        yellowMin={yellowMin}
+        onChange={onThresholdChange}
+      />
 
       <p className="mt-[26px] max-w-[780px] font-mono text-[11.5px] leading-[1.7] text-ink-4">
         <span className="text-ink-3">NOTE</span> — Targets count from ticket arrival. A
