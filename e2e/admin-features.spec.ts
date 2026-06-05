@@ -267,11 +267,16 @@ test.describe
       const newValue = "3";
       await input.fill(newValue);
 
-      // The header "Save changes" button should appear once the form is dirty.
-      await page.getByRole("button", { name: "Save changes" }).click();
+      // When dirty the page renders two identical action sets — one in the
+      // header and a duplicate in the sticky save bar — so scope to the labelled
+      // "Unsaved changes" region to stay unambiguous (matches WorkflowPage.test).
+      const saveBar = page.getByRole("region", { name: "Unsaved changes" });
+      await saveBar.getByRole("button", { name: "Save changes" }).click();
 
       // A "Saved" confirmation chip should appear briefly.
-      await expect(page.getByText("Saved")).toBeVisible();
+      // Exact match — `getByText` is substring + case-insensitive by default,
+      // which would also match the "…unsaved changes" hints.
+      await expect(page.getByText("Saved", { exact: true })).toBeVisible();
 
       // Reload the page — the new value should survive. The page opens on
       // the "Lifecycle rules" tab by default, so switch back to "SLA targets".
@@ -301,23 +306,32 @@ test.describe
       // Read the value that was persisted by the previous test.
       const persistedValue = await input.inputValue();
 
+      // When dirty the page renders two identical action sets (header + sticky
+      // save bar); scope to the labelled "Unsaved changes" region so the Revert
+      // and Save locators stay unambiguous.
+      const saveBar = page.getByRole("region", { name: "Unsaved changes" });
+
       // Make a local edit — don't save.
       await input.fill("99");
 
       // Revert button should appear once the form is dirty.
-      await page.getByRole("button", { name: "Revert" }).click();
+      await saveBar.getByRole("button", { name: "Revert" }).click();
 
       // The field should return to the persisted value.
       await expect(input).toHaveValue(persistedValue);
 
-      // "Save changes" should no longer be present (form is clean).
-      await expect(page.getByRole("button", { name: "Save changes" })).not.toBeVisible();
+      // The save bar (and its "Save changes") should disappear once clean.
+      await expect(
+        saveBar.getByRole("button", { name: "Save changes" }),
+      ).not.toBeVisible();
 
       // Restore original value to leave the DB in a clean state.
       if (originalValue && originalValue !== persistedValue) {
         await input.fill(originalValue);
-        await page.getByRole("button", { name: "Save changes" }).click();
-        await expect(page.getByText("Saved")).toBeVisible();
+        await saveBar.getByRole("button", { name: "Save changes" }).click();
+        // Exact match — `getByText` is substring + case-insensitive by default,
+        // which would also match the "…unsaved changes" hints.
+        await expect(page.getByText("Saved", { exact: true })).toBeVisible();
       }
     });
   });
