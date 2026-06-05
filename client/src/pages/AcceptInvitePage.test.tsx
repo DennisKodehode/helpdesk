@@ -60,6 +60,7 @@ describe("AcceptInvitePage", () => {
     render();
     await screen.findByText(/welcome/i);
     await user.type(screen.getByLabelText("Password"), "newpassword1");
+    await user.type(screen.getByLabelText("Confirm password"), "newpassword1");
     await user.click(screen.getByRole("button", { name: /set password & sign in/i }));
 
     await waitFor(() =>
@@ -75,5 +76,20 @@ describe("AcceptInvitePage", () => {
       }),
     );
     await waitFor(() => expect(navigate).toHaveBeenCalledWith("/"));
+  });
+
+  it("blocks submission and shows an error when the passwords do not match", async () => {
+    vi.mocked(axios.get).mockResolvedValue({
+      data: { name: "Jordan", email: "jordan@example.com" },
+    });
+    const user = userEvent.setup();
+    render();
+    await screen.findByText(/welcome/i);
+    await user.type(screen.getByLabelText("Password"), "newpassword1");
+    await user.type(screen.getByLabelText("Confirm password"), "different9");
+    await user.click(screen.getByRole("button", { name: /set password & sign in/i }));
+
+    expect(await screen.findByText(/passwords do not match/i)).toBeInTheDocument();
+    expect(axios.post).not.toHaveBeenCalled();
   });
 });

@@ -92,8 +92,9 @@ test.describe
       ).toBeVisible();
       await expect(page.getByText(FRESH.email)).toBeVisible();
 
-      // Set the password and submit.
+      // Set the password (twice — confirmation is required) and submit.
       await page.getByLabel("Password", { exact: true }).fill(FRESH.password);
+      await page.getByLabel("Confirm password").fill(FRESH.password);
       await page.getByRole("button", { name: "Set password & sign in" }).click();
 
       // Should land on the dashboard.

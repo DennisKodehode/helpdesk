@@ -87,6 +87,23 @@ export const acceptInviteSchema = z.object({
 
 export type AcceptInviteData = z.infer<typeof acceptInviteSchema>;
 
+// Client-only accept-invite form schema. Adds a confirmation field so the
+// invitee must type their new password twice and the two must match. This is a
+// UX guard that never leaves the browser — the API payload (acceptInviteSchema)
+// only carries `password`. Both sides are trimmed so trailing whitespace can't
+// cause a spurious mismatch (the stored password is trimmed too).
+export const acceptInviteFormSchema = z
+  .object({
+    password: z.string().trim().min(8, "Password must be at least 8 characters"),
+    confirmPassword: z.string().trim(),
+  })
+  .refine((v) => v.password === v.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+export type AcceptInviteFormData = z.infer<typeof acceptInviteFormSchema>;
+
 export const updateUserRoleSchema = z.object({
   role: z.enum(Role),
 });

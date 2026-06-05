@@ -1,4 +1,4 @@
-import { acceptInviteSchema } from "@helpdesk/core";
+import { type AcceptInviteFormData, acceptInviteFormSchema } from "@helpdesk/core";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import axios from "axios";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
@@ -10,9 +10,6 @@ import FieldError from "@/components/ui/FieldError";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signIn } from "@/lib/auth-client";
-
-const passwordSchema = acceptInviteSchema.pick({ password: true });
-type PasswordForm = { password: string };
 
 export default function AcceptInvitePage() {
   const [params] = useSearchParams();
@@ -29,9 +26,9 @@ export default function AcceptInvitePage() {
     handleSubmit,
     setError,
     formState: { errors, isSubmitting },
-  } = useForm<PasswordForm>({
-    resolver: standardSchemaResolver(passwordSchema),
-    defaultValues: { password: "" },
+  } = useForm<AcceptInviteFormData>({
+    resolver: standardSchemaResolver(acceptInviteFormSchema),
+    defaultValues: { password: "", confirmPassword: "" },
   });
 
   // Pre-check the token so a dead link fails fast (and we can greet by name).
@@ -58,7 +55,7 @@ export default function AcceptInvitePage() {
     };
   }, [token]);
 
-  async function onSubmit({ password }: PasswordForm) {
+  async function onSubmit({ password }: AcceptInviteFormData) {
     try {
       const { data } = await axios.post<{ email: string }>("/api/invites/accept", {
         token,
@@ -147,6 +144,17 @@ export default function AcceptInvitePage() {
                   </button>
                 </div>
                 <FieldError message={errors.password?.message} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="accept-confirm-password">Confirm password</Label>
+                <Input
+                  id="accept-confirm-password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Re-enter your password"
+                  aria-invalid={!!errors.confirmPassword}
+                  {...register("confirmPassword")}
+                />
+                <FieldError message={errors.confirmPassword?.message} />
               </div>
               <Button
                 type="submit"
