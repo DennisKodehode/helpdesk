@@ -90,13 +90,18 @@ test.describe
       await toggle.click();
       await expect(toggle).toHaveAttribute("aria-checked", "true");
 
-      // The unsaved-changes hint appears next to the segmented control.
-      await expect(page.getByText("Lifecycle has unsaved changes")).toBeVisible();
+      // The unsaved-changes hint appears next to the segmented control (and
+      // also in the sticky save bar). Use .first() to avoid the strict-mode
+      // violation when both renders are in the DOM simultaneously.
+      await expect(page.getByText("Lifecycle has unsaved changes").first()).toBeVisible();
 
-      // The save bar appears in the page header — a "Revert" and a "Save changes"
-      // button become visible.
-      await expect(page.getByRole("button", { name: "Revert" })).toBeVisible();
-      const saveButton = page.getByRole("button", { name: "Save changes" });
+      // The page renders two identical action sets when dirty — the inline
+      // header actions and a sticky "Unsaved changes" save bar. Scope to the
+      // labelled region (same pattern as the SLA test in admin-features.spec.ts)
+      // to stay unambiguous.
+      const saveBar = page.getByRole("region", { name: "Unsaved changes" });
+      await expect(saveBar.getByRole("button", { name: "Revert" })).toBeVisible();
+      const saveButton = saveBar.getByRole("button", { name: "Save changes" });
       await expect(saveButton).toBeVisible();
 
       // Save — wait for the PATCH to complete; Playwright auto-waits on click.
@@ -105,7 +110,7 @@ test.describe
       // The "Saved" confirmation chip appears briefly after a successful save.
       // We don't assert it is gone (timing is fragile); asserting it appeared is
       // sufficient to confirm the server round-trip succeeded.
-      await expect(page.getByText("Saved")).toBeVisible();
+      await expect(page.getByText("Saved", { exact: true })).toBeVisible();
     });
 
     test("the toggled value persists after a page reload", async ({ page }) => {
@@ -140,8 +145,11 @@ test.describe
         await toggle.click();
         await expect(toggle).toHaveAttribute("aria-checked", "false");
 
-        await page.getByRole("button", { name: "Save changes" }).click();
-        await expect(page.getByText("Saved")).toBeVisible();
+        // Scope to the save bar region so the locator doesn't match both the
+        // header inline-actions and the sticky save bar simultaneously.
+        const saveBar = page.getByRole("region", { name: "Unsaved changes" });
+        await saveBar.getByRole("button", { name: "Save changes" }).click();
+        await expect(page.getByText("Saved", { exact: true })).toBeVisible();
       }
     });
   });

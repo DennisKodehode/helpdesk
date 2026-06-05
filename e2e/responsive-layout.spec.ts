@@ -118,8 +118,15 @@ test.describe("Mobile agent flow", () => {
     await loginAs(page, AGENT_EMAIL, AGENT_PASSWORD);
     await page.goto("/tickets");
 
-    // Wait for the ticket list to load (the seeded ticket's subject should appear).
-    await page.getByText(ticketSubject).click();
+    // Use getByRole with the full button name to avoid strict-mode violations
+    // when multiple tickets share the same subject (parallel test seeding).
+    // The mobile ticket card renders a button whose accessible name is built
+    // from subject + case number + sender + status.
+    const ticketButton = page
+      .getByRole("button")
+      .filter({ hasText: ticketSubject })
+      .filter({ hasText: `#${String(ticketId).padStart(4, "0")}` });
+    await ticketButton.click();
 
     // URL changes to the ticket detail route.
     await page.waitForURL(`/tickets/${ticketId}`);
@@ -134,12 +141,23 @@ test.describe("Mobile agent flow", () => {
 
   test("Back button on ticket detail returns to the tickets list", async ({ page }) => {
     await loginAs(page, AGENT_EMAIL, AGENT_PASSWORD);
-    await page.goto(`/tickets/${ticketId}`);
+
+    // Navigate via /tickets so the router history stack has an entry — then
+    // click into the seeded ticket so that navigate(-1) goes back to /tickets
+    // (not to some unrelated page). Direct page.goto(detail) would leave the
+    // history stack empty and navigate(-1) would go to "/" instead.
+    await page.goto("/tickets");
+    await page
+      .getByRole("button")
+      .filter({ hasText: ticketSubject })
+      .filter({ hasText: `#${String(ticketId).padStart(4, "0")}` })
+      .click();
+    await page.waitForURL(`/tickets/${ticketId}`);
 
     await expect(page.getByRole("button", { name: "Back" })).toBeVisible();
     await page.getByRole("button", { name: "Back" }).click();
 
-    // navigate(-1) goes back; we came from the tickets list.
+    // navigate(-1) goes back to /tickets (the list).
     await page.waitForURL("/tickets");
     await expect(page.getByRole("heading", { level: 1, name: "Tickets" })).toBeVisible();
   });
@@ -158,7 +176,10 @@ test.describe("Mobile agent flow", () => {
     // The sheet dialog has a title "Notifications" (DialogPrimitive.Title).
     const sheet = page.getByRole("dialog");
     await expect(sheet).toBeVisible();
-    await expect(sheet.getByText("Notifications")).toBeVisible();
+    // The sheet renders "Notifications" in both an h2 (DialogPrimitive.Title)
+    // and an eyebrow <p>. Use getByRole("heading") to target the title element
+    // and avoid the strict-mode violation that getByText would cause.
+    await expect(sheet.getByRole("heading", { name: "Notifications" })).toBeVisible();
 
     // Close button (aria-label="Close") dismisses the sheet.
     await sheet.getByRole("button", { name: "Close" }).click();
@@ -270,7 +291,8 @@ test.describe("Tablet master-detail layout", () => {
     // The icon rail nav items use aria-label (TabletRailItem). Verify the
     // primary nav items are present as links with the correct accessible names.
     await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Tickets" })).toBeVisible();
+    // Use exact: true so "Tickets" doesn't also match the "My tickets" link.
+    await expect(page.getByRole("link", { name: "Tickets", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "My tickets" })).toBeVisible();
     await expect(page.getByRole("link", { name: "My stats" })).toBeVisible();
 
@@ -306,9 +328,15 @@ test.describe("Tablet master-detail layout", () => {
     await loginAs(page, AGENT_EMAIL, AGENT_PASSWORD);
     await page.goto("/tickets");
 
-    // Wait for the list pane to finish loading; the seeded ticket's subject
-    // renders as a button in the list (TicketCard in TabletTicketListPane).
-    await page.getByRole("button", { name: ticketSubject }).click();
+    // Wait for the list pane to finish loading. Use a compound filter to
+    // uniquely identify the seeded ticket by both subject AND case number —
+    // parallel test seeding can produce multiple tickets with the same subject,
+    // which would cause a strict-mode violation on a plain name match.
+    await page
+      .getByRole("button")
+      .filter({ hasText: ticketSubject })
+      .filter({ hasText: `#${String(ticketId).padStart(4, "0")}` })
+      .click();
 
     // TicketsPage calls navigate(`/tickets/${id}`) on selection (TicketsPage.tsx).
     await page.waitForURL(`/tickets/${ticketId}`);
@@ -358,8 +386,9 @@ test.describe("Desktop layout — sidebar unchanged", () => {
     // The desktop sidebar renders SidebarLink items with visible text
     // (Sidebar.tsx). These are <a> elements with visible label text, unlike the
     // tablet icon rail which uses aria-label only.
+    // exact: true prevents "Tickets" from also matching the "My tickets" link.
     await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Tickets" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Tickets", exact: true })).toBeVisible();
   });
 
   test("desktop sidebar link text 'Helpdesk' brand is visible", async ({ page }) => {
@@ -374,8 +403,12 @@ test.describe("Desktop layout — sidebar unchanged", () => {
   test("desktop shows the 256px sidebar (not the 76px icon rail)", async ({ page }) => {
     await loginAs(page, AGENT_EMAIL, AGENT_PASSWORD);
 
-    // The desktop sidebar <aside> is fixed at w-64 = 256px.
+    // Wait for the sidebar to be rendered before measuring; loginAs only waits
+    // for URL "/" which may resolve before the layout is fully painted.
     const sidebar = page.locator("aside").first();
+    await expect(sidebar).toBeVisible();
+
+    // The desktop sidebar <aside> is fixed at w-64 = 256px.
     const box = await sidebar.boundingBox();
     expect(box?.width).toBe(256);
   });

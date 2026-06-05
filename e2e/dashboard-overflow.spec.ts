@@ -16,7 +16,7 @@ import { AGENT_EMAIL, AGENT_PASSWORD, loginAs } from "./helpers/auth";
 //
 // This test guards against regression by:
 //  1. Using a 910×800 viewport (tablet tier, where the bug reproduced)
-//  2. Seeding an urgent ticket backdated 2 hours (well past the 60-min first-
+//  2. Seeding an urgent ticket backdated 24 hours (well past the 60-min first-
 //     response SLA) with a 100-char subject so it appears in "Needs attention"
 //  3. Asserting the rendered bounding boxes of both dashboard regions do not
 //     extend past the 910px viewport width.
@@ -37,10 +37,18 @@ const LONG_SUBJECT =
   "Customer unable to complete purchase due to persistent checkout validation error blocking all payment methods";
 
 async function seedBreachedTicket(request: APIRequestContext): Promise<{ id: number }> {
-  // Backdate by 2 hours — the urgent SLA first-response target is 60 minutes,
-  // so at T+120m the ticket is solidly breached and will appear in the
-  // "Needs attention" card.
-  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+  // Backdate by 24 hours — the seeded urgent SLA first-response target is
+  // 60 minutes (1 hour), so a 24-hour-old ticket is solidly breached and
+  // will appear in the "Needs attention" card.
+  //
+  // Using 24h (not 2h) guards against cross-spec interference: the
+  // "SLA targets — save and revert" block in admin-features.spec.ts
+  // temporarily raises the urgent first-response SLA to 3 hours (180 min).
+  // A 2-hour backdate would fall below that threshold, making the ticket
+  // switch to `ok` state and vanish from "Needs attention" while the other
+  // spec is mid-run. 24h stays solidly breached regardless of any SLA edit
+  // another parallel worker may be applying simultaneously.
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
   const response = await request.post(SEED_TICKET_URL, {
     data: {
@@ -50,7 +58,7 @@ async function seedBreachedTicket(request: APIRequestContext): Promise<{ id: num
       body: "Unable to complete purchase. Checkout keeps failing.",
       status: "open",
       priority: "urgent",
-      createdAt: twoHoursAgo,
+      createdAt: oneDayAgo,
     },
     headers: { "content-type": "application/json" },
   });
@@ -98,10 +106,14 @@ test.describe
       // the same subject appears elsewhere on the page. The long subject must
       // appear in the card — if it does not, the bounding-box assertion would
       // silently pass even on a broken build (no wide content = no overflow).
+      // Allow extra time when the full suite runs in parallel — the server may
+      // be under load from concurrent workers, slowing the API response.
       const needsAttentionSection = page.getByRole("region", {
         name: "Needs attention",
       });
-      await expect(needsAttentionSection.getByText(LONG_SUBJECT).first()).toBeVisible();
+      await expect(needsAttentionSection.getByText(LONG_SUBJECT).first()).toBeVisible({
+        timeout: 15_000,
+      });
 
       // Core overflow assertion: measure the rendered bounding boxes of both
       // dashboard regions. Both NeedsAttentionCard and RecentActivityCard render
@@ -131,7 +143,9 @@ test.describe
       const needsAttentionSection = page.getByRole("region", {
         name: "Needs attention",
       });
-      await expect(needsAttentionSection.getByText(LONG_SUBJECT).first()).toBeVisible();
+      await expect(needsAttentionSection.getByText(LONG_SUBJECT).first()).toBeVisible({
+        timeout: 15_000,
+      });
 
       // The subject link sits inside the NeedsAttentionCard. Get the bounding box
       // of the subject text element and confirm it does not extend past the card.
