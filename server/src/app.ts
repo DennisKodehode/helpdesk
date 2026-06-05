@@ -12,6 +12,7 @@ import { auth } from "./lib/auth";
 import { env } from "./lib/env";
 import { logger } from "./lib/logger";
 import { requestLogger, sentryRequestTag } from "./middleware/request-logger";
+import adminAuditEventsRouter from "./routes/admin-audit-events";
 import agentsRouter from "./routes/agents";
 import { attachmentsRouter, uploadRouter } from "./routes/attachments";
 import auditRouter from "./routes/audit";
@@ -45,6 +46,7 @@ app.all("/api/auth/*splat", toNodeHandler(auth));
 // /api/health is handled by @godaddy/terminus on the http.Server (see index.ts).
 app.use("/api/agents", agentsRouter);
 app.use("/api/audit-events", auditRouter);
+app.use("/api/admin-audit-events", adminAuditEventsRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/invites", invitesRouter);
 app.use("/api/tickets", ticketsRouter);

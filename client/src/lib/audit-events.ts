@@ -13,7 +13,10 @@ export interface AuditEventFilters {
 // Admin activity-log query. Empty filter strings are omitted from the request
 // so the server treats them as "no filter". keepPreviousData keeps the table
 // populated while paging/filtering, mirroring the tickets queue.
-export function useAuditEvents({ type, actorId, from, to, page }: AuditEventFilters) {
+export function useAuditEvents(
+  { type, actorId, from, to, page }: AuditEventFilters,
+  enabled = true,
+) {
   return useQuery<PaginatedAuditEvents>({
     queryKey: ["audit-events", type, actorId, from, to, page],
     queryFn: ({ signal }) =>
@@ -30,5 +33,6 @@ export function useAuditEvents({ type, actorId, from, to, page }: AuditEventFilt
         })
         .then((r) => paginatedAuditEventsSchema.parse(r.data)),
     placeholderData: keepPreviousData,
+    enabled,
   });
 }

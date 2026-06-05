@@ -1,4 +1,5 @@
 import {
+  AdminAuditEventType,
   AuditEventType,
   inviteAgentSchema,
   isGlobalAdmin,
@@ -10,6 +11,7 @@ import {
 } from "@helpdesk/core";
 import { generateId } from "better-auth";
 import { Router } from "express";
+import { recordAdminAuditEvent } from "../lib/admin-audit";
 import { recordAuditEvent } from "../lib/audit";
 import { auth } from "../lib/auth";
 import { sendInviteEmail } from "../lib/email";
@@ -118,22 +120,34 @@ router.post("/", ...requireAdminChain, async (req, res) => {
   }
   const id = generateId();
   const now = new Date();
-  const user = await prisma.user.create({
-    data: {
-      id,
-      name,
-      email,
-      emailVerified: true,
-      role,
-      status: UserStatus.invited,
-      createdAt: now,
-      updatedAt: now,
-    },
-    select: { id: true, name: true, email: true, role: true, status: true },
-  });
   const { raw, tokenHash } = createInviteToken();
-  await prisma.invitation.create({
-    data: { userId: id, tokenHash, expiresAt: inviteExpiresAt(now) },
+  // User + invitation + audit commit together.
+  const user = await prisma.$transaction(async (tx) => {
+    const created = await tx.user.create({
+      data: {
+        id,
+        name,
+        email,
+        emailVerified: true,
+        role,
+        status: UserStatus.invited,
+        createdAt: now,
+        updatedAt: now,
+      },
+      select: { id: true, name: true, email: true, role: true, status: true },
+    });
+    await tx.invitation.create({
+      data: { userId: id, tokenHash, expiresAt: inviteExpiresAt(now) },
+    });
+    await recordAdminAuditEvent(tx, {
+      actorId: req.user!.id,
+      actorName: req.user!.name,
+      type: AdminAuditEventType.user_invited,
+      targetUserId: created.id,
+      targetName: created.name,
+      data: { role },
+    });
+    return created;
   });
   // Don't fail the invite if the email send hiccups — the admin can Resend.
   try {
@@ -169,10 +183,19 @@ router.post("/:id/invite/resend", ...requireAdminChain, async (req, res) => {
   }
   const { raw, tokenHash } = createInviteToken();
   const expiresAt = inviteExpiresAt();
-  await prisma.invitation.upsert({
-    where: { userId: id },
-    create: { userId: id, tokenHash, expiresAt },
-    update: { tokenHash, expiresAt },
+  await prisma.$transaction(async (tx) => {
+    await tx.invitation.upsert({
+      where: { userId: id },
+      create: { userId: id, tokenHash, expiresAt },
+      update: { tokenHash, expiresAt },
+    });
+    await recordAdminAuditEvent(tx, {
+      actorId: req.user!.id,
+      actorName: req.user!.name,
+      type: AdminAuditEventType.invite_resent,
+      targetUserId: user.id,
+      targetName: user.name,
+    });
   });
   try {
     await sendInviteEmail({
@@ -229,10 +252,23 @@ router.patch("/:id/role", ...requireAdminChain, async (req, res) => {
       return;
     }
   }
-  const updated = await prisma.user.update({
-    where: { id },
-    data: { role, updatedAt: new Date() },
-    select: { id: true, name: true, email: true, role: true, status: true },
+  const updated = await prisma.$transaction(async (tx) => {
+    const u = await tx.user.update({
+      where: { id },
+      data: { role, updatedAt: new Date() },
+      select: { id: true, name: true, email: true, role: true, status: true },
+    });
+    if (role !== target.role) {
+      await recordAdminAuditEvent(tx, {
+        actorId: req.user!.id,
+        actorName: req.user!.name,
+        type: AdminAuditEventType.user_role_changed,
+        targetUserId: u.id,
+        targetName: u.name,
+        data: { from: target.role, to: role },
+      });
+    }
+    return u;
   });
   res.json(updated);
 });
@@ -273,10 +309,25 @@ router.patch("/:id/status", ...requireAdminChain, async (req, res) => {
       return;
     }
   }
-  const updated = await prisma.user.update({
-    where: { id },
-    data: { status, updatedAt: new Date() },
-    select: { id: true, name: true, email: true, role: true, status: true },
+  const updated = await prisma.$transaction(async (tx) => {
+    const u = await tx.user.update({
+      where: { id },
+      data: { status, updatedAt: new Date() },
+      select: { id: true, name: true, email: true, role: true, status: true },
+    });
+    if (status !== target.status) {
+      await recordAdminAuditEvent(tx, {
+        actorId: req.user!.id,
+        actorName: req.user!.name,
+        type:
+          status === UserStatus.inactive
+            ? AdminAuditEventType.user_deactivated
+            : AdminAuditEventType.user_reactivated,
+        targetUserId: u.id,
+        targetName: u.name,
+      });
+    }
+    return u;
   });
   if (status === UserStatus.inactive) {
     await prisma.session.deleteMany({ where: { userId: id } });
@@ -329,9 +380,18 @@ router.delete("/:id", ...requireAdminChain, async (req, res) => {
     });
   }
 
-  await prisma.user.update({
-    where: { id },
-    data: { email: `deleted-${id}@deleted.invalid`, deletedAt: now },
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id },
+      data: { email: `deleted-${id}@deleted.invalid`, deletedAt: now },
+    });
+    await recordAdminAuditEvent(tx, {
+      actorId,
+      actorName: req.user!.name,
+      type: AdminAuditEventType.user_deleted,
+      targetUserId: id,
+      targetName: target.name,
+    });
   });
   await prisma.session.deleteMany({ where: { userId: id } });
   await prisma.account.deleteMany({ where: { userId: id } });
@@ -377,15 +437,36 @@ router.patch("/:id", ...requireAdminChain, async (req, res) => {
   }
 
   const now = new Date();
-  const updatedUser = await prisma.user.update({
-    where: { id },
-    data: { name, email, updatedAt: now },
-    select: { id: true, name: true, email: true, role: true, createdAt: true },
+  const passwordReset = !!(password && password.trim().length > 0);
+  const fields = [
+    ...(name !== target.name ? ["name"] : []),
+    ...(email !== target.email ? ["email"] : []),
+  ];
+
+  const updatedUser = await prisma.$transaction(async (tx) => {
+    const u = await tx.user.update({
+      where: { id },
+      data: { name, email, updatedAt: now },
+      select: { id: true, name: true, email: true, role: true, createdAt: true },
+    });
+    // Record only meaningful edits. `passwordReset` is a boolean flag — the
+    // password value is NEVER written to the audit log.
+    if (fields.length > 0 || passwordReset) {
+      await recordAdminAuditEvent(tx, {
+        actorId: req.user!.id,
+        actorName: req.user!.name,
+        type: AdminAuditEventType.user_edited,
+        targetUserId: u.id,
+        targetName: u.name,
+        data: { fields, passwordReset },
+      });
+    }
+    return u;
   });
 
-  if (password && password.trim().length > 0) {
+  if (passwordReset) {
     const ctx = await auth.$context;
-    const hashedPassword = await ctx.password.hash(password.trim());
+    const hashedPassword = await ctx.password.hash(password!.trim());
     await ctx.internalAdapter.updatePassword(id, hashedPassword);
   }
 

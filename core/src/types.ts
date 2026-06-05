@@ -119,6 +119,21 @@ export enum AuditEventType {
   auto_closed = "auto_closed",
 }
 
+// Admin-action audit log event types — distinct from AuditEventType (which is
+// ticket-scoped). These cover security-sensitive admin/config mutations and are
+// only ever surfaced on the admin-only activity view, never the agent dashboard.
+export enum AdminAuditEventType {
+  user_invited = "user_invited",
+  invite_resent = "invite_resent",
+  user_role_changed = "user_role_changed",
+  user_deactivated = "user_deactivated",
+  user_reactivated = "user_reactivated",
+  user_deleted = "user_deleted",
+  user_edited = "user_edited",
+  sla_targets_changed = "sla_targets_changed",
+  workflow_settings_changed = "workflow_settings_changed",
+}
+
 // Sentinels for the activity-log `actorId` query param. Distinguish "no actor
 // filter" (omitted) from the two non-human actor classes the UI can't name with
 // a user id: `system` → events with `actorId IS NULL` (automated, or a deleted

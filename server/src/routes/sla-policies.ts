@@ -1,5 +1,10 @@
-import { TicketPriority, updateSlaPolicySchema } from "@helpdesk/core";
+import {
+  AdminAuditEventType,
+  TicketPriority,
+  updateSlaPolicySchema,
+} from "@helpdesk/core";
 import { Router } from "express";
+import { recordAdminAuditEvent } from "../lib/admin-audit";
 import { prisma } from "../lib/prisma";
 import { firstIssue } from "../lib/validation";
 import { requireAdminChain, requireAuth } from "../middleware/auth-middleware";
@@ -40,9 +45,32 @@ router.patch("/:priority", ...requireAdminChain, async (req, res) => {
     return;
   }
 
-  const updated = await prisma.slaPolicy.update({
-    where: { priority: priority as TicketPriority },
-    data: result.data,
+  const before = {
+    firstResponseMinutes: existing.firstResponseMinutes,
+    resolutionMinutes: existing.resolutionMinutes,
+  };
+  const updated = await prisma.$transaction(async (tx) => {
+    const row = await tx.slaPolicy.update({
+      where: { priority: priority as TicketPriority },
+      data: result.data,
+    });
+    const after = {
+      firstResponseMinutes: row.firstResponseMinutes,
+      resolutionMinutes: row.resolutionMinutes,
+    };
+    if (
+      before.firstResponseMinutes !== after.firstResponseMinutes ||
+      before.resolutionMinutes !== after.resolutionMinutes
+    ) {
+      await recordAdminAuditEvent(tx, {
+        actorId: req.user!.id,
+        actorName: req.user!.name,
+        type: AdminAuditEventType.sla_targets_changed,
+        targetName: `SLA · ${priority}`,
+        data: { before, after },
+      });
+    }
+    return row;
   });
   res.json({
     priority: updated.priority,

@@ -1,4 +1,6 @@
 import {
+  AdminAuditEventType,
+  type AdminAuditRow,
   type AuditEventRow,
   AuditEventType,
   type HealthSignalsResponse,
@@ -46,10 +48,21 @@ const HEALTH_SIGNALS: HealthSignalsResponse = {
   ],
 };
 
+const ADMIN_ROW: AdminAuditRow = {
+  id: "a1",
+  type: AdminAuditEventType.user_deactivated,
+  actorName: "Owner",
+  targetUserId: "u1",
+  targetName: "Sam",
+  data: {},
+  createdAt: new Date().toISOString(),
+};
+
 function mockApi({
   events = [] as AuditEventRow[],
   total = 0,
   rejectAudit = false,
+  adminEvents = [] as AdminAuditRow[],
 } = {}) {
   vi.mocked(axios.get).mockImplementation((url: string) => {
     if (url === "/api/users/roster") return Promise.resolve({ data: [] });
@@ -59,6 +72,11 @@ function mockApi({
       return rejectAudit
         ? Promise.reject(new Error("boom"))
         : Promise.resolve({ data: { data: events, total, page: 1, pageSize: 25 } });
+    }
+    if (url === "/api/admin-audit-events") {
+      return Promise.resolve({
+        data: { data: adminEvents, total: adminEvents.length, page: 1, pageSize: 25 },
+      });
     }
     return Promise.resolve({ data: {} });
   });
@@ -180,5 +198,30 @@ describe("ActivityPage", () => {
         }),
       ).toBe(true);
     });
+  });
+
+  it("the Admin activity tab fetches + renders admin events", async () => {
+    mockApi({ adminEvents: [ADMIN_ROW] });
+    renderWithProviders(<ActivityPage />, { initialEntries: ["/activity"] });
+
+    await userEvent.click(screen.getByRole("tab", { name: "Admin activity" }));
+
+    expect(await screen.findByText(/Owner deactivated Sam/i)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(axios.get).toHaveBeenCalledWith(
+        "/api/admin-audit-events",
+        expect.anything(),
+      ),
+    );
+  });
+
+  it("does not fetch the admin log while on the tickets tab", async () => {
+    mockApi({ events: [ROW], total: 1 });
+    renderWithProviders(<ActivityPage />, { initialEntries: ["/activity"] });
+    await screen.findByText(/Alice Agent changed status/i);
+
+    expect(
+      vi.mocked(axios.get).mock.calls.some((c) => c[0] === "/api/admin-audit-events"),
+    ).toBe(false);
   });
 });

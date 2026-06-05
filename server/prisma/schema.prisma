@@ -65,6 +65,7 @@ model User {
   notifications        Notification[] @relation("NotificationRecipient")
   triggeredNotifications Notification[] @relation("NotificationActor")
   auditEvents          AuditEvent[]   @relation("AuditEventActor")
+  adminAuditEvents     AdminAuditEvent[] @relation("AdminAuditActor")
   invitation           Invitation?
 
   @@map("user")
@@ -307,4 +308,38 @@ model AuditEvent {
   // Primary "investigate one actor over time" filter for the activity log.
   @@index([actorId, createdAt])
   @@map("audit_event")
+}
+
+enum AdminAuditEventType {
+  user_invited
+  invite_resent
+  user_role_changed
+  user_deactivated
+  user_reactivated
+  user_deleted
+  user_edited
+  sla_targets_changed
+  workflow_settings_changed
+}
+
+// Append-only audit log for admin/config mutations — separate from AuditEvent
+// (which is ticket-scoped). Admin-only by construction: the agent-facing
+// recent-activity endpoint never reads this table. actorName/targetName are
+// denormalized snapshots so a record stays legible after the referenced users
+// are deleted (actorId is SetNull, but the name persists).
+model AdminAuditEvent {
+  id           String              @id @default(cuid())
+  actorId      String?
+  actor        User?               @relation("AdminAuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  actorName    String
+  type         AdminAuditEventType
+  targetUserId String?
+  targetName   String?
+  data         Json?
+  createdAt    DateTime            @default(now())
+
+  @@index([createdAt])
+  @@index([actorId, createdAt])
+  @@index([type, createdAt])
+  @@map("admin_audit_event")
 }

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  AdminAuditEventType,
   AuditEventType,
   AutoAssignMode,
   NotificationType,
@@ -590,6 +591,46 @@ export const paginatedAuditEventsSchema = z.object({
 });
 
 export type PaginatedAuditEvents = z.infer<typeof paginatedAuditEventsSchema>;
+
+// --- Admin-action audit log (separate from the ticket AuditEvent) ----------
+// Admin-only log of user-management + config mutations. The row carries
+// denormalized `actorName`/`targetName` snapshots so it stays legible after the
+// referenced users are deleted (the actor FK is SetNull, but the name persists).
+// `targetName` doubles as the human label of what was affected: a user's name
+// (bucket A) or a config area like "SLA · Urgent" / "Workflow" (bucket B).
+export const adminAuditRowSchema = z.object({
+  id: z.string(),
+  type: z.enum(AdminAuditEventType),
+  actorName: z.string(),
+  targetUserId: z.string().nullable(),
+  targetName: z.string().nullable(),
+  data: z.unknown(),
+  createdAt: z.string(),
+});
+
+export type AdminAuditRow = z.infer<typeof adminAuditRowSchema>;
+
+// Mirrors auditEventQuerySchema. `actorId` is free-form (a user id) or the
+// ACTOR_SYSTEM_FILTER_VALUE sentinel (events whose actor was deleted → null).
+export const adminAuditEventQuerySchema = z.object({
+  type: z.enum(AdminAuditEventType).optional(),
+  actorId: z.string().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+});
+
+export type AdminAuditEventQuery = z.infer<typeof adminAuditEventQuerySchema>;
+
+export const paginatedAdminAuditEventsSchema = z.object({
+  data: z.array(adminAuditRowSchema),
+  total: z.number(),
+  page: z.number(),
+  pageSize: z.number(),
+});
+
+export type PaginatedAdminAuditEvents = z.infer<typeof paginatedAdminAuditEventsSchema>;
 
 // Dashboard needs-attention — active tickets at risk of or past an SLA target.
 export const needsAttentionRowSchema = z.object({
