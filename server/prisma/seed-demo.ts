@@ -1366,7 +1366,8 @@ async function seedBackfill(agentIds: Record<AgentKey, string>, aiUserId: string
           status,
           assignedToId,
           createdAt,
-          updatedAt: closedAt ?? resolvedAt ?? reopenedAt ?? firstAgentReplyAt ?? createdAt,
+          updatedAt:
+            closedAt ?? resolvedAt ?? reopenedAt ?? firstAgentReplyAt ?? createdAt,
           resolvedAt,
           closedAt,
           firstAgentReplyAt,

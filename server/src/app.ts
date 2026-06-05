@@ -3,7 +3,11 @@ import path from "node:path";
 import * as Sentry from "@sentry/node";
 import { toNodeHandler } from "better-auth/node";
 import cors from "cors";
-import express, { type ErrorRequestHandler, type RequestHandler } from "express";
+import express, {
+  type ErrorRequestHandler,
+  type Request,
+  type RequestHandler,
+} from "express";
 import { auth } from "./lib/auth";
 import { env } from "./lib/env";
 import { logger } from "./lib/logger";
@@ -28,8 +32,10 @@ app.use(sentryRequestTag);
 app.use(cors({ origin: env.CLIENT_URL, credentials: true }) as RequestHandler);
 app.use(
   express.json({
-    verify: (req: any, _res, buf) => {
-      req.rawBody = buf.toString();
+    verify: (req, _res, buf) => {
+      // body-parser types `req` as http.IncomingMessage; it's an Express
+      // Request at runtime, where `rawBody` is augmented (auth-middleware).
+      (req as Request).rawBody = buf.toString();
     },
   }),
 );

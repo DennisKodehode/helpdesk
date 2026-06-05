@@ -194,7 +194,7 @@ function isAutoSubmittedOrBounce(
 }
 
 router.post("/", webhookLimiter, async (req, res) => {
-  const rawPayload = (req as any).rawBody ?? JSON.stringify(req.body);
+  const rawPayload = req.rawBody ?? JSON.stringify(req.body);
 
   try {
     resend.webhooks.verify({

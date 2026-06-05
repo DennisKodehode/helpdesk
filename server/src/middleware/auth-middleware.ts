@@ -7,6 +7,9 @@ declare global {
     interface Request {
       user?: Session["user"];
       session?: Session["session"];
+      // Raw request body captured by express.json's `verify` hook, used for
+      // webhook signature verification (see inbound-email route).
+      rawBody?: string;
     }
   }
 }
