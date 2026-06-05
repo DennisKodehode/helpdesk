@@ -2,6 +2,7 @@ import { hasAdminAccess, Role } from "@helpdesk/core";
 import { ChevronsUpDown, LogOut, Moon, Sun } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router";
+import { RoleShield } from "@/components/RoleShield";
 import { Link } from "@/components/ui/link";
 import { useMyOpenCount } from "@/lib/my-tickets";
 import {
@@ -217,7 +218,8 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
             <p className="truncate text-[14px] font-medium text-foreground leading-tight">
               {name || "Account"}
             </p>
-            <p className="truncate font-mono text-[11px] text-ink-3 leading-tight mt-0.5">
+            <p className="flex items-center gap-1.5 truncate font-mono text-[11px] text-ink-3 leading-tight mt-0.5">
+              <RoleShield role={role as Role} className="size-3" />
               {ROLE_LABEL[role as Role] ?? "Agent"}
             </p>
           </div>

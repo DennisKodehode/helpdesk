@@ -2,9 +2,23 @@ import { hasAdminAccess, Role, type RosterAgent, UserStatus } from "@helpdesk/co
 import AgentRoleMenu from "@/components/AgentRoleMenu";
 import AgentRowMenu, { type AgentRowAction } from "@/components/AgentRowMenu";
 import AgentStatusPill from "@/components/AgentStatusPill";
+import { RoleShield } from "@/components/RoleShield";
 import ErrorAlert from "@/components/ui/ErrorAlert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDurationShort, formatRelative } from "@/lib/ticket-ui";
+
+// Quiet marker for the protected global-admin (owner) row — reads as a
+// deliberate "can't be modified" affordance rather than an empty actions cell.
+function OwnerMarker() {
+  return (
+    <span
+      title="The global admin is protected and can't be modified"
+      className="inline-flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[0.06em] text-ink-4"
+    >
+      <RoleShield role={Role.globalAdmin} className="size-3" /> Owner
+    </span>
+  );
+}
 
 function initials(name: string): string {
   return name
@@ -152,7 +166,9 @@ export default function RosterTable({
                       <AgentRoleMenu
                         role={a.role}
                         onChange={(role) => onRoleChange(a.id, role)}
-                        readOnly={!canChangeRole}
+                        readOnly={a.role === Role.globalAdmin}
+                        disabled={a.role !== Role.globalAdmin && !canChangeRole}
+                        disabledTitle="Only a global admin can change roles."
                       />
                     </td>
                     <td className="px-4 py-[15px]">
@@ -171,10 +187,14 @@ export default function RosterTable({
                       {a.lastActiveAt ? formatRelative(a.lastActiveAt) : "—"}
                     </td>
                     <td className="px-4 py-[15px] text-right">
-                      {canRowActions && (
+                      {a.role === Role.globalAdmin ? (
+                        <OwnerMarker />
+                      ) : (
                         <AgentRowMenu
                           status={a.status}
                           onAction={(action) => onAction(a.id, action)}
+                          disabled={!canRowActions}
+                          disabledTitle="Only a global admin can manage admin accounts."
                         />
                       )}
                     </td>
@@ -224,10 +244,14 @@ export default function RosterTable({
                       </div>
                     </div>
                   </div>
-                  {canRowActions && (
+                  {a.role === Role.globalAdmin ? (
+                    <OwnerMarker />
+                  ) : (
                     <AgentRowMenu
                       status={a.status}
                       onAction={(action) => onAction(a.id, action)}
+                      disabled={!canRowActions}
+                      disabledTitle="Only a global admin can manage admin accounts."
                     />
                   )}
                 </div>
@@ -235,7 +259,9 @@ export default function RosterTable({
                   <AgentRoleMenu
                     role={a.role}
                     onChange={(role) => onRoleChange(a.id, role)}
-                    readOnly={!canChangeRole}
+                    readOnly={a.role === Role.globalAdmin}
+                    disabled={a.role !== Role.globalAdmin && !canChangeRole}
+                    disabledTitle="Only a global admin can change roles."
                   />
                   <AgentStatusPill status={a.status} />
                 </div>

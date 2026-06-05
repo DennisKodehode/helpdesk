@@ -1,6 +1,7 @@
 import type { Role } from "@helpdesk/core";
 import { LogOut, Moon, Sun } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { RoleShield } from "@/components/RoleShield";
 import { useSession } from "@/lib/auth-client";
 import { useTheme } from "@/lib/theme";
 import { ROLE_LABEL } from "@/lib/ticket-ui";
@@ -70,7 +71,8 @@ export default function TabletAccountMenu() {
             <p className="truncate text-[14px] font-medium text-foreground leading-tight">
               {name || "Account"}
             </p>
-            <p className="truncate font-mono text-[11px] text-ink-3 leading-tight mt-0.5">
+            <p className="flex items-center gap-1.5 truncate font-mono text-[11px] text-ink-3 leading-tight mt-0.5">
+              <RoleShield role={role as Role} className="size-3" />
               {ROLE_LABEL[role as Role] ?? "Agent"}
             </p>
           </div>

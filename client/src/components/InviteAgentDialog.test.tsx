@@ -90,15 +90,18 @@ describe("InviteAgentDialog", () => {
     expect(screen.getByText(/can manage agents and sla targets/i)).toBeInTheDocument();
   });
 
-  it("hides the role picker entirely for a non-global-admin", () => {
+  it("shows the Admin option disabled + the gate note for a non-global-admin", () => {
     setup(false);
-    // No Admin option, and the whole Role selector is gone — a regular admin
-    // can only ever invite agents.
-    expect(screen.queryByRole("radio", { name: "Admin" })).not.toBeInTheDocument();
-    expect(screen.queryByText("Role")).not.toBeInTheDocument();
+    // Both options visible; Admin is present but disabled (not hidden), and a
+    // note spells out the restriction.
+    expect(screen.getByRole("radio", { name: "Agent" })).toBeEnabled();
+    expect(screen.getByRole("radio", { name: "Admin" })).toBeDisabled();
+    expect(
+      screen.getByText(/only a global admin can grant the admin role/i),
+    ).toBeInTheDocument();
   });
 
-  it("invites as an agent when the role picker is hidden", async () => {
+  it("invites as an agent when the viewer can't grant admin", async () => {
     vi.mocked(axios.post).mockResolvedValue({ data: { id: "x" } });
     const user = userEvent.setup();
     setup(false);

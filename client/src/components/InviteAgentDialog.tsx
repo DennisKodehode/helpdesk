@@ -19,8 +19,8 @@ import { useInviteAgent } from "@/lib/agents";
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  // Only the global admin may invite admins; for everyone else the role selector
-  // collapses to Agent-only (the server rejects an admin invite regardless).
+  // Only the global admin may invite admins; for everyone else the Admin role
+  // option is shown disabled (the server rejects an admin invite regardless).
   canInviteAdmins: boolean;
   onInvited: (email: string) => void;
 }
@@ -108,49 +108,66 @@ export default function InviteAgentDialog({
             />
             <FieldError message={errors.email?.message} />
           </div>
-          {canInviteAdmins && (
-            <div className="flex flex-col gap-1.5">
-              <Label>Role</Label>
-              <Controller
-                name="role"
-                control={control}
-                render={({ field }) => (
-                  // Segmented look, real radio semantics (visually-hidden inputs).
-                  <fieldset className="inline-flex gap-1 self-start rounded-[var(--r-sm)] border border-border bg-panel-2 p-1">
-                    <legend className="sr-only">Role</legend>
-                    {[
-                      { value: Role.agent, label: "Agent", icon: false },
-                      { value: Role.admin, label: "Admin", icon: true },
-                    ].map(({ value, label, icon }) => (
-                      <label
-                        key={value}
-                        className={`inline-flex cursor-pointer items-center gap-1.5 rounded-[6px] px-3 py-1.5 text-[13px] transition-colors ${
-                          field.value === value
-                            ? "bg-card font-semibold text-foreground shadow-[var(--shadow-sm)]"
-                            : "text-ink-3 hover:text-foreground"
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="invite-role"
-                          className="sr-only"
-                          checked={field.value === value}
-                          onChange={() => field.onChange(value)}
-                        />
-                        {icon && <ShieldCheck className="size-3.5" aria-hidden />}
-                        {label}
-                      </label>
-                    ))}
-                  </fieldset>
-                )}
-              />
-              <p className="text-[12.5px] text-ink-4">
-                {role === Role.admin
+          {/* Both options always shown — a non-global admin sees the Admin
+              segment *disabled* (greyed, with a tooltip) rather than hidden, so
+              the gate is visible. The server rejects an admin invite from anyone
+              else regardless. */}
+          <div className="flex flex-col gap-1.5">
+            <Label>Role</Label>
+            <Controller
+              name="role"
+              control={control}
+              render={({ field }) => (
+                // Segmented look, real radio semantics (visually-hidden inputs).
+                <fieldset className="inline-flex gap-1 self-start rounded-[var(--r-sm)] border border-border bg-panel-2 p-1">
+                  <legend className="sr-only">Role</legend>
+                  {[
+                    { value: Role.agent, label: "Agent", icon: false, disabled: false },
+                    {
+                      value: Role.admin,
+                      label: "Admin",
+                      icon: true,
+                      disabled: !canInviteAdmins,
+                    },
+                  ].map(({ value, label, icon, disabled }) => (
+                    <label
+                      key={value}
+                      title={
+                        disabled
+                          ? "Only a global admin can grant the Admin role."
+                          : undefined
+                      }
+                      className={`inline-flex items-center gap-1.5 rounded-[6px] px-3 py-1.5 text-[13px] transition-colors ${
+                        disabled
+                          ? "cursor-not-allowed text-ink-4 opacity-50"
+                          : field.value === value
+                            ? "cursor-pointer bg-card font-semibold text-foreground shadow-[var(--shadow-sm)]"
+                            : "cursor-pointer text-ink-3 hover:text-foreground"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="invite-role"
+                        className="sr-only"
+                        checked={field.value === value}
+                        disabled={disabled}
+                        onChange={() => field.onChange(value)}
+                      />
+                      {icon && <ShieldCheck className="size-3.5" aria-hidden />}
+                      {label}
+                    </label>
+                  ))}
+                </fieldset>
+              )}
+            />
+            <p className="text-[12.5px] text-ink-4">
+              {!canInviteAdmins
+                ? "Can triage, reply to, and resolve tickets. Only a global admin can grant the Admin role."
+                : role === Role.admin
                   ? "Can manage agents and SLA targets, and force any status transition."
                   : "Can triage, reply to, and resolve tickets."}
-              </p>
-            </div>
-          )}
+            </p>
+          </div>
           <DialogFooter className="mt-2">
             <Button type="button" variant="ghost" onClick={() => handleOpenChange(false)}>
               Cancel

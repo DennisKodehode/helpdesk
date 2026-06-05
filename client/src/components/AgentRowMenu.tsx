@@ -13,9 +13,34 @@ export type AgentRowAction = "resend" | "deactivate" | "reactivate" | "remove";
 interface Props {
   status: UserStatus;
   onAction: (action: AgentRowAction) => void;
+  // Render the kebab greyed + inert with a tooltip — the viewer sees the control
+  // but isn't allowed to act on this row (e.g. a regular admin on an admin row).
+  disabled?: boolean;
+  disabledTitle?: string;
 }
 
-export default function AgentRowMenu({ status, onAction }: Props) {
+export default function AgentRowMenu({
+  status,
+  onAction,
+  disabled,
+  disabledTitle,
+}: Props) {
+  if (disabled) {
+    // Wrapper span carries the title — a native disabled button suppresses its own.
+    return (
+      <span title={disabledTitle} className="inline-flex">
+        <button
+          type="button"
+          disabled
+          aria-label="Agent actions"
+          className="inline-flex size-9 cursor-not-allowed items-center justify-center rounded-[var(--r-sm)] text-ink-3 opacity-40"
+        >
+          <MoreHorizontal className="size-4" aria-hidden />
+        </button>
+      </span>
+    );
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger

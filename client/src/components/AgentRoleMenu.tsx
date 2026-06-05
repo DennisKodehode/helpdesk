@@ -1,5 +1,6 @@
-import { hasAdminAccess, Role } from "@helpdesk/core";
+import { Role } from "@helpdesk/core";
 import { Check, ChevronDown, ShieldCheck } from "lucide-react";
+import { RoleShield } from "@/components/RoleShield";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,19 +12,45 @@ import { BADGE_BASE, ROLE_BADGE, ROLE_LABEL } from "@/lib/ticket-ui";
 interface Props {
   role: Role;
   onChange: (role: Role) => void;
-  // Render a static badge with no dropdown — used when the viewer isn't allowed
-  // to change this row's role (regular admins, or any view of the global admin).
+  // Static badge with no dropdown — the global-admin (owner) row, where the role
+  // isn't an editable control for anyone.
   readOnly?: boolean;
+  // Render the dropdown *look* but greyed + inert, with a tooltip — used when the
+  // viewer can see the control a global admin has but isn't allowed to use it.
+  disabled?: boolean;
+  disabledTitle?: string;
 }
 
-export default function AgentRoleMenu({ role, onChange, readOnly }: Props) {
-  const showShield = hasAdminAccess(role);
-
+export default function AgentRoleMenu({
+  role,
+  onChange,
+  readOnly,
+  disabled,
+  disabledTitle,
+}: Props) {
   if (readOnly) {
     return (
       <span className={`${BADGE_BASE} ${ROLE_BADGE[role]}`}>
-        {showShield && <ShieldCheck className="size-3" aria-hidden />}
+        <RoleShield role={role} className="size-3" />
         {ROLE_LABEL[role]}
+      </span>
+    );
+  }
+
+  if (disabled) {
+    // Wrapper span carries the title — a native disabled button suppresses its own.
+    return (
+      <span title={disabledTitle} className="inline-flex">
+        <button
+          type="button"
+          disabled
+          aria-label="Change role"
+          className={`${BADGE_BASE} cursor-not-allowed pr-1.5 opacity-50 ${ROLE_BADGE[role]}`}
+        >
+          <RoleShield role={role} className="size-3" />
+          {ROLE_LABEL[role]}
+          <ChevronDown className="size-3 opacity-60" aria-hidden />
+        </button>
       </span>
     );
   }
@@ -36,7 +63,7 @@ export default function AgentRoleMenu({ role, onChange, readOnly }: Props) {
         aria-label="Change role"
         className={`${BADGE_BASE} cursor-pointer pr-1.5 outline-none ${ROLE_BADGE[role]}`}
       >
-        {showShield && <ShieldCheck className="size-3" aria-hidden />}
+        <RoleShield role={role} className="size-3" />
         {ROLE_LABEL[role]}
         <ChevronDown className="size-3 opacity-60" aria-hidden />
       </DropdownMenuTrigger>

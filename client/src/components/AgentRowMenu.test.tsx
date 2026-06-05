@@ -50,4 +50,22 @@ describe("AgentRowMenu", () => {
       await screen.findByRole("menuitem", { name: /reactivate/i }),
     ).toBeInTheDocument();
   });
+
+  it("renders a visible-but-disabled kebab when disabled (no menu)", async () => {
+    const onAction = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(
+      <AgentRowMenu
+        status={UserStatus.active}
+        onAction={onAction}
+        disabled
+        disabledTitle="Only a global admin can manage admin accounts."
+      />,
+    );
+    const btn = screen.getByRole("button", { name: /agent actions/i });
+    expect(btn).toBeDisabled();
+    await user.click(btn).catch(() => {});
+    expect(screen.queryByRole("menuitem")).not.toBeInTheDocument();
+    expect(onAction).not.toHaveBeenCalled();
+  });
 });

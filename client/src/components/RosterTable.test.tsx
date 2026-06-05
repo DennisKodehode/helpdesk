@@ -52,19 +52,33 @@ describe("RosterTable role gating", () => {
     expect(table().getByText("Global admin")).toBeInTheDocument();
   });
 
-  it("for a regular admin: no role is editable, only the agent row is actionable", () => {
-    render(false);
-    // No interactive role menus at all — a regular admin can't change any role.
-    expect(table().queryAllByLabelText("Change role")).toHaveLength(0);
-    // Only the agent row exposes the actions menu (admin + global-admin locked).
-    expect(table().getAllByLabelText("Agent actions")).toHaveLength(1);
+  it("marks the protected owner row with an OWNER affordance (no empty cell)", () => {
+    render(true); // even the global admin can't act on the owner row
+    expect(table().getByText("Owner")).toBeInTheDocument();
   });
 
-  it("for the global admin: agent + admin rows are editable/actionable, the owner row is locked", () => {
+  it("for a regular admin: controls are visible but disabled where not permitted", () => {
+    render(false);
+    // Role: agent + admin rows show a (disabled) dropdown; the owner row is a
+    // static badge with no control.
+    const roleButtons = table().getAllByLabelText("Change role");
+    expect(roleButtons).toHaveLength(2);
+    for (const b of roleButtons) expect(b).toBeDisabled();
+    // Actions: agent row enabled (any admin manages agents), admin row disabled;
+    // owner row shows the OWNER marker (no button). DOM order: agent, admin.
+    const actionButtons = table().getAllByLabelText("Agent actions");
+    expect(actionButtons).toHaveLength(2);
+    expect(actionButtons[0]).toBeEnabled(); // agent row
+    expect(actionButtons[1]).toBeDisabled(); // admin row
+  });
+
+  it("for the global admin: agent + admin rows are fully interactive, owner row locked", () => {
     render(true);
-    // Agent + admin rows get an interactive role menu; the global-admin row does not.
-    expect(table().getAllByLabelText("Change role")).toHaveLength(2);
-    // Agent + admin rows get actions; the global-admin (owner) row stays locked.
-    expect(table().getAllByLabelText("Agent actions")).toHaveLength(2);
+    const roleButtons = table().getAllByLabelText("Change role");
+    expect(roleButtons).toHaveLength(2);
+    for (const b of roleButtons) expect(b).toBeEnabled();
+    const actionButtons = table().getAllByLabelText("Agent actions");
+    expect(actionButtons).toHaveLength(2);
+    for (const b of actionButtons) expect(b).toBeEnabled();
   });
 });
