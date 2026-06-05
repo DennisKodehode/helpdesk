@@ -1,8 +1,9 @@
-import { Role } from "@helpdesk/core";
+import type { Role } from "@helpdesk/core";
 import { LogOut, Moon, Sun } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "@/lib/auth-client";
 import { useTheme } from "@/lib/theme";
+import { ROLE_LABEL } from "@/lib/ticket-ui";
 import { useSignOut } from "@/lib/use-sign-out";
 import { cn } from "@/lib/utils";
 
@@ -70,7 +71,7 @@ export default function TabletAccountMenu() {
               {name || "Account"}
             </p>
             <p className="truncate font-mono text-[11px] text-ink-3 leading-tight mt-0.5">
-              {role === Role.admin ? "Admin" : "Agent"}
+              {ROLE_LABEL[role as Role] ?? "Agent"}
             </p>
           </div>
           <button

@@ -1,7 +1,24 @@
 export enum Role {
+  // The owner/root tier. A true one-off, created programmatically only (seed
+  // promotes SEED_ADMIN_EMAIL) and enforced as a DB-level singleton. The only
+  // role that may create/invite, deactivate, delete, or change the role of
+  // `admin` accounts.
+  globalAdmin = "globalAdmin",
   admin = "admin",
   agent = "agent",
 }
+
+// Capability gate: does this role have admin-console access? Both `admin` and
+// `globalAdmin` do. Use this everywhere a check means "has admin powers" — NOT
+// raw `role === Role.admin`, which would lock the global admin out of admin
+// surfaces. Reserve explicit `=== Role.admin` for targeting/protection (i.e.
+// "this user IS an admin we're acting on").
+export const hasAdminAccess = (role?: string | null): boolean =>
+  role === Role.admin || role === Role.globalAdmin;
+
+// True only for the global admin — used to gate the privileged admin-management
+// branches (create/invite/deactivate/delete/role-change of admins).
+export const isGlobalAdmin = (role?: string | null): boolean => role === Role.globalAdmin;
 
 // Workspace-access lifecycle for a human agent/admin. Orthogonal to soft-delete
 // (`deletedAt`): a removed user is `deletedAt != null` regardless of status.

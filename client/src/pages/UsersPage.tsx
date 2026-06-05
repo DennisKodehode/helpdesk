@@ -1,4 +1,4 @@
-import { Role, type RosterAgent, UserStatus } from "@helpdesk/core";
+import { isGlobalAdmin, Role, type RosterAgent, UserStatus } from "@helpdesk/core";
 import axios from "axios";
 import { Search, UserPlus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -21,6 +21,7 @@ import {
   useUpdateAgentRole,
   useUpdateAgentStatus,
 } from "@/lib/agents";
+import { useSession } from "@/lib/auth-client";
 
 function errorMessage(err: unknown): string {
   return axios.isAxiosError(err)
@@ -29,6 +30,10 @@ function errorMessage(err: unknown): string {
 }
 
 export default function UsersPage() {
+  const { data: session } = useSession();
+  const viewerIsGlobalAdmin = isGlobalAdmin(
+    (session?.user as Record<string, unknown> | undefined)?.role as string | undefined,
+  );
   const { data: roster = [], isPending, isError } = useRoster();
   const updateRole = useUpdateAgentRole();
   const updateStatus = useUpdateAgentStatus();
@@ -191,6 +196,7 @@ export default function UsersPage() {
         isError={isError}
         onRoleChange={handleRoleChange}
         onAction={handleAction}
+        viewerIsGlobalAdmin={viewerIsGlobalAdmin}
       />
 
       {!isPending && !isError && (
@@ -203,6 +209,7 @@ export default function UsersPage() {
       <InviteAgentDialog
         open={inviteOpen}
         onOpenChange={setInviteOpen}
+        canInviteAdmins={viewerIsGlobalAdmin}
         onInvited={(email) => setFlash(`Invitation sent to ${email}.`)}
       />
       <DeleteUserDialog

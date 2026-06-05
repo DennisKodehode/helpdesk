@@ -6,6 +6,7 @@ import {
   AuditEventType,
   computeSlaState,
   createReplySchema,
+  hasAdminAccess,
   NotificationType,
   polishReplySchema,
   RECENT_RESOLVED_DAYS,
@@ -348,7 +349,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
   let reopenUnassigns = false;
   if (result.data.status !== undefined) {
     const newStatus = result.data.status;
-    const isUserAdmin = req.user!.role === Role.admin;
+    const isUserAdmin = hasAdminAccess(req.user!.role);
     const transitions = isUserAdmin ? ADMIN_VALID_TRANSITIONS : VALID_TRANSITIONS;
     const validNext = transitions[ticket.status as TicketStatus];
     if (!validNext.includes(newStatus)) {

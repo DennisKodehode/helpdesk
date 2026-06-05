@@ -197,34 +197,36 @@ test.describe
   });
 
 // ===========================================================================
-// 3. Role guard — self-demote and last-admin guard
+// 3. Role guard — global admin row is immutable in the UI
 //
-// An admin trying to change their own role should see an error. When only one
-// admin exists, demoting them is also blocked. We assert the role chip stays
-// unchanged after both rejections.
+// The seeded owner is now the GLOBAL admin. Their row in /users must render a
+// read-only "Global admin" badge with NO interactive "Change role" button and
+// NO "Agent actions" kebab menu — the UI locks the owner row entirely.
 // ===========================================================================
 
-test.describe("Role guard — self-demote and last-admin", () => {
-  test("admin cannot demote themselves — role chip stays as Admin", async ({ page }) => {
+test.describe("Role guard — global admin row is read-only", () => {
+  test("global admin row shows a read-only 'Global admin' badge with no role or actions controls", async ({
+    page,
+  }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto("/users");
     await expect(page.getByRole("heading", { name: "Agents" })).toBeVisible();
 
-    // Find the admin's own row (identified by email).
+    // Find the owner's own row (identified by email).
     const adminRow = page.getByRole("row").filter({ hasText: ADMIN_EMAIL });
     await expect(adminRow).toBeVisible();
 
-    // Click the Role chip to open the change-role menu.
-    await adminRow.getByRole("button", { name: "Change role" }).click();
+    // The role badge is a read-only <span> — the interactive trigger button
+    // (aria-label="Change role") must NOT be present on this row.
+    await expect(adminRow.getByRole("button", { name: "Change role" })).not.toBeVisible();
 
-    // Click "Agent" in the dropdown.
-    await page.getByRole("menuitem", { name: "Agent" }).click();
+    // The "Agent actions" kebab menu must NOT be present on the owner's row.
+    await expect(
+      adminRow.getByRole("button", { name: "Agent actions" }),
+    ).not.toBeVisible();
 
-    // The server should return 403. The UI should surface a toast/flash message
-    // and the chip should still read "Admin".
-    await expect(adminRow.getByRole("button", { name: "Change role" })).toHaveText(
-      /Admin/,
-    );
+    // The role cell reads "Global admin" (from ROLE_LABEL in ticket-ui.ts).
+    await expect(adminRow.getByText("Global admin")).toBeVisible();
   });
 });
 

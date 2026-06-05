@@ -3,7 +3,7 @@ import {
   type Agent,
   type AuditEvent,
   AuditEventType,
-  Role,
+  hasAdminAccess,
   type TicketCategory,
   type TicketDetail,
   TicketPriority,
@@ -79,7 +79,9 @@ export default function TicketMeta({ ticket }: Props) {
   const ticketId = String(ticket.id);
   const queryClient = useQueryClient();
   const { data: session } = useSession();
-  const isAdmin = (session?.user as Record<string, unknown>)?.role === Role.admin;
+  const isAdmin = hasAdminAccess(
+    (session?.user as Record<string, unknown>)?.role as string | undefined,
+  );
 
   const { data: agents = [] } = useQuery({
     queryKey: AGENTS_QUERY_KEY,

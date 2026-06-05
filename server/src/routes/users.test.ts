@@ -234,15 +234,15 @@ describe("POST /api/users (invite)", () => {
     expect(invite).not.toBeNull();
   });
 
-  it("honors the invited role (admin)", async () => {
+  // Inviting an admin is now global-admin-only (see the "global admin
+  // authorization" suite for the allowed path). A regular admin is rejected.
+  it("rejects a regular admin inviting an admin (403)", async () => {
     const res = await request(app).post("/api/users").set("Cookie", adminCookie).send({
       name: "Invited Admin",
       email: "invited-admin-users@example.com",
       role: Role.admin,
     });
-    expect(res.status).toBe(201);
-    expect(res.body.role).toBe(Role.admin);
-    createdId = res.body.id;
+    expect(res.status).toBe(403);
   });
 
   it("re-invites cleanly when the email was previously used by a deleted user", async () => {
@@ -711,19 +711,19 @@ describe("PATCH /api/users/:id/role", () => {
     expect(res.status).toBe(400);
   });
 
-  it("promotes an agent to admin", async () => {
+  // Granting/revoking admin is now global-admin-only — a regular admin can't
+  // (the allowed paths live in the "global admin authorization" suite).
+  it("rejects a regular admin promoting an agent to admin (403)", async () => {
     const id = await createUserRow({ email: "role-promote@example.com" });
     created.push(id);
     const res = await request(app)
       .patch(`/api/users/${id}/role`)
       .set("Cookie", adminCookie)
       .send({ role: Role.admin });
-    expect(res.status).toBe(200);
-    expect(res.body.role).toBe(Role.admin);
+    expect(res.status).toBe(403);
   });
 
-  it("demotes an admin to agent when other admins exist", async () => {
-    // The fixture admin (adminId) is also an admin, so the demoted one is not last.
+  it("rejects a regular admin demoting an admin (403)", async () => {
     const id = await createUserRow({
       email: "role-demote@example.com",
       role: Role.admin,
@@ -733,8 +733,7 @@ describe("PATCH /api/users/:id/role", () => {
       .patch(`/api/users/${id}/role`)
       .set("Cookie", adminCookie)
       .send({ role: Role.agent });
-    expect(res.status).toBe(200);
-    expect(res.body.role).toBe(Role.agent);
+    expect(res.status).toBe(403);
   });
 
   it("returns 403 when an admin tries to demote themselves", async () => {
@@ -941,5 +940,287 @@ describe("GET /api/users/roster", () => {
     const res = await request(app).get("/api/users/roster").set("Cookie", adminCookie);
     const emails = (res.body as { email: string }[]).map((r) => r.email);
     expect(emails).not.toContain("ai@helpdesk.internal");
+  });
+});
+
+// ─── Global admin authorization ─────────────────────────────────────────────
+// `adminCookie` (file-level) acts as a REGULAR admin; gaCookie is the global
+// admin. Regular admins manage only agents; only the global admin may
+// create/invite, deactivate, delete, or change the role of admins. The global
+// admin itself is immutable via the API.
+
+describe("global admin authorization", () => {
+  let gaId: string;
+  let gaCookie: string;
+  let targetAdminId: string; // a regular admin acted upon (403 cases — never mutated)
+  let targetAgentId: string; // an agent acted upon (403 cases)
+
+  async function makeUser(opts: {
+    email: string;
+    role: Role;
+    status?: UserStatus;
+    withCredential?: boolean;
+  }): Promise<string> {
+    const now = new Date();
+    const id = generateId();
+    await prisma.user.create({
+      data: {
+        id,
+        name: "Authz Target",
+        email: opts.email,
+        emailVerified: true,
+        role: opts.role,
+        status: opts.status ?? UserStatus.active,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    if (opts.withCredential) {
+      const ctx = await auth.$context;
+      await prisma.account.create({
+        data: {
+          id: generateId(),
+          accountId: id,
+          providerId: "credential",
+          userId: id,
+          password: await ctx.password.hash("Testpassword1!"),
+          createdAt: now,
+          updatedAt: now,
+        },
+      });
+    }
+    return id;
+  }
+
+  async function destroyUser(id: string) {
+    await prisma.session.deleteMany({ where: { userId: id } });
+    await prisma.account.deleteMany({ where: { userId: id } });
+    await prisma.invitation.deleteMany({ where: { userId: id } });
+    await prisma.user.deleteMany({ where: { id } });
+  }
+
+  beforeAll(async () => {
+    // Clear any leftover global admin from an interrupted run (singleton index).
+    await prisma.user.deleteMany({ where: { role: Role.globalAdmin } });
+    gaId = await makeUser({
+      email: "ga-owner@example.com",
+      role: Role.globalAdmin,
+      withCredential: true,
+    });
+    const res = await request(app)
+      .post("/api/auth/sign-in/email")
+      .send({ email: "ga-owner@example.com", password: "Testpassword1!" });
+    const cookies = res.headers["set-cookie"] as string[] | string;
+    gaCookie = Array.isArray(cookies) ? cookies.join("; ") : cookies;
+
+    targetAdminId = await makeUser({
+      email: "ga-tgt-admin@example.com",
+      role: Role.admin,
+    });
+    targetAgentId = await makeUser({
+      email: "ga-tgt-agent@example.com",
+      role: Role.agent,
+    });
+  });
+
+  afterAll(async () => {
+    await destroyUser(gaId);
+    await destroyUser(targetAdminId);
+    await destroyUser(targetAgentId);
+  });
+
+  // ── inviting admins ──
+  it("regular admin cannot invite an admin", async () => {
+    const res = await request(app)
+      .post("/api/users")
+      .set("Cookie", adminCookie)
+      .send({ name: "New Admin", email: "ga-ra-invite@example.com", role: Role.admin });
+    expect(res.status).toBe(403);
+  });
+
+  it("global admin can invite an admin", async () => {
+    const res = await request(app)
+      .post("/api/users")
+      .set("Cookie", gaCookie)
+      .send({ name: "New Admin", email: "ga-ga-invite@example.com", role: Role.admin });
+    expect(res.status).toBe(201);
+    expect(res.body.role).toBe(Role.admin);
+    await destroyUser(res.body.id);
+  });
+
+  it("regular admin can still invite an agent", async () => {
+    const res = await request(app)
+      .post("/api/users")
+      .set("Cookie", adminCookie)
+      .send({ name: "New Agent", email: "ga-ra-agent@example.com", role: Role.agent });
+    expect(res.status).toBe(201);
+    await destroyUser(res.body.id);
+  });
+
+  // ── role changes ──
+  it("regular admin cannot promote an agent to admin", async () => {
+    const res = await request(app)
+      .patch(`/api/users/${targetAgentId}/role`)
+      .set("Cookie", adminCookie)
+      .send({ role: Role.admin });
+    expect(res.status).toBe(403);
+  });
+
+  it("global admin can promote an agent to admin and demote back", async () => {
+    const id = await makeUser({ email: "ga-promote@example.com", role: Role.agent });
+    const up = await request(app)
+      .patch(`/api/users/${id}/role`)
+      .set("Cookie", gaCookie)
+      .send({ role: Role.admin });
+    expect(up.status).toBe(200);
+    expect(up.body.role).toBe(Role.admin);
+    const down = await request(app)
+      .patch(`/api/users/${id}/role`)
+      .set("Cookie", gaCookie)
+      .send({ role: Role.agent });
+    expect(down.status).toBe(200);
+    await destroyUser(id);
+  });
+
+  it("regular admin cannot demote an admin", async () => {
+    const res = await request(app)
+      .patch(`/api/users/${targetAdminId}/role`)
+      .set("Cookie", adminCookie)
+      .send({ role: Role.agent });
+    expect(res.status).toBe(403);
+  });
+
+  // ── deactivate ──
+  it("regular admin cannot deactivate an admin", async () => {
+    const res = await request(app)
+      .patch(`/api/users/${targetAdminId}/status`)
+      .set("Cookie", adminCookie)
+      .send({ status: UserStatus.inactive });
+    expect(res.status).toBe(403);
+  });
+
+  it("global admin can deactivate an admin", async () => {
+    const id = await makeUser({ email: "ga-deact@example.com", role: Role.admin });
+    const res = await request(app)
+      .patch(`/api/users/${id}/status`)
+      .set("Cookie", gaCookie)
+      .send({ status: UserStatus.inactive });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe(UserStatus.inactive);
+    await destroyUser(id);
+  });
+
+  it("regular admin can still deactivate and reactivate an agent", async () => {
+    const id = await makeUser({ email: "ga-agent-deact@example.com", role: Role.agent });
+    const off = await request(app)
+      .patch(`/api/users/${id}/status`)
+      .set("Cookie", adminCookie)
+      .send({ status: UserStatus.inactive });
+    expect(off.status).toBe(200);
+    const on = await request(app)
+      .patch(`/api/users/${id}/status`)
+      .set("Cookie", adminCookie)
+      .send({ status: UserStatus.active });
+    expect(on.status).toBe(200);
+    await destroyUser(id);
+  });
+
+  // ── delete ──
+  it("regular admin cannot delete an admin", async () => {
+    const res = await request(app)
+      .delete(`/api/users/${targetAdminId}`)
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(403);
+  });
+
+  it("global admin can delete an admin", async () => {
+    const id = await makeUser({ email: "ga-del-admin@example.com", role: Role.admin });
+    const res = await request(app).delete(`/api/users/${id}`).set("Cookie", gaCookie);
+    expect(res.status).toBe(204);
+    const row = await prisma.user.findUnique({ where: { id } });
+    expect(row?.deletedAt).not.toBeNull();
+    await destroyUser(id);
+  });
+
+  // ── editing admin accounts (password-reset privilege-escalation guard) ──
+  it("regular admin cannot edit another admin's account", async () => {
+    const res = await request(app)
+      .patch(`/api/users/${targetAdminId}`)
+      .set("Cookie", adminCookie)
+      .send({ name: "Hijacked", email: "ga-tgt-admin@example.com", password: "" });
+    expect(res.status).toBe(403);
+  });
+
+  it("global admin can edit an admin's account", async () => {
+    const res = await request(app)
+      .patch(`/api/users/${targetAdminId}`)
+      .set("Cookie", gaCookie)
+      .send({ name: "Renamed Admin", email: "ga-tgt-admin@example.com", password: "" });
+    expect(res.status).toBe(200);
+    expect(res.body.name).toBe("Renamed Admin");
+  });
+
+  // ── the global admin is immutable via the API ──
+  it("the global admin's role can't be changed (even by itself)", async () => {
+    const byGa = await request(app)
+      .patch(`/api/users/${gaId}/role`)
+      .set("Cookie", gaCookie)
+      .send({ role: Role.admin });
+    expect(byGa.status).toBe(403);
+    const byAdmin = await request(app)
+      .patch(`/api/users/${gaId}/role`)
+      .set("Cookie", adminCookie)
+      .send({ role: Role.admin });
+    expect(byAdmin.status).toBe(403);
+  });
+
+  it("the global admin can't be deactivated or deleted", async () => {
+    const deact = await request(app)
+      .patch(`/api/users/${gaId}/status`)
+      .set("Cookie", gaCookie)
+      .send({ status: UserStatus.inactive });
+    expect(deact.status).toBe(403);
+    const del = await request(app).delete(`/api/users/${gaId}`).set("Cookie", gaCookie);
+    expect(del.status).toBe(403);
+  });
+
+  // ── globalAdmin is never assignable via the API (schema-narrowed) ──
+  it("role-change endpoint rejects globalAdmin (400)", async () => {
+    const res = await request(app)
+      .patch(`/api/users/${targetAgentId}/role`)
+      .set("Cookie", gaCookie)
+      .send({ role: "globalAdmin" });
+    expect(res.status).toBe(400);
+  });
+
+  it("invite endpoint rejects globalAdmin (400)", async () => {
+    const res = await request(app)
+      .post("/api/users")
+      .set("Cookie", gaCookie)
+      .send({ name: "Nope", email: "ga-nope@example.com", role: "globalAdmin" });
+    expect(res.status).toBe(400);
+  });
+
+  // ── capability + singleton ──
+  it("global admin passes admin-gated routes", async () => {
+    const res = await request(app).get("/api/users").set("Cookie", gaCookie);
+    expect(res.status).toBe(200);
+  });
+
+  it("the global admin is a DB-enforced singleton", async () => {
+    const now = new Date();
+    await expect(
+      prisma.user.create({
+        data: {
+          id: generateId(),
+          name: "Second Owner",
+          email: "ga-second@example.com",
+          emailVerified: true,
+          role: Role.globalAdmin,
+          createdAt: now,
+          updatedAt: now,
+        },
+      }),
+    ).rejects.toThrow();
   });
 });

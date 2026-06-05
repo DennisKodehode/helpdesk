@@ -18,10 +18,21 @@ if (password.length < 8) {
 
 const AI_USER_EMAIL = "ai@helpdesk.internal";
 
+// The seeded owner is the system's single global admin — the only role that can
+// manage other admins. It's created/promoted here (programmatically only); the
+// `one_global_admin` partial unique index keeps it a true singleton.
 async function seedAdmin() {
   const existing = await prisma.user.findUnique({ where: { email: email! } });
   if (existing) {
-    console.log(`Admin already exists: ${email}`);
+    if (existing.role !== Role.globalAdmin) {
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: { role: Role.globalAdmin },
+      });
+      console.log(`Promoted owner to global admin: ${email}`);
+    } else {
+      console.log(`Global admin already exists: ${email}`);
+    }
     return;
   }
 
@@ -37,7 +48,7 @@ async function seedAdmin() {
       name: "Admin",
       email: email!,
       emailVerified: true,
-      role: Role.admin,
+      role: Role.globalAdmin,
       createdAt: now,
       updatedAt: now,
     },
@@ -55,7 +66,7 @@ async function seedAdmin() {
     },
   });
 
-  console.log(`Admin created: ${email}`);
+  console.log(`Global admin created: ${email}`);
 }
 
 // The AI user is a virtual agent — used to mark tickets that auto-resolve

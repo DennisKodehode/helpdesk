@@ -1,4 +1,4 @@
-import { Role } from "@helpdesk/core";
+import { hasAdminAccess, Role } from "@helpdesk/core";
 import { ChevronsUpDown, LogOut, Moon, Sun } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router";
@@ -12,6 +12,7 @@ import {
   PRIMARY_NAV,
 } from "@/lib/nav";
 import { useTheme } from "@/lib/theme";
+import { ROLE_LABEL } from "@/lib/ticket-ui";
 import { useSignOut } from "@/lib/use-sign-out";
 import { cn } from "@/lib/utils";
 import { useSession } from "../lib/auth-client";
@@ -149,7 +150,7 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
           ))}
         </ul>
 
-        {!isPending && role === Role.admin && (
+        {!isPending && hasAdminAccess(role as string | undefined) && (
           <>
             <div className="hairline-b px-3 pt-7 pb-2 mb-2">
               <p className="eyebrow">Administration</p>
@@ -217,7 +218,7 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
               {name || "Account"}
             </p>
             <p className="truncate font-mono text-[11px] text-ink-3 leading-tight mt-0.5">
-              {role === Role.admin ? "Admin" : "Agent"}
+              {ROLE_LABEL[role as Role] ?? "Agent"}
             </p>
           </div>
           <ChevronsUpDown className="size-4 shrink-0 text-ink-4" />

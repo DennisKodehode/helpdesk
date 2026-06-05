@@ -1,4 +1,4 @@
-import { Role } from "@helpdesk/core";
+import { hasAdminAccess } from "@helpdesk/core";
 import { lazy, Suspense } from "react";
 import { Navigate, Outlet, Route, Routes } from "react-router";
 import DesktopShell from "./components/DesktopShell";
@@ -74,7 +74,7 @@ function AdminLayout() {
   if (tier === "mobile") return <Navigate to="/" replace />;
 
   const role = (session?.user as Record<string, unknown>)?.role;
-  if (role !== Role.admin) return <Navigate to="/" replace />;
+  if (!hasAdminAccess(role as string | undefined)) return <Navigate to="/" replace />;
 
   return <Outlet />;
 }

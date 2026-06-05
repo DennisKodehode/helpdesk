@@ -122,6 +122,13 @@ router.post("/seed-user", async (req, res) => {
     res.status(400).json({ error: "email and password are required" });
     return;
   }
+  // Prevent tests from creating a second global admin — a DB-level partial
+  // unique index (`one_global_admin`) enforces the singleton at DB level, but
+  // it's cleaner to reject early with a clear message.
+  if (role === Role.globalAdmin) {
+    res.status(400).json({ error: "Cannot seed a globalAdmin via this endpoint" });
+    return;
+  }
 
   // Rename any soft-deleted rows so the unique email index won't conflict.
   await prisma.user.updateMany({

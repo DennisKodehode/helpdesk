@@ -1,4 +1,4 @@
-import { Role, type RosterAgent, UserStatus } from "@helpdesk/core";
+import { hasAdminAccess, type RosterAgent, UserStatus } from "@helpdesk/core";
 
 function AdminStat({ label, value, sub }: { label: string; value: number; sub: string }) {
   return (
@@ -18,7 +18,7 @@ function AdminStat({ label, value, sub }: { label: string; value: number; sub: s
 
 export default function RosterSummaryCards({ roster }: { roster: RosterAgent[] }) {
   const members = roster.length;
-  const admins = roster.filter((a) => a.role === Role.admin).length;
+  const admins = roster.filter((a) => hasAdminAccess(a.role)).length;
   const active = roster.filter((a) => a.status === UserStatus.active).length;
   const openAcross = roster.reduce((sum, a) => sum + a.openAssigned, 0);
 

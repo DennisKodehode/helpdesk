@@ -71,10 +71,13 @@ export type RosterAgent = z.infer<typeof rosterAgentSchema>;
 export const rosterResponseSchema = z.array(rosterAgentSchema);
 
 // Invite (no password — the invitee sets it on the accept page).
+// Role is restricted to admin/agent: `globalAdmin` is never assignable via the
+// API (it's a programmatic-only singleton). Whether the caller may actually
+// invite an `admin` is enforced in the route handler (global-admin only).
 export const inviteAgentSchema = z.object({
   name: z.string().trim().min(3, "Name must be at least 3 characters"),
   email: z.email("Invalid email address"),
-  role: z.enum(Role),
+  role: z.enum([Role.admin, Role.agent]),
 });
 
 export type InviteAgentData = z.infer<typeof inviteAgentSchema>;
@@ -128,8 +131,10 @@ export const resetPasswordFormSchema = z
 
 export type ResetPasswordFormData = z.infer<typeof resetPasswordFormSchema>;
 
+// Role changes are limited to admin/agent. `globalAdmin` is programmatic-only
+// (DB-seeded singleton) and can never be granted or revoked through the API.
 export const updateUserRoleSchema = z.object({
-  role: z.enum(Role),
+  role: z.enum([Role.admin, Role.agent]),
 });
 
 export type UpdateUserRoleData = z.infer<typeof updateUserRoleSchema>;

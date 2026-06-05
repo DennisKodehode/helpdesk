@@ -1,4 +1,4 @@
-import { Role } from "@helpdesk/core";
+import { hasAdminAccess, Role } from "@helpdesk/core";
 import { Check, ChevronDown, ShieldCheck } from "lucide-react";
 import {
   DropdownMenu,
@@ -6,27 +6,38 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { BADGE_BASE, ROLE_BADGE } from "@/lib/ticket-ui";
+import { BADGE_BASE, ROLE_BADGE, ROLE_LABEL } from "@/lib/ticket-ui";
 
 interface Props {
   role: Role;
   onChange: (role: Role) => void;
-  disabled?: boolean;
+  // Render a static badge with no dropdown — used when the viewer isn't allowed
+  // to change this row's role (regular admins, or any view of the global admin).
+  readOnly?: boolean;
 }
 
-export default function AgentRoleMenu({ role, onChange, disabled }: Props) {
-  const isAdmin = role === Role.admin;
+export default function AgentRoleMenu({ role, onChange, readOnly }: Props) {
+  const showShield = hasAdminAccess(role);
+
+  if (readOnly) {
+    return (
+      <span className={`${BADGE_BASE} ${ROLE_BADGE[role]}`}>
+        {showShield && <ShieldCheck className="size-3" aria-hidden />}
+        {ROLE_LABEL[role]}
+      </span>
+    );
+  }
+
+  // Interactive menu only ever toggles agent ⇄ admin (globalAdmin is
+  // programmatic-only and always read-only above).
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        disabled={disabled}
         aria-label="Change role"
-        className={`${BADGE_BASE} cursor-pointer pr-1.5 outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
-          isAdmin ? ROLE_BADGE[Role.admin] : ROLE_BADGE[Role.agent]
-        }`}
+        className={`${BADGE_BASE} cursor-pointer pr-1.5 outline-none ${ROLE_BADGE[role]}`}
       >
-        {isAdmin && <ShieldCheck className="size-3" aria-hidden />}
-        {isAdmin ? "Admin" : "Agent"}
+        {showShield && <ShieldCheck className="size-3" aria-hidden />}
+        {ROLE_LABEL[role]}
         <ChevronDown className="size-3 opacity-60" aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">

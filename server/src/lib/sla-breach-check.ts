@@ -55,8 +55,10 @@ async function resolveRecipientIds(ticket: CandidateTicket): Promise<string[]> {
     });
     if (assignee && assignee.deletedAt == null) return [assignee.id];
   }
+  // Breaches fan out to everyone with admin access — both admins and the global
+  // admin (the owner shouldn't go dark on breaches after being promoted).
   const admins = await prisma.user.findMany({
-    where: { role: Role.admin, deletedAt: null },
+    where: { role: { in: [Role.admin, Role.globalAdmin] }, deletedAt: null },
     select: { id: true },
   });
   return admins.map((a) => a.id);

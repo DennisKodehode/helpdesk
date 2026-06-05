@@ -1,4 +1,4 @@
-import { type Role, type RosterAgent, UserStatus } from "@helpdesk/core";
+import { hasAdminAccess, Role, type RosterAgent, UserStatus } from "@helpdesk/core";
 import AgentRoleMenu from "@/components/AgentRoleMenu";
 import AgentRowMenu, { type AgentRowAction } from "@/components/AgentRowMenu";
 import AgentStatusPill from "@/components/AgentStatusPill";
@@ -36,7 +36,20 @@ interface Props {
   isError: boolean;
   onRoleChange: (id: string, role: Role) => void;
   onAction: (id: string, action: AgentRowAction) => void;
+  // Only the global admin may manage admin-tier accounts; regular admins manage
+  // agents only. Gates the per-row role menu + action menu (the server enforces
+  // the same rules regardless of what the UI shows).
+  viewerIsGlobalAdmin: boolean;
   emptyTitle?: string;
+}
+
+// The global-admin row is never actionable through the UI. Other admin rows are
+// actionable only by the global admin; agent rows by any admin.
+function rowPermissions(role: Role, viewerIsGlobalAdmin: boolean) {
+  const canChangeRole = viewerIsGlobalAdmin && role !== Role.globalAdmin;
+  const canRowActions =
+    role !== Role.globalAdmin && (viewerIsGlobalAdmin || !hasAdminAccess(role));
+  return { canChangeRole, canRowActions };
 }
 
 const NUM = "px-4 py-[15px] text-right font-mono tabular text-[14px]";
@@ -47,6 +60,7 @@ export default function RosterTable({
   isError,
   onRoleChange,
   onAction,
+  viewerIsGlobalAdmin,
   emptyTitle = "No one matches this view.",
 }: Props) {
   if (isError) return <ErrorAlert message="Failed to load the team roster" />;
@@ -110,6 +124,10 @@ export default function RosterTable({
             ) : (
               roster.map((a) => {
                 const dim = a.status !== UserStatus.active;
+                const { canChangeRole, canRowActions } = rowPermissions(
+                  a.role,
+                  viewerIsGlobalAdmin,
+                );
                 return (
                   <tr
                     key={a.id}
@@ -134,6 +152,7 @@ export default function RosterTable({
                       <AgentRoleMenu
                         role={a.role}
                         onChange={(role) => onRoleChange(a.id, role)}
+                        readOnly={!canChangeRole}
                       />
                     </td>
                     <td className="px-4 py-[15px]">
@@ -152,10 +171,12 @@ export default function RosterTable({
                       {a.lastActiveAt ? formatRelative(a.lastActiveAt) : "—"}
                     </td>
                     <td className="px-4 py-[15px] text-right">
-                      <AgentRowMenu
-                        status={a.status}
-                        onAction={(action) => onAction(a.id, action)}
-                      />
+                      {canRowActions && (
+                        <AgentRowMenu
+                          status={a.status}
+                          onAction={(action) => onAction(a.id, action)}
+                        />
+                      )}
                     </td>
                   </tr>
                 );
@@ -179,44 +200,53 @@ export default function RosterTable({
             <p className="display-serif text-2xl text-muted-foreground">{emptyTitle}</p>
           </li>
         ) : (
-          roster.map((a) => (
-            <li
-              key={a.id}
-              className={`rounded-[var(--r-lg)] border border-border bg-card p-4 ${
-                a.status !== UserStatus.active ? "opacity-[0.62]" : ""
-              }`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <Avatar name={a.name} />
-                  <div className="min-w-0">
-                    <div className="text-[14.5px] font-semibold text-foreground">
-                      {a.name}
-                    </div>
-                    <div className="truncate font-mono text-[11.5px] text-ink-4">
-                      {a.email}
+          roster.map((a) => {
+            const { canChangeRole, canRowActions } = rowPermissions(
+              a.role,
+              viewerIsGlobalAdmin,
+            );
+            return (
+              <li
+                key={a.id}
+                className={`rounded-[var(--r-lg)] border border-border bg-card p-4 ${
+                  a.status !== UserStatus.active ? "opacity-[0.62]" : ""
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <Avatar name={a.name} />
+                    <div className="min-w-0">
+                      <div className="text-[14.5px] font-semibold text-foreground">
+                        {a.name}
+                      </div>
+                      <div className="truncate font-mono text-[11.5px] text-ink-4">
+                        {a.email}
+                      </div>
                     </div>
                   </div>
+                  {canRowActions && (
+                    <AgentRowMenu
+                      status={a.status}
+                      onAction={(action) => onAction(a.id, action)}
+                    />
+                  )}
                 </div>
-                <AgentRowMenu
-                  status={a.status}
-                  onAction={(action) => onAction(a.id, action)}
-                />
-              </div>
-              <div className="mt-3 flex items-center gap-2">
-                <AgentRoleMenu
-                  role={a.role}
-                  onChange={(role) => onRoleChange(a.id, role)}
-                />
-                <AgentStatusPill status={a.status} />
-              </div>
-              <div className="mt-3 flex gap-5 font-mono text-[12px] text-ink-3">
-                <span>{a.openAssigned} open</span>
-                <span>{a.resolved30d} resolved·30d</span>
-                <span>{avgLabel(a.avgResolutionMinutes)}</span>
-              </div>
-            </li>
-          ))
+                <div className="mt-3 flex items-center gap-2">
+                  <AgentRoleMenu
+                    role={a.role}
+                    onChange={(role) => onRoleChange(a.id, role)}
+                    readOnly={!canChangeRole}
+                  />
+                  <AgentStatusPill status={a.status} />
+                </div>
+                <div className="mt-3 flex gap-5 font-mono text-[12px] text-ink-3">
+                  <span>{a.openAssigned} open</span>
+                  <span>{a.resolved30d} resolved·30d</span>
+                  <span>{avgLabel(a.avgResolutionMinutes)}</span>
+                </div>
+              </li>
+            );
+          })
         )}
       </ul>
     </>

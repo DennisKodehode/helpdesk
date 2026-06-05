@@ -1,4 +1,4 @@
-import { type RecentActivityResponse, Role } from "@helpdesk/core";
+import { hasAdminAccess, type RecentActivityResponse } from "@helpdesk/core";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { TicketRef } from "@/components/TicketRef";
@@ -10,7 +10,9 @@ import { formatRelative } from "@/lib/ticket-ui";
 
 export default function RecentActivityCard() {
   const { data: session } = useSession();
-  const isAdmin = (session?.user as Record<string, unknown>)?.role === Role.admin;
+  const isAdmin = hasAdminAccess(
+    (session?.user as Record<string, unknown>)?.role as string | undefined,
+  );
 
   const query = useQuery<RecentActivityResponse>({
     queryKey: ["stats", "recent-activity"],

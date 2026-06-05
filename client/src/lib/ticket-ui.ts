@@ -106,8 +106,18 @@ export const PRIORITY_LABELS: Record<TicketPriority, string> = {
 // still high-contrast, still unmistakably "elevated", never confused with AI.
 // Agent stays the quiet neutral outline pill.
 export const ROLE_BADGE: Record<Role, string> = {
+  // The global admin is the top authority tier, so it shares the admin's solid
+  // "elevated" ink chip — distinguished by its "Global admin" label + shield
+  // rather than a new hue (roles deliberately avoid the reserved status/AI tones).
+  [Role.globalAdmin]: "border-foreground bg-foreground text-background",
   [Role.admin]: "border-foreground bg-foreground text-background",
   [Role.agent]: "border-hairline-strong bg-transparent text-ink-2",
+};
+
+export const ROLE_LABEL: Record<Role, string> = {
+  [Role.globalAdmin]: "Global admin",
+  [Role.admin]: "Admin",
+  [Role.agent]: "Agent",
 };
 
 // Zero-padded case number for display, e.g. 42 → "0042". Call sites prepend

@@ -1,4 +1,4 @@
-import { Role } from "@helpdesk/core";
+import { hasAdminAccess, Role } from "@helpdesk/core";
 import { useLocation } from "react-router";
 import { Link } from "@/components/ui/link";
 import { useSession } from "@/lib/auth-client";
@@ -19,7 +19,7 @@ export default function TabletIconRail() {
   const { data: session, isPending } = useSession();
   const role = (session?.user as Record<string, unknown>)?.role;
   const isAgent = !isPending && role === Role.agent;
-  const isAdmin = !isPending && role === Role.admin;
+  const isAdmin = !isPending && hasAdminAccess(role as string | undefined);
   const { data: myOpenCount } = useMyOpenCount(isAgent);
 
   const primary = [...PRIMARY_NAV, ...(isAgent ? AGENT_NAV : [])];

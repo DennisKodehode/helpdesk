@@ -1,6 +1,7 @@
 import {
   AuditEventType,
   inviteAgentSchema,
+  isGlobalAdmin,
   Role,
   UserStatus,
   updateUserRoleSchema,
@@ -98,6 +99,12 @@ router.post("/", ...requireAdminChain, async (req, res) => {
     return;
   }
   const { name, email, role } = result.data;
+  // Creating an admin is a global-admin-only action (the schema already blocks
+  // `globalAdmin` outright). Regular admins may only invite agents.
+  if (role === Role.admin && !isGlobalAdmin(req.user!.role)) {
+    res.status(403).json({ error: "Only the global admin can invite admins." });
+    return;
+  }
   const existing = await prisma.user.findFirst({ where: { email } });
   if (existing && !existing.deletedAt) {
     res.status(409).json({ error: "Email already in use" });
@@ -155,6 +162,11 @@ router.post("/:id/invite/resend", ...requireAdminChain, async (req, res) => {
     res.status(409).json({ error: "This agent has already accepted their invite" });
     return;
   }
+  // Managing an admin's invite is global-admin-only.
+  if (user.role === Role.admin && !isGlobalAdmin(req.user!.role)) {
+    res.status(403).json({ error: "Only the global admin can manage admin invites." });
+    return;
+  }
   const { raw, tokenHash } = createInviteToken();
   const expiresAt = inviteExpiresAt();
   await prisma.invitation.upsert({
@@ -189,13 +201,28 @@ router.patch("/:id/role", ...requireAdminChain, async (req, res) => {
     res.status(404).json({ error: "User not found" });
     return;
   }
+  // The global admin's role is immutable via the API (programmatic-only singleton).
+  if (target.role === Role.globalAdmin) {
+    res.status(403).json({ error: "The global admin's role can't be changed." });
+    return;
+  }
+  // Granting OR revoking admin is a global-admin-only action.
+  if (
+    (role === Role.admin || target.role === Role.admin) &&
+    !isGlobalAdmin(req.user!.role)
+  ) {
+    res.status(403).json({ error: "Only the global admin can change admin roles." });
+    return;
+  }
   if (role === Role.agent && target.role === Role.admin) {
     if (id === req.user!.id) {
       res.status(403).json({ error: "You can't change your own role" });
       return;
     }
+    // Count admin-capable users (admins + the global admin) so we never strand
+    // the workspace with no one who can administer it.
     const adminCount = await prisma.user.count({
-      where: { role: Role.admin, deletedAt: null },
+      where: { role: { in: [Role.admin, Role.globalAdmin] }, deletedAt: null },
     });
     if (adminCount <= 1) {
       res.status(403).json({ error: "Can't demote the last admin" });
@@ -229,13 +256,20 @@ router.patch("/:id/status", ...requireAdminChain, async (req, res) => {
     res.status(409).json({ error: "This agent hasn't accepted their invite yet" });
     return;
   }
+  // The global admin can never be deactivated/reactivated.
+  if (target.role === Role.globalAdmin) {
+    res.status(403).json({ error: "The global admin account can't be deactivated." });
+    return;
+  }
+  // Activating/deactivating an admin is global-admin-only (regular admins manage
+  // only agents). The blanket "admins can't be deactivated" rule is gone.
+  if (target.role === Role.admin && !isGlobalAdmin(req.user!.role)) {
+    res.status(403).json({ error: "Only the global admin can manage admin accounts." });
+    return;
+  }
   if (status === UserStatus.inactive) {
     if (id === req.user!.id) {
       res.status(403).json({ error: "You can't deactivate your own account" });
-      return;
-    }
-    if (target.role === Role.admin) {
-      res.status(403).json({ error: "Can't deactivate an admin account" });
       return;
     }
   }
@@ -261,8 +295,13 @@ router.delete("/:id", ...requireAdminChain, async (req, res) => {
     res.status(404).json({ error: "User not found" });
     return;
   }
-  if (target.role === Role.admin) {
-    res.status(403).json({ error: "Cannot delete an admin account" });
+  if (target.role === Role.globalAdmin) {
+    res.status(403).json({ error: "Cannot delete the global admin account." });
+    return;
+  }
+  // Deleting an admin is global-admin-only; regular admins may only remove agents.
+  if (target.role === Role.admin && !isGlobalAdmin(req.user!.role)) {
+    res.status(403).json({ error: "Only the global admin can delete an admin account." });
     return;
   }
   const now = new Date();
@@ -309,6 +348,27 @@ router.patch("/:id", ...requireAdminChain, async (req, res) => {
     return;
   }
   const { name, email, password } = result.data;
+
+  const target = await prisma.user.findUnique({ where: { id } });
+  if (!target || target.deletedAt) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  // Editing someone else's admin/global-admin account (incl. resetting their
+  // password) is privileged — only the global admin may. Anyone can edit their
+  // OWN account regardless of role.
+  if (id !== req.user!.id) {
+    if (target.role === Role.globalAdmin) {
+      res
+        .status(403)
+        .json({ error: "The global admin account can't be edited by others." });
+      return;
+    }
+    if (target.role === Role.admin && !isGlobalAdmin(req.user!.role)) {
+      res.status(403).json({ error: "Only the global admin can edit an admin account." });
+      return;
+    }
+  }
 
   const existing = await prisma.user.findFirst({ where: { email, deletedAt: null } });
   if (existing && existing.id !== id) {
