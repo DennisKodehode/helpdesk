@@ -23,6 +23,9 @@ export interface TicketsQueryParams {
   breachedOnly: boolean;
   slaState: SlaStateFilterValue;
   view: TicketView | null;
+  // Archive scope — closed tickets only. Mutually exclusive with `view`/`status`
+  // (those are Active-scope concepts); category/priority/search still compose.
+  archived: boolean;
   page: number;
   pageSize: number;
 }
@@ -31,19 +34,29 @@ async function fetchTickets(
   p: TicketsQueryParams,
   signal?: AbortSignal,
 ): Promise<PaginatedTickets> {
+  // Archive is its own base scope (closed-only); it ignores view/status and the
+  // Active-only SLA filters. Active scope is unchanged: a `view` preset OR the
+  // per-field status/SLA filters.
+  const scope = p.archived
+    ? { archived: "true" as const }
+    : p.view
+      ? { view: p.view }
+      : {
+          ...(p.status && { status: p.status }),
+          ...(p.breachedOnly && { breachedOnly: "true" }),
+          ...(p.slaState && { slaState: p.slaState }),
+        };
+
   const { data } = await axios.get<PaginatedTickets>("/api/tickets", {
     params: {
       sortBy: p.sortBy,
       sortOrder: p.sortOrder,
-      // When `view` is set the server applies its preset and ignores the
-      // per-field filters, so we don't bother sending them.
-      ...(p.view ? { view: p.view } : null),
-      ...(!p.view && p.status && { status: p.status }),
+      ...scope,
+      // category/priority/assignee compose in Active (non-view) and Archive
+      // scopes; the server ignores them only when a `view` preset is active.
       ...(!p.view && p.category && { category: p.category }),
       ...(!p.view && p.priority && { priority: p.priority }),
       ...(!p.view && p.assignee && { assignee: p.assignee }),
-      ...(!p.view && p.breachedOnly && { breachedOnly: "true" }),
-      ...(!p.view && p.slaState && { slaState: p.slaState }),
       ...(p.search.trim() && { search: p.search.trim() }),
       page: p.page,
       pageSize: p.pageSize,
@@ -72,6 +85,7 @@ export function useTickets(params: TicketsQueryParams) {
       params.breachedOnly,
       params.slaState,
       params.view,
+      params.archived,
       params.page,
     ],
     queryFn: ({ signal }) => fetchTickets(params, signal),

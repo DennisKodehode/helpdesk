@@ -2,6 +2,7 @@ import type { Ticket, TicketStatus } from "@helpdesk/core";
 import { TicketPriority, type TicketView } from "@helpdesk/core";
 import { Loader2, Search } from "lucide-react";
 import { useState } from "react";
+import ScopeToggle from "@/components/ScopeToggle";
 import { SlaBadge } from "@/components/SlaBadge";
 import StatusPill from "@/components/StatusPill";
 import TicketViewChips from "@/components/TicketViewChips";
@@ -33,8 +34,11 @@ interface Props {
 
 export default function TabletTicketListPane({ scope, selectedId, onSelect }: Props) {
   const [view, setView] = useState<TicketView | null>(null);
+  const [archived, setArchived] = useState(false);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
+
+  const isArchive = scope === "all" && archived;
 
   const { data, isPending, isError } = useTickets({
     sortBy: "createdAt",
@@ -48,7 +52,8 @@ export default function TabletTicketListPane({ scope, selectedId, onSelect }: Pr
     search: debouncedSearch,
     breachedOnly: false,
     slaState: "",
-    view: scope === "all" ? view : null,
+    view: scope === "all" && !isArchive ? view : null,
+    archived: isArchive,
     page: 1,
     pageSize: LIST_SIZE,
   });
@@ -79,6 +84,17 @@ export default function TabletTicketListPane({ scope, selectedId, onSelect }: Pr
         </div>
         {scope === "all" && (
           <div className="mt-3">
+            <ScopeToggle
+              archived={archived}
+              onChange={(next) => {
+                setArchived(next);
+                if (next) setView(null);
+              }}
+            />
+          </div>
+        )}
+        {scope === "all" && !isArchive && (
+          <div className="mt-3">
             <TicketViewChips activeView={view} onChange={setView} />
           </div>
         )}
@@ -93,8 +109,12 @@ export default function TabletTicketListPane({ scope, selectedId, onSelect }: Pr
           <ListSkeleton />
         ) : tickets.length === 0 ? (
           <div className="px-5 py-12 text-center">
-            <p className="display-serif text-[19px] text-ink-2">Nothing here.</p>
-            <p className="mt-1.5 text-[13.5px] text-ink-3">Try another view or search.</p>
+            <p className="display-serif text-[19px] text-ink-2">
+              {isArchive ? "Nothing archived" : "Nothing here."}
+            </p>
+            <p className="mt-1.5 text-[13.5px] text-ink-3">
+              {isArchive ? "Closed tickets show up here." : "Try another view or search."}
+            </p>
           </div>
         ) : (
           <ul>

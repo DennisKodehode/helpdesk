@@ -116,4 +116,21 @@ describe("TicketFilters", () => {
     expect(onBreachedOnlyChange).toHaveBeenCalled();
     expect(onBreachedOnlyChange.mock.calls[0][0]).toBe(false);
   });
+
+  it("does not offer a Closed status option (Archive owns closed)", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<TicketFilters {...baseProps} />);
+    await user.click(screen.getByRole("combobox", { name: /status/i }));
+    expect(await screen.findByRole("option", { name: /^open$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /^closed$/i })).not.toBeInTheDocument();
+  });
+
+  it("hides the status + breached controls in Archive scope", () => {
+    renderWithProviders(<TicketFilters {...baseProps} archived />);
+    expect(screen.queryByRole("combobox", { name: /status/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /breached/i })).not.toBeInTheDocument();
+    // Category + priority still available.
+    expect(screen.getByRole("combobox", { name: /category/i })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /priority/i })).toBeInTheDocument();
+  });
 });

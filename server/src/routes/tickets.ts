@@ -56,6 +56,7 @@ router.get("/", requireAuth, async (req, res) => {
     category,
     priority,
     assignee,
+    archived,
     search,
     breachedOnly,
     slaState,
@@ -164,11 +165,20 @@ router.get("/", requireAuth, async (req, res) => {
       .map((t) => t.id);
   }
 
+  // Active/Archive scope: the queue defaults to Active (non-closed). `archived`
+  // flips it to closed-only; an explicit `status` filter (when set) takes
+  // precedence within the Active scope.
+  const baseStatus: Prisma.TicketWhereInput["status"] = archived
+    ? TicketStatus.closed
+    : statusFilter !== undefined
+      ? statusFilter
+      : { not: TicketStatus.closed };
+
   const baseWhere: Prisma.TicketWhereInput =
     viewWhere !== null
       ? viewWhere
       : {
-          ...(statusFilter !== undefined && { status: statusFilter }),
+          status: baseStatus,
           ...(categoryFilter !== undefined && { category: categoryFilter }),
           ...(priority && { priority }),
           ...(assignee === "unassigned" && { assignedToId: null }),

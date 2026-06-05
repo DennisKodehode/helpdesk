@@ -26,7 +26,7 @@ const STATUS_LABELS: Record<string, string> = {
   [TRIAGING_FILTER_VALUE]: "Triaging",
   [TicketStatus.open]: "Open",
   [TicketStatus.resolved]: "Resolved",
-  [TicketStatus.closed]: "Closed",
+  // No "Closed" — closed tickets live in the Archive scope (ScopeToggle).
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -53,6 +53,9 @@ interface Props {
   category: CategoryFilterValue;
   priority: TicketPriority | "";
   breachedOnly: boolean;
+  // Archive scope (closed tickets): hide the status + breached-SLA controls,
+  // which are Active-scope concepts. Search/category/priority still apply.
+  archived?: boolean;
   onSearchChange: (v: string) => void;
   onStatusChange: (v: StatusFilterValue) => void;
   onCategoryChange: (v: CategoryFilterValue) => void;
@@ -66,6 +69,7 @@ export default function TicketFilters({
   category,
   priority,
   breachedOnly,
+  archived,
   onSearchChange,
   onStatusChange,
   onCategoryChange,
@@ -88,25 +92,26 @@ export default function TicketFilters({
         />
       </div>
 
-      <Select<StatusFilterValue>
-        value={status}
-        onValueChange={(v) => onStatusChange(v as StatusFilterValue)}
-      >
-        <SelectTrigger
-          aria-label="Status"
-          size="sm"
-          className="h-10 w-full sm:h-9 sm:w-36"
+      {!archived && (
+        <Select<StatusFilterValue>
+          value={status}
+          onValueChange={(v) => onStatusChange(v as StatusFilterValue)}
         >
-          <SelectValue>{(v: string | null) => STATUS_LABELS[v ?? ""]}</SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="">All statuses</SelectItem>
-          <SelectItem value={TRIAGING_FILTER_VALUE}>Triaging</SelectItem>
-          <SelectItem value={TicketStatus.open}>Open</SelectItem>
-          <SelectItem value={TicketStatus.resolved}>Resolved</SelectItem>
-          <SelectItem value={TicketStatus.closed}>Closed</SelectItem>
-        </SelectContent>
-      </Select>
+          <SelectTrigger
+            aria-label="Status"
+            size="sm"
+            className="h-10 w-full sm:h-9 sm:w-36"
+          >
+            <SelectValue>{(v: string | null) => STATUS_LABELS[v ?? ""]}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">All statuses</SelectItem>
+            <SelectItem value={TRIAGING_FILTER_VALUE}>Triaging</SelectItem>
+            <SelectItem value={TicketStatus.open}>Open</SelectItem>
+            <SelectItem value={TicketStatus.resolved}>Resolved</SelectItem>
+          </SelectContent>
+        </Select>
+      )}
 
       <Select<CategoryFilterValue>
         value={category}
@@ -152,17 +157,19 @@ export default function TicketFilters({
         </SelectContent>
       </Select>
 
-      <Toggle
-        aria-label="Show only tickets that have breached their SLA"
-        variant="outline"
-        size="default"
-        pressed={breachedOnly}
-        onPressedChange={onBreachedOnlyChange}
-        className="h-10 aria-pressed:border-ros-dot/40 aria-pressed:bg-ros-bg aria-pressed:text-ros-fg aria-pressed:hover:bg-ros-bg aria-pressed:hover:text-ros-fg data-[state=on]:border-ros-dot/40 data-[state=on]:bg-ros-bg data-[state=on]:text-ros-fg sm:h-9"
-      >
-        <AlertTriangle className="size-3.5" aria-hidden />
-        Breached only
-      </Toggle>
+      {!archived && (
+        <Toggle
+          aria-label="Show only tickets that have breached their SLA"
+          variant="outline"
+          size="default"
+          pressed={breachedOnly}
+          onPressedChange={onBreachedOnlyChange}
+          className="h-10 aria-pressed:border-ros-dot/40 aria-pressed:bg-ros-bg aria-pressed:text-ros-fg aria-pressed:hover:bg-ros-bg aria-pressed:hover:text-ros-fg data-[state=on]:border-ros-dot/40 data-[state=on]:bg-ros-bg data-[state=on]:text-ros-fg sm:h-9"
+        >
+          <AlertTriangle className="size-3.5" aria-hidden />
+          Breached only
+        </Toggle>
+      )}
     </div>
   );
 }

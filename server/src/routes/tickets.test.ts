@@ -77,6 +77,125 @@ describe("GET /api/tickets", () => {
   });
 });
 
+describe("GET /api/tickets — Active/Archive scope", () => {
+  let authCookie: string;
+  let userId: string;
+  const ids: number[] = [];
+
+  beforeAll(async () => {
+    const ctx = await auth.$context;
+    const hashedPassword = await ctx.password.hash("Testpassword1!");
+    const id = generateId();
+    const now = new Date();
+    await prisma.user.create({
+      data: {
+        id,
+        name: "Scope Agent",
+        email: "test-scope@example.com",
+        emailVerified: true,
+        role: "agent",
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await prisma.account.create({
+      data: {
+        id: generateId(),
+        accountId: id,
+        providerId: "credential",
+        userId: id,
+        password: hashedPassword,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    userId = id;
+    const res = await request(app)
+      .post("/api/auth/sign-in/email")
+      .send({ email: "test-scope@example.com", password: "Testpassword1!" });
+    const cookies = res.headers["set-cookie"] as string[] | string;
+    authCookie = Array.isArray(cookies) ? cookies.join("; ") : cookies;
+  });
+
+  afterAll(async () => {
+    await prisma.session.deleteMany({ where: { userId } });
+    await prisma.account.deleteMany({ where: { userId } });
+    await prisma.user.delete({ where: { id: userId } });
+  });
+
+  afterEach(async () => {
+    if (ids.length) {
+      await prisma.ticket.deleteMany({ where: { id: { in: ids } } });
+      ids.length = 0;
+    }
+  });
+
+  async function mk(
+    status: TicketStatus,
+    subject: string,
+    extra: { category?: TicketCategory } = {},
+  ): Promise<number> {
+    const t = await prisma.ticket.create({
+      data: {
+        fromName: "Scope",
+        fromEmail: "scope@example.com",
+        subject,
+        body: "",
+        status,
+        ...extra,
+      },
+    });
+    ids.push(t.id);
+    return t.id;
+  }
+
+  it("defaults to Active — excludes closed tickets", async () => {
+    const openId = await mk(TicketStatus.open, "scopeA-open");
+    const closedId = await mk(TicketStatus.closed, "scopeA-closed");
+    const res = await request(app)
+      .get("/api/tickets")
+      .query({ search: "scopeA-" })
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    const returned = (res.body.data as { id: number }[]).map((t) => t.id);
+    expect(returned).toContain(openId);
+    expect(returned).not.toContain(closedId);
+  });
+
+  it("archived=true returns only closed tickets", async () => {
+    const openId = await mk(TicketStatus.open, "scopeB-open");
+    const closedId = await mk(TicketStatus.closed, "scopeB-closed");
+    const res = await request(app)
+      .get("/api/tickets")
+      .query({ archived: "true", search: "scopeB-" })
+      .set("Cookie", authCookie);
+    expect(res.status).toBe(200);
+    const returned = (res.body.data as { id: number }[]).map((t) => t.id);
+    expect(returned).toContain(closedId);
+    expect(returned).not.toContain(openId);
+  });
+
+  it("archived composes with a category filter", async () => {
+    const billing = await mk(TicketStatus.closed, "scopeC", {
+      category: TicketCategory.billing_inquiry,
+    });
+    const refund = await mk(TicketStatus.closed, "scopeC", {
+      category: TicketCategory.refund_request,
+    });
+    const res = await request(app)
+      .get("/api/tickets")
+      .query({
+        archived: "true",
+        category: TicketCategory.billing_inquiry,
+        search: "scopeC",
+      })
+      .set("Cookie", authCookie);
+    const returned = (res.body.data as { id: number }[]).map((t) => t.id);
+    expect(returned).toContain(billing);
+    expect(returned).not.toContain(refund);
+  });
+});
+
 describe("GET /api/tickets — sorting", () => {
   let authCookie: string;
   let testUserId: string;

@@ -287,4 +287,29 @@ describe("TicketsPage", () => {
       expect(params).not.toHaveProperty("view");
     });
   });
+
+  it("switching to Archive fetches archived and hides the view chips + status filter", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<TicketsPage />);
+    await screen.findAllByText("Test ticket");
+
+    // Active scope shows the status filter + view chips.
+    expect(screen.getByRole("combobox", { name: /status/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Archive" }));
+
+    await waitFor(() => {
+      const params = (
+        vi.mocked(axios.get).mock.lastCall?.[1] as {
+          params: Record<string, unknown>;
+        }
+      ).params;
+      expect(params.archived).toBe("true");
+      expect(params).not.toHaveProperty("status");
+      expect(params).not.toHaveProperty("view");
+    });
+
+    // Status filter is gone in Archive scope.
+    expect(screen.queryByRole("combobox", { name: /status/i })).not.toBeInTheDocument();
+  });
 });

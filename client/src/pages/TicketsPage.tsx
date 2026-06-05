@@ -9,6 +9,7 @@ import type { SortingState } from "@tanstack/react-table";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import MobileTicketsList from "@/components/mobile/MobileTicketsList";
+import ScopeToggle from "@/components/ScopeToggle";
 import TicketFilters, {
   type CategoryFilterValue,
   type StatusFilterValue,
@@ -82,6 +83,7 @@ function TicketsQueue() {
   const viewRaw = searchParams.get("view");
   const view: TicketView | null =
     viewRaw && VALID_VIEWS.has(viewRaw) ? (viewRaw as TicketView) : null;
+  const archived = searchParams.get("archived") === "1";
   const page = Math.max(1, Number(searchParams.get("page") ?? "1") || 1);
   const searchFromUrl = searchParams.get("q") ?? "";
 
@@ -118,6 +120,7 @@ function TicketsQueue() {
     breachedOnly,
     slaState,
     view,
+    archived,
     page,
     pageSize: PAGE_SIZE,
   });
@@ -163,6 +166,22 @@ function TicketsQueue() {
     });
   }
 
+  // Active ⇄ Archive scope switch. Clears the Active-only axes (view + the
+  // status/SLA filters) and resets paging; search/category/priority carry over.
+  function onScopeChange(nextArchived: boolean) {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      params.delete("view");
+      params.delete("status");
+      params.delete("breachedOnly");
+      params.delete("slaState");
+      params.delete("page");
+      if (nextArchived) params.set("archived", "1");
+      else params.delete("archived");
+      return params;
+    });
+  }
+
   function setPageParam(nextPage: number) {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
@@ -190,7 +209,11 @@ function TicketsQueue() {
         description="Customer requests, auto-categorized by Gemini on arrival."
       />
 
-      <TicketViewChips activeView={view} onChange={onViewChange} />
+      <div className="mb-4">
+        <ScopeToggle archived={archived} onChange={onScopeChange} />
+      </div>
+
+      {!archived && <TicketViewChips activeView={view} onChange={onViewChange} />}
 
       <TicketFilters
         search={searchInput}
@@ -198,6 +221,7 @@ function TicketsQueue() {
         category={category}
         priority={priority}
         breachedOnly={breachedOnly}
+        archived={archived}
         onSearchChange={setSearchInput}
         onStatusChange={(v) => updateFilter("status", v)}
         onCategoryChange={(v) => updateFilter("category", v)}
@@ -211,6 +235,10 @@ function TicketsQueue() {
         isError={isError}
         sorting={sorting}
         onSortingChange={handleSortingChange}
+        {...(archived && {
+          emptyTitle: "Nothing archived",
+          emptyDescription: "Closed tickets show up here once they're done.",
+        })}
       />
 
       <TicketPagination

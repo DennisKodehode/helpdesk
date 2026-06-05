@@ -3,6 +3,7 @@ import { TicketPriority, type TicketView } from "@helpdesk/core";
 import { Loader2, Search } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import ScopeToggle from "@/components/ScopeToggle";
 import { SlaBadge } from "@/components/SlaBadge";
 import StatusPill from "@/components/StatusPill";
 import TicketViewChips from "@/components/TicketViewChips";
@@ -30,8 +31,12 @@ interface Props {
 export default function MobileTicketsList({ scope }: Props) {
   const navigate = useNavigate();
   const [view, setView] = useState<TicketView | null>(null);
+  const [archived, setArchived] = useState(false);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
+
+  // Archive is only offered on the main queue (scope="all").
+  const isArchive = scope === "all" && archived;
 
   const { data, isPending, isError } = useTickets({
     sortBy: "createdAt",
@@ -43,7 +48,8 @@ export default function MobileTicketsList({ scope }: Props) {
     search: debouncedSearch,
     breachedOnly: false,
     slaState: "",
-    view: scope === "all" ? view : null,
+    view: scope === "all" && !isArchive ? view : null,
+    archived: isArchive,
     page: 1,
     pageSize: LIST_SIZE,
   });
@@ -75,6 +81,18 @@ export default function MobileTicketsList({ scope }: Props) {
       </div>
 
       {scope === "all" && (
+        <div className="px-4 pb-3">
+          <ScopeToggle
+            archived={archived}
+            onChange={(next) => {
+              setArchived(next);
+              if (next) setView(null);
+            }}
+          />
+        </div>
+      )}
+
+      {scope === "all" && !isArchive && (
         <div className="flex gap-2 overflow-x-auto px-4 pb-3.5 [scrollbar-width:none]">
           <TicketViewChips activeView={view} onChange={setView} />
         </div>
@@ -94,8 +112,12 @@ export default function MobileTicketsList({ scope }: Props) {
           ))
         ) : tickets.length === 0 ? (
           <div className="py-12 text-center">
-            <p className="display-serif text-[20px] text-ink-2">Nothing in this view.</p>
-            <p className="mt-1.5 text-[13.5px] text-ink-3">Try clearing a filter.</p>
+            <p className="display-serif text-[20px] text-ink-2">
+              {isArchive ? "Nothing archived" : "Nothing in this view."}
+            </p>
+            <p className="mt-1.5 text-[13.5px] text-ink-3">
+              {isArchive ? "Closed tickets show up here." : "Try clearing a filter."}
+            </p>
           </div>
         ) : (
           tickets.map((t) => (

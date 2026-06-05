@@ -252,6 +252,10 @@ export const ticketSortSchema = z.object({
   // uses, against the active-ticket set.
   slaState: z.enum(["at_risk", "ok"]).optional(),
   view: z.enum(TicketView).optional(),
+  // Scope toggle: the queue defaults to Active (non-closed); `archived=true`
+  // flips it to the Archive (closed-only). Distinct from the `view` presets —
+  // it's the base status scope, not an exclusive preset.
+  archived: z.coerce.boolean().optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(10),
 });
