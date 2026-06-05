@@ -56,8 +56,16 @@ describe("attachments routes", () => {
     await prisma.session.deleteMany({ where: { userId: testUserId } });
     await prisma.account.deleteMany({ where: { userId: testUserId } });
     await prisma.user.delete({ where: { id: testUserId } });
-    // Clean up any test artifacts that landed on disk
-    await rm(ATTACHMENTS_DIR, { recursive: true, force: true });
+    // Clean up any test artifacts that landed on disk. On Windows the OS can
+    // briefly hold a lock on a just-written file (AV/indexer) after its handle
+    // is closed, making an immediate recursive rmdir throw EBUSY. Node's
+    // built-in retry backoff (which covers EBUSY/EPERM/ENOTEMPTY) absorbs it.
+    await rm(ATTACHMENTS_DIR, {
+      recursive: true,
+      force: true,
+      maxRetries: 10,
+      retryDelay: 100,
+    });
   });
 
   beforeEach(async () => {
