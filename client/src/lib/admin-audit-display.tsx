@@ -1,6 +1,8 @@
 import { AdminAuditEventType, type AdminAuditRow } from "@helpdesk/core";
 import {
   Ban,
+  BookPlus,
+  BookText,
   Mail,
   Pencil,
   ShieldCheck,
@@ -25,6 +27,11 @@ export const ADMIN_EVENT_TYPE_LABELS: Record<AdminAuditEventType, string> = {
   [AdminAuditEventType.user_edited]: "User edited",
   [AdminAuditEventType.sla_targets_changed]: "SLA targets changed",
   [AdminAuditEventType.workflow_settings_changed]: "Workflow settings changed",
+  [AdminAuditEventType.kb_article_created]: "KB article created",
+  [AdminAuditEventType.kb_article_updated]: "KB article updated",
+  [AdminAuditEventType.kb_article_deleted]: "KB article deleted",
+  [AdminAuditEventType.kb_suggestion_approved]: "KB suggestion approved",
+  [AdminAuditEventType.kb_suggestion_rejected]: "KB suggestion rejected",
 };
 
 // Icon + tone per type. Destructive/attention actions (deactivate, remove) read
@@ -43,6 +50,11 @@ const VISUAL: Record<AdminAuditEventType, { Icon: typeof Mail; tone: AuditTone }
     Icon: SlidersHorizontal,
     tone: "neutral",
   },
+  [AdminAuditEventType.kb_article_created]: { Icon: BookPlus, tone: "neutral" },
+  [AdminAuditEventType.kb_article_updated]: { Icon: BookText, tone: "neutral" },
+  [AdminAuditEventType.kb_article_deleted]: { Icon: Trash2, tone: "warn" },
+  [AdminAuditEventType.kb_suggestion_approved]: { Icon: BookPlus, tone: "neutral" },
+  [AdminAuditEventType.kb_suggestion_rejected]: { Icon: Ban, tone: "warn" },
 };
 
 function adminVisual(type: AdminAuditEventType) {
@@ -77,6 +89,16 @@ export function adminAuditSummary(row: AdminAuditRow): string {
       return `${who} changed ${target} targets`;
     case AdminAuditEventType.workflow_settings_changed:
       return `${who} changed workflow settings`;
+    case AdminAuditEventType.kb_article_created:
+      return `${who} created KB article "${target}"`;
+    case AdminAuditEventType.kb_article_updated:
+      return `${who} updated KB article "${target}"`;
+    case AdminAuditEventType.kb_article_deleted:
+      return `${who} deleted KB article "${target}"`;
+    case AdminAuditEventType.kb_suggestion_approved:
+      return `${who} approved KB suggestion "${target}"`;
+    case AdminAuditEventType.kb_suggestion_rejected:
+      return `${who} rejected KB suggestion "${target}"`;
     default:
       return `${who} made a change`;
   }

@@ -1,15 +1,3 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-
-// The knowledge base the AI answers from. Shared by the auto-resolve worker
-// (which auto-sends) and the agent-facing "Suggest reply" endpoint (which
-// surfaces the same draft + decision for review).
-export const KNOWLEDGE_BASE = readFileSync(
-  join(dirname(fileURLToPath(import.meta.url)), "../../knowledge-base.md"),
-  "utf-8",
-);
-
 export type DraftReplyInput = {
   fromName: string;
   subject: string;
@@ -29,8 +17,11 @@ export type DraftDecision = {
 // One prompt, used by both the worker and the suggest-reply endpoint, so the
 // agent preview matches what the auto-responder would have done. The JSON shape
 // adds `confidence` + `rationale` on top of the original action/reply contract;
-// older callers that ignore those fields are unaffected.
-export function buildDraftPrompt(input: DraftReplyInput): string {
+// older callers that ignore those fields are unaffected. `corpus` is the
+// category-filtered knowledge base assembled by lib/kb-corpus.ts (renderCorpus);
+// the escalation rules below stay hardcoded — they are internal policy, not a
+// customer-facing article.
+export function buildDraftPrompt(input: DraftReplyInput, corpus: string): string {
   return (
     `You are a customer support agent.\n\n` +
     `Using ONLY the knowledge base below, determine whether you can fully answer the customer's ticket.\n\n` +
@@ -40,7 +31,7 @@ export function buildDraftPrompt(input: DraftReplyInput): string {
     `- The customer disputes a charge or mentions a chargeback\n` +
     `- The issue involves account security concerns\n` +
     `- You are not confident the knowledge base fully covers this issue\n\n` +
-    `KNOWLEDGE BASE:\n${KNOWLEDGE_BASE}\n\n` +
+    `KNOWLEDGE BASE:\n${corpus}\n\n` +
     `CUSTOMER TICKET:\n` +
     `Customer name: ${input.fromName}\n` +
     `Subject: ${input.subject}\n` +

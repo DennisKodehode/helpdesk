@@ -28,6 +28,9 @@ function toResponse(row: WorkflowSettingsRow) {
     lockClosed: row.lockClosed,
     slaGreenMin: row.slaGreenMin,
     slaYellowMin: row.slaYellowMin,
+    kbGrowthOn: row.kbGrowthOn,
+    kbGrowthIntervalDays: row.kbGrowthIntervalDays,
+    kbMinClusterSize: row.kbMinClusterSize,
     updatedAt: row.updatedAt.toISOString(),
   };
 }

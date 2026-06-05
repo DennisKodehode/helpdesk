@@ -18,6 +18,8 @@ import { attachmentsRouter, uploadRouter } from "./routes/attachments";
 import auditRouter from "./routes/audit";
 import inboundEmailRouter from "./routes/inbound-email";
 import invitesRouter from "./routes/invites";
+import kbArticlesRouter from "./routes/kb-articles";
+import kbSuggestionsRouter from "./routes/kb-suggestions";
 import notificationsRouter from "./routes/notifications";
 import slaPoliciesRouter from "./routes/sla-policies";
 import statsRouter from "./routes/stats";
@@ -55,6 +57,8 @@ app.use("/api/inbound-email", inboundEmailRouter);
 app.use("/api/notifications", notificationsRouter);
 app.use("/api/sla-policies", slaPoliciesRouter);
 app.use("/api/workflow-settings", workflowSettingsRouter);
+app.use("/api/kb-articles", kbArticlesRouter);
+app.use("/api/kb-suggestions", kbSuggestionsRouter);
 app.use("/api/replies/:id/attachments", uploadRouter);
 app.use("/api/attachments", attachmentsRouter);
 

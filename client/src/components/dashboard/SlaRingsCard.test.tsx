@@ -31,6 +31,9 @@ const SETTINGS: WorkflowSettings = {
   lockClosed: true,
   slaGreenMin: 90,
   slaYellowMin: 60,
+  kbGrowthOn: false,
+  kbGrowthIntervalDays: 30,
+  kbMinClusterSize: 3,
   updatedAt: "2026-01-01T00:00:00.000Z",
 };
 

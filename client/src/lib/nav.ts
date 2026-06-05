@@ -1,5 +1,6 @@
 import {
   Activity,
+  BookText,
   Inbox,
   LayoutDashboard,
   LineChart,
@@ -35,6 +36,7 @@ export const AGENT_NAV: NavItem[] = [
 export const ADMIN_NAV: NavItem[] = [
   { to: "/users", label: "Agents", icon: Users },
   { to: "/workflow", label: "Workflow", icon: RotateCcw },
+  { to: "/knowledge-base", label: "Knowledge base", icon: BookText },
   { to: "/activity", label: "Activity", icon: Activity },
 ];
 

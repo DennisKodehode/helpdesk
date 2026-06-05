@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router";
 import { RoleShield } from "@/components/RoleShield";
 import { Link } from "@/components/ui/link";
+import { useKbSuggestionsCount } from "@/lib/kb";
 import { useMyOpenCount } from "@/lib/my-tickets";
 import {
   ADMIN_NAV,
@@ -109,9 +110,16 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
   const isAgent = !isPending && role === Role.agent;
   const { data: myOpenCount } = useMyOpenCount(isAgent);
 
-  // The badge (open-ticket count) only belongs on "My tickets".
-  const badgeFor = (item: NavItem) =>
-    item.to === "/my-tickets" ? myOpenCount?.count : undefined;
+  const isAdmin = !isPending && hasAdminAccess(role as string | undefined);
+  const { data: kbCount } = useKbSuggestionsCount(isAdmin);
+
+  // Badges: open-ticket count on "My tickets"; pending KB-suggestion count on
+  // "Knowledge base" (draws admins to the review queue).
+  const badgeFor = (item: NavItem) => {
+    if (item.to === "/my-tickets") return myOpenCount?.count;
+    if (item.to === "/knowledge-base") return kbCount?.pending;
+    return undefined;
+  };
 
   return (
     <>
@@ -163,6 +171,7 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void } = {}) {
                     item={item}
                     active={isActive(item.to, pathname)}
                     onNavigate={onNavigate}
+                    badge={badgeFor(item)}
                   />
                 </li>
               ))}

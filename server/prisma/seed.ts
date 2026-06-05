@@ -2,6 +2,7 @@ import "dotenv/config";
 import { generateId } from "better-auth";
 import { Role } from "../src/generated/prisma/client";
 import { auth } from "../src/lib/auth";
+import { seedKbArticles } from "../src/lib/kb-seed";
 import { prisma } from "../src/lib/prisma";
 import { seedSlaPolicies } from "../src/lib/sla-defaults";
 import { seedWorkflowSettings } from "../src/lib/workflow-settings";
@@ -99,6 +100,7 @@ async function seed() {
   await seedAiUser();
   await seedSlaPolicies();
   await seedWorkflowSettings();
+  await seedKbArticles();
 }
 
 seed()

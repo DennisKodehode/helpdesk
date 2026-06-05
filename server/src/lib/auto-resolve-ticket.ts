@@ -16,6 +16,7 @@ import { pickAssignee } from "./assign-agent";
 import { recordAuditEvent } from "./audit";
 import boss from "./boss";
 import { buildDraftPrompt, parseDraftDecision } from "./draft-reply";
+import { getRelevantArticles, recordArticleHits, renderCorpus } from "./kb-corpus";
 import { logger } from "./logger";
 import { prisma } from "./prisma";
 import { SEND_REPLY_EMAIL_QUEUE } from "./send-reply-email-job";
@@ -84,16 +85,27 @@ async function runAutoResolve(data: AutoResolveJobData, log: Logger) {
 
   const settings = await getWorkflowSettings();
 
-  await prisma.ticket.update({
+  const processing = await prisma.ticket.update({
     where: { id: data.id },
     data: { status: TicketStatus.processing, assignedToId: aiUserId },
+    select: { category: true },
   });
 
-  const prompt = buildDraftPrompt({
-    fromName: data.fromName,
-    subject: data.subject,
-    body: data.body,
-  });
+  // Category-filtered knowledge base (see lib/kb-corpus.ts). The classifier runs
+  // concurrently, so category may still be null here — getRelevantArticles falls
+  // back to the full published set in that case.
+  const articles = await getRelevantArticles(processing.category);
+  recordArticleHits(articles.map((a) => a.id)).catch((err) =>
+    log.error({ err, ticketId: data.id }, "auto-resolve: recordArticleHits failed"),
+  );
+  const prompt = buildDraftPrompt(
+    {
+      fromName: data.fromName,
+      subject: data.subject,
+      body: data.body,
+    },
+    renderCorpus(articles),
+  );
 
   let text: string;
   try {

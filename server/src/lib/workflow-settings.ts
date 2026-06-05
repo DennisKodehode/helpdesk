@@ -22,6 +22,10 @@ export const WORKFLOW_SETTINGS_DEFAULTS = {
   slaGreenMin: 90,
   slaYellowMin: 60,
   roundRobinCursor: 0,
+  kbGrowthOn: false,
+  kbGrowthIntervalDays: 30,
+  kbMinClusterSize: 3,
+  kbGrowthLastRunAt: null as Date | null,
 };
 
 export type WorkflowSettingsRow = NonNullable<

@@ -1,5 +1,14 @@
 import { AutoAssignMode } from "@helpdesk/core";
-import { Clock, Reply, Shield, Sparkles, Tag, UserCheck } from "lucide-react";
+import {
+  BookText,
+  Clock,
+  Layers,
+  Reply,
+  Shield,
+  Sparkles,
+  Tag,
+  UserCheck,
+} from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { WorkflowRule, WorkflowRuleGroup } from "@/components/WorkflowRule";
 import WorkflowStepper from "@/components/WorkflowStepper";
@@ -130,6 +139,41 @@ export default function LifecycleRulesPanel({ life, set }: Props) {
           on={life.lockClosed}
           onToggle={(v) => set("lockClosed", v)}
         />
+      </WorkflowRuleGroup>
+
+      <WorkflowRuleGroup label="Knowledge base">
+        <WorkflowRule
+          icon={<BookText aria-hidden className="size-[18px]" />}
+          title="Grow the knowledge base from resolved tickets"
+          desc="On a schedule, the AI scans recently resolved tickets for recurring questions the knowledge base doesn't cover yet and proposes draft articles. Nothing is published automatically — every suggestion waits for an admin to approve or reject it."
+          on={life.kbGrowthOn}
+          onToggle={(v) => set("kbGrowthOn", v)}
+        >
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="eyebrow">Run every</span>
+              <WorkflowStepper
+                value={life.kbGrowthIntervalDays}
+                onChange={(v) => set("kbGrowthIntervalDays", v)}
+                min={1}
+                max={365}
+                suffix={life.kbGrowthIntervalDays === 1 ? " day" : " days"}
+                label="analysis interval"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="eyebrow">Min. similar tickets</span>
+              <WorkflowStepper
+                value={life.kbMinClusterSize}
+                onChange={(v) => set("kbMinClusterSize", v)}
+                min={2}
+                max={20}
+                label="minimum similar tickets"
+              />
+              <Layers aria-hidden className="size-3.5 text-ink-4" />
+            </div>
+          </div>
+        </WorkflowRule>
       </WorkflowRuleGroup>
     </div>
   );

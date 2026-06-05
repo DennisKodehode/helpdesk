@@ -15,6 +15,7 @@ import axios from "axios";
 import { Check, type LucideIcon, RotateCcw, Sparkles } from "lucide-react";
 import { SlaBadge } from "@/components/SlaBadge";
 import StatusPill from "@/components/StatusPill";
+import SuggestForKbButton from "@/components/SuggestForKbButton";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { AGENTS_QUERY_KEY } from "@/lib/agents";
@@ -386,6 +387,15 @@ export default function TicketMeta({ ticket }: Props) {
           </div>
         </dl>
       </MetaField>
+
+      {isTerminal && (
+        <MetaField label="Knowledge base">
+          <SuggestForKbButton ticketId={ticket.id} />
+          <p className="mt-1.5 text-[11px] text-muted-foreground">
+            Turn this resolution into a draft article for an admin to review.
+          </p>
+        </MetaField>
+      )}
     </div>
   );
 }

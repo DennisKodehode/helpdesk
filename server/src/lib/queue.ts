@@ -10,6 +10,11 @@ import {
 } from "./auto-resolve-ticket";
 import boss from "./boss";
 import { CLASSIFY_TICKET_QUEUE, classifyTicketWorker } from "./classify-ticket";
+import {
+  KB_GAP_ANALYSIS_CRON,
+  KB_GAP_ANALYSIS_QUEUE,
+  kbGapAnalysisWorker,
+} from "./kb-gap-analysis";
 import { SEND_REPLY_EMAIL_QUEUE, sendReplyEmailWorker } from "./send-reply-email-job";
 import {
   SLA_BREACH_CHECK_CRON,
@@ -24,11 +29,14 @@ export async function setupQueues() {
   await boss.createQueue(SEND_REPLY_EMAIL_QUEUE);
   await boss.createQueue(AUTO_CLOSE_TICKETS_QUEUE);
   await boss.createQueue(SLA_BREACH_CHECK_QUEUE);
+  await boss.createQueue(KB_GAP_ANALYSIS_QUEUE);
   await boss.work(CLASSIFY_TICKET_QUEUE, classifyTicketWorker);
   await boss.work(AUTO_RESOLVE_TICKET_QUEUE, autoResolveTicketWorker);
   await boss.work(SEND_REPLY_EMAIL_QUEUE, sendReplyEmailWorker);
   await boss.work(AUTO_CLOSE_TICKETS_QUEUE, autoCloseTicketsWorker);
   await boss.work(SLA_BREACH_CHECK_QUEUE, slaBreachCheckWorker);
+  await boss.work(KB_GAP_ANALYSIS_QUEUE, kbGapAnalysisWorker);
   await boss.schedule(AUTO_CLOSE_TICKETS_QUEUE, AUTO_CLOSE_CRON);
   await boss.schedule(SLA_BREACH_CHECK_QUEUE, SLA_BREACH_CHECK_CRON);
+  await boss.schedule(KB_GAP_ANALYSIS_QUEUE, KB_GAP_ANALYSIS_CRON);
 }

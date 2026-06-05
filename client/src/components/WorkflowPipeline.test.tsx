@@ -19,6 +19,9 @@ const BASE: LifecycleDraft = {
   lockClosed: true,
   slaGreenMin: 90,
   slaYellowMin: 60,
+  kbGrowthOn: false,
+  kbGrowthIntervalDays: 30,
+  kbMinClusterSize: 3,
 };
 
 afterEach(cleanup);

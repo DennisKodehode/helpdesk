@@ -3,6 +3,10 @@ import {
   AdminAuditEventType,
   AuditEventType,
   AutoAssignMode,
+  KbArticleSource,
+  KbArticleStatus,
+  KbSuggestionSource,
+  KbSuggestionStatus,
   NotificationType,
   Role,
   SenderType,
@@ -466,6 +470,14 @@ export const workflowSettingsSchema = z.object({
   // green > yellow ordering is enforced on update (see updateWorkflowSettingsSchema).
   slaGreenMin: z.number().int().min(0).max(100),
   slaYellowMin: z.number().int().min(0).max(100),
+  // Self-growing KB. `kbGrowthOn` master switch; `kbGrowthIntervalDays` is how
+  // often the AI gap-analysis runs (also the lookback window); `kbMinClusterSize`
+  // is the min number of similar resolved tickets before a topic is proposed.
+  // The internal `kbGrowthLastRunAt` cadence timestamp is deliberately absent —
+  // never read or written by the client.
+  kbGrowthOn: z.boolean(),
+  kbGrowthIntervalDays: z.number().int().min(1).max(365),
+  kbMinClusterSize: z.number().int().min(2).max(20),
   updatedAt: z.string(),
 });
 
@@ -649,3 +661,112 @@ export const needsAttentionResponseSchema = z.array(needsAttentionRowSchema);
 
 export type NeedsAttentionRow = z.infer<typeof needsAttentionRowSchema>;
 export type NeedsAttentionResponse = z.infer<typeof needsAttentionResponseSchema>;
+
+// --- Knowledge base ---------------------------------------------------------
+// Structured KB articles (replace the legacy knowledge-base.md). `category` is
+// nullable — null means a general/uncategorized article that's always injected
+// into the AI corpus regardless of the ticket's category. `hitCount`/`lastUsedAt`
+// are read-only usage signals the server maintains; the client renders but never
+// writes them.
+export const kbArticleSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  question: z.string(),
+  answer: z.string(),
+  category: z.enum(TicketCategory).nullable(),
+  status: z.enum(KbArticleStatus),
+  source: z.enum(KbArticleSource),
+  hitCount: z.number().int(),
+  lastUsedAt: z.string().nullable(),
+  lastReviewedAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type KbArticle = z.infer<typeof kbArticleSchema>;
+
+export const kbArticlesResponseSchema = z.array(kbArticleSchema);
+
+// Article authoring. `status` is restricted to draft/published on create —
+// archiving is a transition done via update, never an initial state. `category`
+// accepts null for a general article.
+export const createKbArticleSchema = z.object({
+  title: z.string().trim().min(3, "Title must be at least 3 characters").max(200),
+  question: z.string().trim().min(3, "Question must be at least 3 characters").max(2000),
+  answer: z.string().trim().min(3, "Answer must be at least 3 characters").max(10_000),
+  category: z.enum(TicketCategory).nullable(),
+  status: z.enum([KbArticleStatus.draft, KbArticleStatus.published]),
+});
+
+export type CreateKbArticleData = z.infer<typeof createKbArticleSchema>;
+
+// Any field may be omitted to leave it unchanged. `status` accepts all three
+// states here (archiving is an update). Rejects an empty body so a no-op PATCH
+// is a 400 (mirrors updateWorkflowSettingsSchema).
+export const updateKbArticleSchema = z
+  .object({
+    title: z.string().trim().min(3, "Title must be at least 3 characters").max(200),
+    question: z
+      .string()
+      .trim()
+      .min(3, "Question must be at least 3 characters")
+      .max(2000),
+    answer: z.string().trim().min(3, "Answer must be at least 3 characters").max(10_000),
+    category: z.enum(TicketCategory).nullable(),
+    status: z.enum(KbArticleStatus),
+  })
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, {
+    message: "At least one field is required",
+  });
+
+export type UpdateKbArticleData = z.infer<typeof updateKbArticleSchema>;
+
+// --- KB suggestions (self-growing KB) --------------------------------------
+// A proposed article awaiting admin review. `requestedByName` is the agent who
+// filed it (null for AI-sourced); `sourceTicketIds` are the tickets that
+// motivated it. Approving creates a KbArticle (see approveKbSuggestionSchema).
+export const kbSuggestionSchema = z.object({
+  id: z.string(),
+  source: z.enum(KbSuggestionSource),
+  status: z.enum(KbSuggestionStatus),
+  category: z.enum(TicketCategory).nullable(),
+  title: z.string(),
+  question: z.string(),
+  answer: z.string(),
+  sourceTicketIds: z.array(z.number().int()).nullable(),
+  requestedByName: z.string().nullable(),
+  reviewedByName: z.string().nullable(),
+  reviewedAt: z.string().nullable(),
+  reviewReason: z.string().nullable(),
+  resultArticleId: z.string().nullable(),
+  createdAt: z.string(),
+});
+
+export type KbSuggestion = z.infer<typeof kbSuggestionSchema>;
+
+export const kbSuggestionsResponseSchema = z.array(kbSuggestionSchema);
+
+export const kbSuggestionsCountResponseSchema = z.object({
+  pending: z.number().int().nonnegative(),
+});
+
+export type KbSuggestionsCountResponse = z.infer<typeof kbSuggestionsCountResponseSchema>;
+
+// Approval payload: the admin may edit the proposed article before it's
+// published, and choose draft vs published — mirrors createKbArticleSchema.
+export const approveKbSuggestionSchema = z.object({
+  title: z.string().trim().min(3, "Title must be at least 3 characters").max(200),
+  question: z.string().trim().min(3, "Question must be at least 3 characters").max(2000),
+  answer: z.string().trim().min(3, "Answer must be at least 3 characters").max(10_000),
+  category: z.enum(TicketCategory).nullable(),
+  status: z.enum([KbArticleStatus.draft, KbArticleStatus.published]),
+});
+
+export type ApproveKbSuggestionData = z.infer<typeof approveKbSuggestionSchema>;
+
+export const rejectKbSuggestionSchema = z.object({
+  reason: z.string().trim().max(500).optional(),
+});
+
+export type RejectKbSuggestionData = z.infer<typeof rejectKbSuggestionSchema>;

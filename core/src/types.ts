@@ -132,6 +132,44 @@ export enum AdminAuditEventType {
   user_edited = "user_edited",
   sla_targets_changed = "sla_targets_changed",
   workflow_settings_changed = "workflow_settings_changed",
+  kb_article_created = "kb_article_created",
+  kb_article_updated = "kb_article_updated",
+  kb_article_deleted = "kb_article_deleted",
+  kb_suggestion_approved = "kb_suggestion_approved",
+  kb_suggestion_rejected = "kb_suggestion_rejected",
+}
+
+// Knowledge-base article lifecycle. Only `published` rows are assembled into
+// the AI corpus; `draft` is a work-in-progress (or a not-yet-published AI
+// suggestion), `archived` is retired but kept for reference/history.
+export enum KbArticleStatus {
+  draft = "draft",
+  published = "published",
+  archived = "archived",
+}
+
+// Where an article came from: migrated from the legacy markdown (`seed`),
+// authored by an admin (`manual`), or promoted from an approved AI/agent
+// suggestion (`ai_suggested`).
+export enum KbArticleSource {
+  seed = "seed",
+  manual = "manual",
+  ai_suggested = "ai_suggested",
+}
+
+// KB suggestion review lifecycle. `pending` awaits an admin; approving creates
+// a KbArticle and sets `approved`; `rejected` keeps the row for the audit trail.
+export enum KbSuggestionStatus {
+  pending = "pending",
+  approved = "approved",
+  rejected = "rejected",
+}
+
+// What proposed the article: the AI gap-analysis cron or an agent's manual
+// "Suggest for KB" on a resolved ticket.
+export enum KbSuggestionSource {
+  ai_gap_analysis = "ai_gap_analysis",
+  agent = "agent",
 }
 
 // Sentinels for the activity-log `actorId` query param. Distinguish "no actor
