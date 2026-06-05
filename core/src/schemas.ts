@@ -104,6 +104,30 @@ export const acceptInviteFormSchema = z
 
 export type AcceptInviteFormData = z.infer<typeof acceptInviteFormSchema>;
 
+// --- Password reset (Better Auth built-in) ---------------------------------
+// The reset endpoints are Better Auth's own (request-password-reset /
+// reset-password); these schemas only back the client forms. The "forgot"
+// form collects an email; the "reset" form collects + confirms a new password,
+// mirroring acceptInviteFormSchema (trim both sides so trailing whitespace can't
+// trigger a spurious mismatch).
+export const requestPasswordResetSchema = z.object({
+  email: z.email("Invalid email address"),
+});
+
+export type RequestPasswordResetData = z.infer<typeof requestPasswordResetSchema>;
+
+export const resetPasswordFormSchema = z
+  .object({
+    newPassword: z.string().trim().min(8, "Password must be at least 8 characters"),
+    confirmPassword: z.string().trim(),
+  })
+  .refine((v) => v.newPassword === v.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+export type ResetPasswordFormData = z.infer<typeof resetPasswordFormSchema>;
+
 export const updateUserRoleSchema = z.object({
   role: z.enum(Role),
 });

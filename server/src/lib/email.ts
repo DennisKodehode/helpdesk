@@ -96,3 +96,48 @@ export async function sendInviteEmail({
   });
   if (error) throw new Error(error.message);
 }
+
+export interface SendPasswordResetEmailParams {
+  to: string;
+  toName: string;
+  resetUrl: string;
+}
+
+export async function sendPasswordResetEmail({
+  to,
+  toName,
+  resetUrl,
+}: SendPasswordResetEmailParams): Promise<void> {
+  // Same suppression guard as invites/replies — don't keep hammering a
+  // hard-bounced/complained address. Resend recovers it once the address clears.
+  const suppression = await prisma.emailSuppression.findUnique({
+    where: { email: to.toLowerCase() },
+    select: { reason: true },
+  });
+  if (suppression) {
+    logger.warn(
+      { to, reason: suppression.reason },
+      "skipping password reset to suppressed address",
+    );
+    return;
+  }
+
+  const text =
+    `Hi ${toName},\n\n` +
+    `We received a request to reset your Helpdesk password. ` +
+    `Use the link below to choose a new one:\n\n${resetUrl}\n\n` +
+    `This link expires in 1 hour. If you didn't request this, you can safely ignore this email.`;
+  const { error } = await resend.emails.send({
+    from: EMAIL_FROM,
+    to: `${toName} <${to}>`,
+    subject: "Reset your Helpdesk password",
+    text,
+    html:
+      `<p>Hi ${toName},</p>` +
+      `<p>We received a request to reset your Helpdesk password. ` +
+      `Use the link below to choose a new one:</p>` +
+      `<p><a href="${resetUrl}">Reset your password</a></p>` +
+      `<p>This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>`,
+  });
+  if (error) throw new Error(error.message);
+}

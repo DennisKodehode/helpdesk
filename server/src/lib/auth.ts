@@ -2,6 +2,7 @@ import { UserStatus } from "@helpdesk/core";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { APIError } from "better-auth/api";
+import { sendPasswordResetEmail } from "./email";
 import { env } from "./env";
 import { prisma } from "./prisma";
 
@@ -25,6 +26,22 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     disableSignUp: true,
+    // 1h — deliberately tighter than the 72h invite TTL. A reset link is a
+    // credential-equivalent; invites only set a password for a brand-new account.
+    resetPasswordTokenExpiresIn: 3600,
+    // `url` is the server link (/api/auth/reset-password/:token?callbackURL=...);
+    // clicking it validates the token then 302s to the client's redirectTo with
+    // ?token=... (or ?error=INVALID_TOKEN). Errors propagate so a failed send
+    // surfaces rather than silently dropping the reset. Note: this fires for any
+    // matching email regardless of status, but the session.create gate below
+    // still blocks non-active users from signing in afterward.
+    sendResetPassword: async ({ user, url }) => {
+      await sendPasswordResetEmail({
+        to: user.email,
+        toName: user.name,
+        resetUrl: url,
+      });
+    },
   },
   user: {
     additionalFields: {

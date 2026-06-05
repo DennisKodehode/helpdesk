@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { Link } from "react-router";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import ErrorAlert from "@/components/ui/ErrorAlert";
@@ -54,9 +55,17 @@ export default function LoginForm({ onSubmit, serverError }: Props) {
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="password" className="text-[12px] font-medium text-foreground">
-          Password
-        </Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="password" className="text-[12px] font-medium text-foreground">
+            Password
+          </Label>
+          <Link
+            to="/forgot-password"
+            className="text-[12px] text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Forgot password?
+          </Link>
+        </div>
         <div className="relative">
           <Input
             id="password"

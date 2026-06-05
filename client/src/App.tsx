@@ -9,9 +9,11 @@ import { useSession } from "./lib/auth-client";
 import { useUnauthorizedRedirect } from "./lib/auth-redirect";
 import { useLayoutTier } from "./lib/useBreakpoint";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 
-// The two unauthenticated entry points stay eager (above) so the cold-load path
+// The unauthenticated entry points stay eager (above) so the cold-load path
 // has no extra round-trip. Every authenticated page is code-split: the initial
 // bundle no longer pulls the dashboard, ticket detail, tables, etc. Declared at
 // module top level (never inside a component) so their state survives re-renders.
@@ -83,6 +85,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/accept-invite" element={<AcceptInvitePage />} />
       <Route element={<ProtectedLayout />}>
         <Route path="/" element={<HomePage />} />
