@@ -32,10 +32,19 @@ export const auth = betterAuth({
     // `url` is the server link (/api/auth/reset-password/:token?callbackURL=...);
     // clicking it validates the token then 302s to the client's redirectTo with
     // ?token=... (or ?error=INVALID_TOKEN). Errors propagate so a failed send
-    // surfaces rather than silently dropping the reset. Note: this fires for any
-    // matching email regardless of status, but the session.create gate below
-    // still blocks non-active users from signing in afterward.
+    // surfaces rather than silently dropping the reset. We skip the send for
+    // non-active (invited/inactive) or soft-deleted users — the session.create
+    // gate already blocks their sign-in, and not issuing a reset link avoids
+    // letting them set a credential. Returning silently (rather than throwing)
+    // keeps the reset endpoint's generic response, so it leaks no account state.
     sendResetPassword: async ({ user, url }) => {
+      const record = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { status: true, deletedAt: true },
+      });
+      if (!record || record.deletedAt || record.status !== UserStatus.active) {
+        return;
+      }
       await sendPasswordResetEmail({
         to: user.email,
         toName: user.name,

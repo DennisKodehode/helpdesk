@@ -13,6 +13,7 @@ import type { Job } from "pg-boss";
 import { z } from "zod";
 import { logger } from "./logger";
 import { prisma } from "./prisma";
+import { clip, escapeXml } from "./text";
 import {
   getWorkflowSettings,
   WORKFLOW_SETTINGS_DEFAULTS,
@@ -42,10 +43,6 @@ const suggestionOutputSchema = z.object({
   ),
 });
 
-function clip(text: string, max = SNIPPET): string {
-  return text.length > max ? `${text.slice(0, max)}…` : text;
-}
-
 type ResolvedTicket = {
   id: number;
   subject: string;
@@ -62,9 +59,13 @@ function buildGapPrompt(
   const cases = tickets
     .map((t, i) => {
       const resolution = t.replies[0]?.body ?? "(no agent reply)";
-      return `--- Ticket ${i + 1} ---\nSubject: ${clip(t.subject, 200)}\nQuestion: ${clip(
-        t.body,
-      )}\nResolution: ${clip(resolution)}`;
+      return (
+        `<ticket n="${i + 1}">\n` +
+        `<subject>${escapeXml(clip(t.subject, 200))}</subject>\n` +
+        `<question>${escapeXml(clip(t.body, SNIPPET))}</question>\n` +
+        `<resolution>${escapeXml(clip(resolution, SNIPPET))}</resolution>\n` +
+        `</ticket>`
+      );
     })
     .join("\n\n");
 

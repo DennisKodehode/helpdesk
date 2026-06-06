@@ -124,27 +124,33 @@ describe("password reset (Better Auth built-in)", () => {
     expect(newSignIn.status).toBe(200);
   });
 
-  it("lets an inactive user reset, but the active-only gate still blocks sign-in", async () => {
+  it("returns the same generic 200 but sends no email to an inactive user", async () => {
     id = await seedUser({
       email: "reset-inactive@example.com",
       password: "oldpassword1",
       status: UserStatus.inactive,
     });
-    await request(app).post("/api/auth/request-password-reset").send({
+    const res = await request(app).post("/api/auth/request-password-reset").send({
       email: "reset-inactive@example.com",
       redirectTo: "http://localhost:5173/reset-password",
     });
+    // Generic 200 (no account-state leak), but sendResetPassword short-circuits
+    // before emailing a non-active account — they shouldn't set a credential.
+    expect(res.status).toBe(200);
+    expect(vi.mocked(resend.emails.send)).not.toHaveBeenCalled();
+  });
 
-    const token = await readResetToken(id);
-    const reset = await request(app)
-      .post("/api/auth/reset-password")
-      .send({ newPassword: "brandnewpass1", token });
-    expect(reset.status).toBe(200);
-
-    // Reset succeeded, but the session.create gate refuses a non-active user.
-    const signIn = await request(app)
-      .post("/api/auth/sign-in/email")
-      .send({ email: "reset-inactive@example.com", password: "brandnewpass1" });
-    expect(signIn.status).not.toBe(200);
+  it("sends no email to an invited (not-yet-active) user", async () => {
+    id = await seedUser({
+      email: "reset-invited@example.com",
+      password: "oldpassword1",
+      status: UserStatus.invited,
+    });
+    const res = await request(app).post("/api/auth/request-password-reset").send({
+      email: "reset-invited@example.com",
+      redirectTo: "http://localhost:5173/reset-password",
+    });
+    expect(res.status).toBe(200);
+    expect(vi.mocked(resend.emails.send)).not.toHaveBeenCalled();
   });
 });

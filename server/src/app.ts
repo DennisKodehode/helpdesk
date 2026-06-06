@@ -8,6 +8,7 @@ import express, {
   type Request,
   type RequestHandler,
 } from "express";
+import helmet from "helmet";
 import { auth } from "./lib/auth";
 import { env } from "./lib/env";
 import { logger } from "./lib/logger";
@@ -32,6 +33,13 @@ const app = express();
 
 app.use(requestLogger);
 app.use(sentryRequestTag);
+// Security headers on every response. CSP is left off for now: Helmet's default
+// policy blocks the Vite SPA's inline bootstrap and would need reconciling with
+// the cross-origin Better Auth cookie flow — a deliberate follow-up. The
+// defaults we keep (X-Content-Type-Options: nosniff, X-Frame-Options,
+// Referrer-Policy, HSTS) are the ones that matter for the raw attachment
+// byte-stream route. COEP is off by default in Helmet 8, so no need to disable it.
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({ origin: env.CLIENT_URL, credentials: true }) as RequestHandler);
 app.use(
   express.json({

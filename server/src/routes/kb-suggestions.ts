@@ -85,9 +85,17 @@ router.post("/:id/approve", ...requireAdminChain, async (req, res) => {
   const updated = await prisma.$transaction(async (tx) => {
     // Approval is the security boundary: only here does an AI/agent draft become
     // a published (or draft) article.
+    // Destructure explicitly rather than spreading result.data so widening the
+    // approve schema later can't silently forward unintended columns (source/
+    // authorId/lastReviewedAt stay server-controlled). Defense-in-depth: this
+    // route is admin-only.
     const article = await tx.kbArticle.create({
       data: {
-        ...result.data,
+        title: result.data.title,
+        question: result.data.question,
+        answer: result.data.answer,
+        category: result.data.category,
+        status: result.data.status,
         source: KbArticleSource.ai_suggested,
         authorId: req.user!.id,
         lastReviewedAt: now,

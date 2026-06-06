@@ -98,7 +98,7 @@ function createS3Adapter(): StorageAdapter {
       return client.presignedGetObject(key, {
         expirySeconds,
         responseParams: {
-          "response-content-disposition": `${disposition}; filename="${filename.replace(/"/g, "")}"`,
+          "response-content-disposition": `${disposition}; filename="${contentDispositionFilename(filename)}"`,
         },
       });
     },
@@ -110,6 +110,18 @@ function createS3Adapter(): StorageAdapter {
 
 export const storage: StorageAdapter =
   env.STORAGE_DRIVER === "s3" ? createS3Adapter() : createLocalAdapter();
+
+/**
+ * Sanitize a user-provided filename for embedding in a Content-Disposition
+ * header's quoted `filename=` parameter. Strips CR/LF (header-injection
+ * hardening) and double-quotes (which would terminate the quoted value).
+ * The raw filename is still attacker-controlled (it arrives via multipart
+ * upload), so this is the single source for both the local-file route and the
+ * S3 presigned-URL response param.
+ */
+export function contentDispositionFilename(filename: string): string {
+  return filename.replace(/[\r\n"]/g, "_");
+}
 
 /**
  * Normalize a user-provided filename for use inside the storage key. Strips

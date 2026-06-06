@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
 import path from "node:path";
 import { generateId } from "better-auth";
@@ -6,14 +7,17 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import app from "../app";
 import { auth } from "../lib/auth";
 import { prisma } from "../lib/prisma";
+import { storage } from "../lib/storage";
 
 const ATTACHMENTS_DIR = path.resolve(process.cwd(), ".attachments");
 
 describe("attachments routes", () => {
   let authCookie: string;
   let testUserId: string;
+  let otherUserId: string;
   let ticketId: number;
   let replyId: number;
+  let othersReplyId: number;
 
   beforeAll(async () => {
     const ctx = await auth.$context;
@@ -45,6 +49,21 @@ describe("attachments routes", () => {
     });
     testUserId = id;
 
+    // A second agent, used to prove an agent can't attach to someone else's reply.
+    const otherId = generateId();
+    await prisma.user.create({
+      data: {
+        id: otherId,
+        name: "Other Agent",
+        email: "test-attachments-other@example.com",
+        emailVerified: true,
+        role: "agent",
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    otherUserId = otherId;
+
     const signInRes = await request(app)
       .post("/api/auth/sign-in/email")
       .send({ email: "test-attachments@example.com", password: "Testpassword1!" });
@@ -56,6 +75,7 @@ describe("attachments routes", () => {
     await prisma.session.deleteMany({ where: { userId: testUserId } });
     await prisma.account.deleteMany({ where: { userId: testUserId } });
     await prisma.user.delete({ where: { id: testUserId } });
+    await prisma.user.delete({ where: { id: otherUserId } });
     // Clean up any test artifacts that landed on disk. On Windows the OS can
     // briefly hold a lock on a just-written file (AV/indexer) after its handle
     // is closed, making an immediate recursive rmdir throw EBUSY. Node's
@@ -87,6 +107,15 @@ describe("attachments routes", () => {
       },
     });
     replyId = reply.id;
+    const othersReply = await prisma.reply.create({
+      data: {
+        ticketId,
+        authorId: otherUserId,
+        senderType: "agent",
+        body: "Another agent's reply",
+      },
+    });
+    othersReplyId = othersReply.id;
   });
 
   afterEach(async () => {
@@ -132,6 +161,17 @@ describe("attachments routes", () => {
           contentType: "text/plain",
         });
       expect(res.status).toBe(404);
+    });
+
+    it("returns 403 when uploading to another agent's reply", async () => {
+      const res = await request(app)
+        .post(`/api/replies/${othersReplyId}/attachments`)
+        .set("Cookie", authCookie)
+        .attach("files", Buffer.from("hello"), {
+          filename: "hello.txt",
+          contentType: "text/plain",
+        });
+      expect(res.status).toBe(403);
     });
 
     it("returns 400 when MIME is not in the allowlist", async () => {
@@ -311,6 +351,33 @@ describe("attachments routes", () => {
         .set("Cookie", authCookie);
       expect(res.status).toBe(200);
       expect(res.headers["content-disposition"]).toMatch(/^inline; filename="doc\.pdf"/);
+    });
+
+    it("sanitizes CR/LF and quotes in the Content-Disposition filename", async () => {
+      // Control chars can't be carried cleanly through multipart, so insert a
+      // row with a hostile filename directly and exercise the file route.
+      const storageKey = `attachments/${replyId}/${randomUUID()}-evil.txt`;
+      await storage.put(storageKey, Buffer.from("data"), "text/plain");
+      const row = await prisma.attachment.create({
+        data: {
+          replyId,
+          filename: 'bad"name\r\nX-Injected: pwned.txt',
+          contentType: "text/plain",
+          size: 4,
+          storageKey,
+        },
+        select: { id: true },
+      });
+
+      const res = await request(app)
+        .get(`/api/attachments/${row.id}/file`)
+        .set("Cookie", authCookie);
+      expect(res.status).toBe(200);
+      const cd = res.headers["content-disposition"] as string;
+      expect(cd).not.toMatch(/[\r\n]/);
+      expect(cd).toContain('filename="bad_name__X-Injected: pwned.txt"');
+      // The injected CRLF must not have become a real response header.
+      expect(res.headers["x-injected"]).toBeUndefined();
     });
 
     it("returns 401 without auth", async () => {

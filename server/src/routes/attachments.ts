@@ -4,8 +4,23 @@ import { Router } from "express";
 import { env } from "../lib/env";
 import { handleMulterError, upload } from "../lib/multipart";
 import { prisma } from "../lib/prisma";
-import { dispositionForMime, safeFilename, storage } from "../lib/storage";
+import {
+  contentDispositionFilename,
+  dispositionForMime,
+  safeFilename,
+  storage,
+} from "../lib/storage";
 import { requireAuth } from "../middleware/auth-middleware";
+
+/**
+ * Authorization seam for attachment reads. Today every authenticated agent can
+ * view every ticket (and therefore every attachment), so this is always true —
+ * it exists so that if per-agent ticket scoping is ever introduced, attachments
+ * inherit it from a single place rather than each route growing its own check.
+ */
+function canViewTicket(_userId: string, _ticketId: number | null): boolean {
+  return true;
+}
 
 /**
  * POST /api/replies/:id/attachments
@@ -46,10 +61,16 @@ uploadRouter.post(
 
     const reply = await prisma.reply.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, authorId: true },
     });
     if (!reply) {
       res.status(404).json({ error: "Reply not found" });
+      return;
+    }
+    // Only the reply's author may attach files to it. This also excludes customer
+    // replies (authorId is null), which agents should never upload to.
+    if (reply.authorId !== req.user!.id) {
+      res.status(403).json({ error: "Forbidden" });
       return;
     }
 
@@ -93,10 +114,23 @@ attachmentsRouter.get("/:id", requireAuth, async (req, res) => {
   const id = req.params.id as string;
   const attachment = await prisma.attachment.findUnique({
     where: { id },
-    select: { id: true, filename: true, contentType: true, storageKey: true },
+    select: {
+      id: true,
+      filename: true,
+      contentType: true,
+      storageKey: true,
+      ticketId: true,
+      reply: { select: { ticketId: true } },
+    },
   });
   if (!attachment) {
     res.status(404).json({ error: "Attachment not found" });
+    return;
+  }
+  // Polymorphic XOR parent: exactly one of ticketId / reply is set.
+  const ticketId = attachment.ticketId ?? attachment.reply?.ticketId ?? null;
+  if (!canViewTicket(req.user!.id, ticketId)) {
+    res.status(403).json({ error: "Forbidden" });
     return;
   }
 
@@ -117,10 +151,22 @@ attachmentsRouter.get("/:id/file", requireAuth, async (req, res) => {
   const id = req.params.id as string;
   const attachment = await prisma.attachment.findUnique({
     where: { id },
-    select: { contentType: true, filename: true, storageKey: true },
+    select: {
+      contentType: true,
+      filename: true,
+      storageKey: true,
+      ticketId: true,
+      reply: { select: { ticketId: true } },
+    },
   });
   if (!attachment) {
     res.status(404).json({ error: "Attachment not found" });
+    return;
+  }
+  // Polymorphic XOR parent: exactly one of ticketId / reply is set.
+  const ticketId = attachment.ticketId ?? attachment.reply?.ticketId ?? null;
+  if (!canViewTicket(req.user!.id, ticketId)) {
+    res.status(403).json({ error: "Forbidden" });
     return;
   }
 
@@ -129,7 +175,7 @@ attachmentsRouter.get("/:id/file", requireAuth, async (req, res) => {
   res.setHeader("Content-Type", attachment.contentType);
   res.setHeader(
     "Content-Disposition",
-    `${disposition}; filename="${attachment.filename.replace(/"/g, "")}"`,
+    `${disposition}; filename="${contentDispositionFilename(attachment.filename)}"`,
   );
   res.send(buf);
 });
