@@ -20,7 +20,7 @@ export const TRIAGING_DOT = "bg-vio-dot";
 
 // Restrained pill: hairline border, soft tint, small-caps mono label.
 export const BADGE_BASE =
-  "inline-flex items-center gap-1.5 rounded-full border pl-2 pr-[9px] py-[3px] text-[10.5px] font-mono font-medium uppercase tracking-[0.07em]";
+  "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border pl-2 pr-[9px] py-[3px] text-[10.5px] font-mono font-medium uppercase tracking-[0.07em]";
 
 // A small color dot prefix — the pill itself stays calm.
 export const STATUS_DOT: Record<TicketStatus, string> = {

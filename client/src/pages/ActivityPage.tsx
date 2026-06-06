@@ -1,4 +1,4 @@
-import type { AuditEventType } from "@helpdesk/core";
+import { type AuditEventType, hasAdminAccess } from "@helpdesk/core";
 import { useSearchParams } from "react-router";
 import ActivityFilters from "@/components/ActivityFilters";
 import ActivityTable from "@/components/ActivityTable";
@@ -51,6 +51,19 @@ export default function ActivityPage() {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       setParam(next, key, value);
+      next.delete("page");
+      return next;
+    });
+  }
+
+  // Reset every filter (type/actor/date range) and paging at once.
+  function clearAllFilters() {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("type");
+      next.delete("actorId");
+      next.delete("from");
+      next.delete("to");
       next.delete("page");
       return next;
     });
@@ -126,6 +139,7 @@ export default function ActivityPage() {
             onActorChange={(v) => updateFilter("actorId", v)}
             onFromChange={(v) => updateFilter("from", v)}
             onToChange={(v) => updateFilter("to", v)}
+            onClearAll={clearAllFilters}
           />
           <ActivityTable
             events={ticketsQuery.data?.data ?? []}
@@ -140,11 +154,14 @@ export default function ActivityPage() {
             actorId={actorId}
             from={from}
             to={to}
-            actors={roster ?? []}
+            // Admin actions are only ever performed by admins/global admins, so
+            // the actor filter only lists those — not every agent.
+            actors={(roster ?? []).filter((a) => hasAdminAccess(a.role))}
             onTypeChange={(v) => updateFilter("type", v)}
             onActorChange={(v) => updateFilter("actorId", v)}
             onFromChange={(v) => updateFilter("from", v)}
             onToChange={(v) => updateFilter("to", v)}
+            onClearAll={clearAllFilters}
           />
           <AdminActivityTable
             events={adminQuery.data?.data ?? []}

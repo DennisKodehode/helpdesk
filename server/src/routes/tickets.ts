@@ -296,10 +296,22 @@ router.get("/:id", requireAuth, async (req, res) => {
     select: { reason: true },
   });
 
+  // Has an agent already filed a "Suggest for KB" for this ticket? Only count
+  // agent-sourced suggestions (AI gap-analysis suggestions reference many
+  // tickets and aren't about this one specifically).
+  const existingKbSuggestion = await prisma.kbSuggestion.findFirst({
+    where: {
+      source: KbSuggestionSource.agent,
+      sourceTicketIds: { array_contains: [id] },
+    },
+    select: { id: true },
+  });
+
   res.json({
     ...ticket,
     assigneeType: assigneeType(ticket.assignedToId),
     isSuppressed: suppression !== null,
+    hasKbSuggestion: existingKbSuggestion !== null,
   });
 });
 
@@ -908,6 +920,22 @@ router.post("/:id/suggest-kb", requireAuth, aiEndpointLimiter, async (req, res) 
   });
   if (!ticket) {
     res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  // One suggestion per ticket: bail before the (paid) AI call if this ticket was
+  // already suggested. Mirrors the hasKbSuggestion flag on the ticket detail.
+  const existingKbSuggestion = await prisma.kbSuggestion.findFirst({
+    where: {
+      source: KbSuggestionSource.agent,
+      sourceTicketIds: { array_contains: [id] },
+    },
+    select: { id: true },
+  });
+  if (existingKbSuggestion) {
+    res
+      .status(409)
+      .json({ error: "This ticket has already been suggested for the knowledge base." });
     return;
   }
 

@@ -110,8 +110,13 @@ export function useRejectKbSuggestion() {
 }
 
 export function useSuggestTicketForKb() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (ticketId: number) =>
       axios.post(`/api/tickets/${ticketId}/suggest-kb`).then((r) => r.data),
+    // Refresh the ticket detail so its `hasKbSuggestion` flips true — the button
+    // then reflects "already suggested" even after navigating away and back.
+    onSuccess: (_data, ticketId) =>
+      queryClient.invalidateQueries({ queryKey: ["ticket", String(ticketId)] }),
   });
 }

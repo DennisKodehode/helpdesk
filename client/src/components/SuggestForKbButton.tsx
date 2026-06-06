@@ -7,8 +7,16 @@ import { useSuggestTicketForKb } from "@/lib/kb";
 // Files this resolved ticket as a pending KB suggestion for admin review. Shown
 // in the ticket-detail sidebar once a ticket is resolved/closed — there's a
 // resolution worth learning from. Any agent can file one; admins review it on
-// the Knowledge base screen.
-export default function SuggestForKbButton({ ticketId }: { ticketId: number }) {
+// the Knowledge base screen. `alreadySuggested` is the server-derived flag
+// (ticket.hasKbSuggestion) so the confirmation persists across navigation and
+// the ticket can't be suggested twice.
+export default function SuggestForKbButton({
+  ticketId,
+  alreadySuggested,
+}: {
+  ticketId: number;
+  alreadySuggested: boolean;
+}) {
   const suggest = useSuggestTicketForKb();
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +35,7 @@ export default function SuggestForKbButton({ ticketId }: { ticketId: number }) {
     });
   }
 
-  if (done) {
+  if (alreadySuggested || done) {
     return (
       <p className="inline-flex items-center gap-1.5 text-[12.5px] text-eme-fg">
         <Check className="size-3.5" aria-hidden /> Sent for review

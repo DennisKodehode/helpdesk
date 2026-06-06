@@ -390,7 +390,10 @@ export default function TicketMeta({ ticket }: Props) {
 
       {isTerminal && (
         <MetaField label="Knowledge base">
-          <SuggestForKbButton ticketId={ticket.id} />
+          <SuggestForKbButton
+            ticketId={ticket.id}
+            alreadySuggested={ticket.hasKbSuggestion}
+          />
           <p className="mt-1.5 text-[11px] text-muted-foreground">
             Turn this resolution into a draft article for an admin to review.
           </p>

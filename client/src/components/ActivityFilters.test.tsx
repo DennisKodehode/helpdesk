@@ -1,4 +1,5 @@
 import { AuditEventType, type RosterAgent } from "@helpdesk/core";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, renderWithProviders, screen } from "../test/utils";
 import ActivityFilters from "./ActivityFilters";
@@ -14,6 +15,7 @@ function setup(overrides: Partial<Parameters<typeof ActivityFilters>[0]> = {}) {
     onActorChange: vi.fn(),
     onFromChange: vi.fn(),
     onToChange: vi.fn(),
+    onClearAll: vi.fn(),
   };
   renderWithProviders(
     <ActivityFilters
@@ -55,5 +57,20 @@ describe("ActivityFilters", () => {
     expect(screen.getByRole("button", { name: "To date" })).toHaveTextContent(
       "31.05.2026",
     );
+  });
+
+  it("hides the Clear filters button when no filter is set", () => {
+    setup();
+    expect(
+      screen.queryByRole("button", { name: /clear filters/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows Clear filters when a filter is active and calls onClearAll", async () => {
+    const user = userEvent.setup();
+    const handlers = setup({ actorId: "u1" });
+    const clear = screen.getByRole("button", { name: /clear filters/i });
+    await user.click(clear);
+    expect(handlers.onClearAll).toHaveBeenCalledTimes(1);
   });
 });

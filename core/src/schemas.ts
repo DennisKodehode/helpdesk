@@ -218,6 +218,9 @@ export const ticketDetailSchema = z.object({
     .nullable(),
   assigneeType: assigneeTypeSchema,
   isSuppressed: z.boolean(),
+  // True when an agent has already filed a "Suggest for KB" request for this
+  // ticket — derived server-side so the button stays disabled across navigation.
+  hasKbSuggestion: z.boolean(),
   attachments: z.array(attachmentSchema).default([]),
   createdAt: z.string(),
   updatedAt: z.string(),

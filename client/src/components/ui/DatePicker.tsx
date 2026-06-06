@@ -79,7 +79,14 @@ export default function DatePicker({
           {value ? formatDotted(value) : placeholder}
         </span>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-auto">
+      {/* Pin the calendar below the trigger: never flip above (`side: "none"`)
+          or jump to the side (`fallbackAxisSide: "none"`); still shift
+          horizontally to stay on-screen. */}
+      <PopoverContent
+        align="start"
+        className="w-auto"
+        collisionAvoidance={{ side: "none", align: "shift", fallbackAxisSide: "none" }}
+      >
         <Calendar
           mode="single"
           selected={selected}

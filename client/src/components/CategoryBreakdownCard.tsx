@@ -118,7 +118,7 @@ export default function CategoryBreakdownCard() {
       aria-labelledby="category-breakdown-heading"
     >
       <h2 id="category-breakdown-heading" className="eyebrow mb-[18px]">
-        Open by category
+        Tickets by category
       </h2>
 
       {total === 0 ? (

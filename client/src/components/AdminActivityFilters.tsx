@@ -3,6 +3,8 @@ import {
   AdminAuditEventType,
   type RosterAgent,
 } from "@helpdesk/core";
+import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import DatePicker from "@/components/ui/DatePicker";
 import {
   Select,
@@ -23,6 +25,7 @@ interface Props {
   onActorChange: (v: string) => void;
   onFromChange: (v: string) => void;
   onToChange: (v: string) => void;
+  onClearAll: () => void;
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -40,6 +43,7 @@ export default function AdminActivityFilters({
   onActorChange,
   onFromChange,
   onToChange,
+  onClearAll,
 }: Props) {
   // Admin actions are always by a human; the only non-id actor option is the
   // System sentinel (an actor that was since deleted → actorId null).
@@ -48,6 +52,7 @@ export default function AdminActivityFilters({
     [ACTOR_SYSTEM_FILTER_VALUE]: "System / removed",
     ...Object.fromEntries(actors.map((a) => [a.id, a.name])),
   };
+  const hasFilters = Boolean(type || actorId || from || to);
 
   return (
     <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
@@ -104,6 +109,17 @@ export default function AdminActivityFilters({
         onChange={onToChange}
         className="w-full sm:w-40"
       />
+
+      {hasFilters && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onClearAll}
+          className="text-ink-3 hover:text-foreground"
+        >
+          <X className="size-4" aria-hidden /> Clear filters
+        </Button>
+      )}
     </div>
   );
 }

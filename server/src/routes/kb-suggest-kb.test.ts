@@ -131,4 +131,45 @@ describe("POST /api/tickets/:id/suggest-kb", () => {
     expect(suggestion?.category).toBe(TicketCategory.refund_request);
     expect(suggestion?.sourceTicketIds).toEqual([t.id]);
   });
+
+  it("returns 409 (and makes no AI call) when the ticket was already suggested", async () => {
+    const t = await seedTicket();
+    generateTextMock.mockResolvedValue({
+      output: { title: "T", question: "Q", answer: "A" },
+    });
+    const first = await request(app)
+      .post(`/api/tickets/${t.id}/suggest-kb`)
+      .set("Cookie", agentCookie);
+    expect(first.status).toBe(201);
+    createdSuggestionIds.push(first.body.id);
+
+    generateTextMock.mockClear();
+    const second = await request(app)
+      .post(`/api/tickets/${t.id}/suggest-kb`)
+      .set("Cookie", agentCookie);
+    expect(second.status).toBe(409);
+    // The duplicate guard runs before the (paid) model call.
+    expect(generateTextMock).not.toHaveBeenCalled();
+  });
+
+  it("exposes hasKbSuggestion on the ticket detail once suggested", async () => {
+    const t = await seedTicket();
+    const before = await request(app)
+      .get(`/api/tickets/${t.id}`)
+      .set("Cookie", agentCookie);
+    expect(before.body.hasKbSuggestion).toBe(false);
+
+    generateTextMock.mockResolvedValue({
+      output: { title: "T", question: "Q", answer: "A" },
+    });
+    const created = await request(app)
+      .post(`/api/tickets/${t.id}/suggest-kb`)
+      .set("Cookie", agentCookie);
+    createdSuggestionIds.push(created.body.id);
+
+    const after = await request(app)
+      .get(`/api/tickets/${t.id}`)
+      .set("Cookie", agentCookie);
+    expect(after.body.hasKbSuggestion).toBe(true);
+  });
 });
