@@ -1,56 +1,82 @@
 # Helpdesk
 
-> **AI-powered ticket management.** Tickets are auto-classified on arrival, AI polishes draft replies before you send them, and the obvious questions resolve themselves. Your team handles what needs a human.
+> **AI-powered ticket management.** Support emails arrive, get auto-classified and triaged, and the obvious questions resolve themselves. Agents handle what needs a human — with an AI that drafts and polishes replies, but never sends them for you.
 
 **Live demo:** [helpdesk.tjemsland.dev](https://helpdesk.tjemsland.dev) — agent credentials available on request
 
 Built with React 19, Bun, TypeScript, Prisma, Better Auth, and Google Gemini.
 
-![Sign-in screen](docs/screenshots/01-login.png)
+<p align="center">
+  <img src="docs/screenshots/polish-reply.gif" alt="Polishing a draft reply with AI, then refining it with a note" width="860">
+  <br>
+  <em>Write a rough draft, let the AI polish it for tone and structure, then nudge it with a one-line note — the agent always owns the send.</em>
+</p>
 
 ---
 
-## What it does
+## A guided tour
 
-A support tool for a small team. Customers email in, agents reply, and AI does the boring parts in between. There are two roles: **agents** work the queue, and **admins** additionally manage the roster and the rules everything runs on. Here's what each scenario looks like in practice.
+A support tool for a small team. Customers email in, agents work a queue, and AI does the boring parts in between. Two roles: **agents** work tickets; **admins** additionally manage the roster and the rules everything runs on.
 
-### A ticket the AI can answer
-
-A customer emails: *"Why was I charged twice for the React course last week?"*
-
-Within seconds of Resend delivering the email, Gemini reads it, classifies it as `billing` / `normal`, and checks the knowledge base. There's an article about duplicate charges from webhook retries — high-confidence match. The AI drafts a reply quoting the policy, sends it via Resend, and marks the ticket `resolved` with itself as the assignee. The customer gets an answer in under a minute. No agent is paged.
+### The queue arrives already triaged
 
 ![Ticket queue](docs/screenshots/03-tickets.png)
 
-By the time an agent logs in, the queue is already triaged. Every row has a category, a priority, and an SLA badge. Filters along the top — status, category, priority, and a *Breached only* toggle — cut the queue down to the slice you care about, and the search box matches sender, email, or subject.
+Within seconds of Resend delivering an email, Gemini reads it, assigns a **category** and **priority**, and checks the knowledge base. By the time an agent logs in, every row has a category, a priority, and an SLA badge. The filters along the top — status, category, priority, and a *Breached only* toggle — cut the queue to the slice you care about, and search matches sender, email, or subject.
+
+<p align="center"><img src="docs/screenshots/filters-category-open.png" alt="Queue filters" width="760"></p>
+
+### A ticket the AI handled end to end
 
 ![AI-resolved ticket](docs/screenshots/04-ticket-detail.png)
 
-Open one the AI handled and the whole story is there: the customer's question, the AI's auto-reply grounded in the knowledge base, the `RESOLVED` status, and an **AUTO-CLASSIFIED BY AI** / **HANDLED BY AUTOMATION** marker. The activity feed on the right records every step, including *AI auto-resolved the ticket*.
+When the knowledge base clearly covers a question — *"what's your refund policy?"* — the AI drafts a grounded reply, sends it, and marks the ticket **resolved** with itself as assignee. Open it and the whole story is there: the customer's question, the AI's auto-reply, an **AUTO-CLASSIFIED BY AI** / **HANDLED BY AUTOMATION** marker, and an activity feed that records *AI auto-resolved the ticket*. No agent was paged.
 
-### A ticket that needs a human
+### Working a ticket, with the AI alongside
 
-A different customer emails: *"URGENT: payment failed and my account is locked. I can't sign in at all."*
+When a ticket needs a human, the composer has two AI moves — and the agent owns the send either way.
 
-Gemini classifies it correctly — `billing` / `urgent` — but the knowledge base has nothing about account lockouts. Instead of guessing, the AI stays out of it. The ticket lands in the human queue as `open`, with the urgent first-response SLA timer running.
+**Suggest reply** drafts a grounded answer from the knowledge base, with a confidence score:
 
-![My tickets](docs/screenshots/06-my-tickets.png)
+<p align="center"><img src="docs/screenshots/suggest-reply.gif" alt="Asking the AI to suggest a reply, grounded in the knowledge base" width="760"></p>
 
-Each agent has their own queue split into what they're **working on** and what's already **closed**. Opening a ticket shows the full conversation, the AI's classification, and the SLA timer counting down. The agent can write a reply and **Polish with AI** — tone and grammar get a quick pass, substance untouched — or click **Suggest reply** to have the AI draft a grounded answer from the knowledge base for them to review and edit. Either way the agent owns the send. Resend delivers the email, the first-response timer stops, and the audit log records who replied and when.
+If the KB doesn't cover the question, the AI says so and recommends escalating rather than guessing:
 
-### When customers come back
+<p align="center"><img src="docs/screenshots/ai-suggest-card.png" alt="AI suggested-reply card with confidence and escalate badges" width="640"></p>
 
-If the customer replies later, the inbound webhook matches the reply to the existing ticket (same sender, same subject thread). A resolved ticket auto-reopens and gets unassigned from the AI, so the next available human picks it up. A reply on a *closed* ticket spawns a fresh one. No duplicate tickets, no orphaned threads.
+**Polish with AI** takes the agent's own rough draft and rewrites it for tone and structure — substance untouched — then accepts a refinement note for a second pass (the GIF up top). And **internal notes** sit on a separate, amber-tinted tab, visible to other agents but never the customer:
 
-### Tracking your own work
+<p align="center"><img src="docs/screenshots/ai-internal-note.png" alt="Internal note composer tab" width="640"></p>
 
-![Personal stats](docs/screenshots/07-my-stats.png)
+### A knowledge base that grows itself
 
-Every agent gets a personal dashboard: open tickets on their plate, tickets resolved over the last 30 days and lifetime, average resolution time, average first-reply time, and reply counts. Throughput and resolution time credit whoever's currently assigned; reply counts follow authorship and survive reassignment.
+The AI grounds every answer in a structured, admin-curated knowledge base — not a wiki the AI can edit. New articles come from real resolutions: on a resolved ticket an agent clicks **Suggest for KB**, and the AI drafts an article from the thread as a *pending suggestion*. A daily job does the same automatically, clustering recurring resolved tickets.
 
-### How customers experience it
+![Knowledge base](docs/screenshots/10-knowledge-base.png)
 
-Customers never log in. They email an address and continue the conversation by replying. They don't see categories, priorities, or SLAs — just normal email replies, some of which happen to be drafted by an AI grounded in the team's own knowledge base.
+Nothing publishes on its own — **admin approval is the security boundary** (ticket text is attacker-controllable). Admins review the queue and approve or reject:
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/flow-kb-3-queue.png" alt="KB suggestions awaiting review"></td>
+<td width="50%"><img src="docs/screenshots/modal-kb-approve.png" alt="Reviewing and publishing a suggested article"></td>
+</tr>
+<tr>
+<td align="center"><em>The agent's suggestion lands in the review queue…</em></td>
+<td align="center"><em>…an admin edits it and publishes — now the AI can ground on it.</em></td>
+</tr>
+</table>
+
+### Your own work
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/06-my-tickets.png" alt="My tickets"></td>
+<td width="50%"><img src="docs/screenshots/07-my-stats.png" alt="Personal stats"></td>
+</tr>
+</table>
+
+Each agent gets a personal queue split into what they're **working on** and what's **closed**, plus a stats page: open tickets, resolved over 30 days and lifetime, average resolution and first-reply times, reply counts. Throughput credits whoever's currently assigned; reply counts follow authorship and survive reassignment.
 
 ---
 
@@ -62,29 +88,51 @@ Admins get everything agents have, plus a workspace-wide view and the controls t
 
 ![Admin dashboard](docs/screenshots/02-dashboard.png)
 
-The admin dashboard aggregates the whole workspace: open / triaging / breached / unassigned counts up top, an AI-activity card (auto-classified, replies sent, escalated), a live recent-activity feed, tickets broken down by category, the highest-priority tickets needing attention, and SLA-compliance gauges for first response and resolution. It's the morning glance that tells you where the team stands.
+Open / triaging / breached / unassigned counts up top, an AI-activity card (auto-classified, replies sent, escalated), a live recent-activity feed, tickets by category, the highest-priority tickets needing attention, and SLA-compliance gauges for first response and resolution.
 
-### Managing agents
+### Managing the roster
 
 ![Agent roster](docs/screenshots/05-agents.png)
 
-The roster is the admin's control panel for people. Each row shows the teammate's role, status (`active` / `invited` / `inactive`), open assignments, tickets resolved, average resolution time, and when they were last active. From here an admin can **invite** a teammate, **change their role** (promote an agent to admin, or demote back), **deactivate / reactivate** them, and **remove** them from the team. The AI user appears here too — marked as automation and excluded from the human seat count.
+Each row shows a teammate's role, status (`active` / `invited` / `inactive`), open assignments, tickets resolved, average resolution time, and last-active. Nobody is ever handed a password — inviting a teammate (as agent **or** admin) creates them `invited` with no credential and emails a single-use link; they set their own password on first visit, which flips them to `active`.
 
-Guardrails keep the workspace from locking itself out: you can't deactivate or remove yourself or *any* admin, you can't demote yourself, and the last remaining admin can't be demoted. Deactivating someone immediately ends their live sessions; removing them also voids any pending invite.
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/modal-invite-agent.png" alt="Invite agent dialog"></td>
+<td width="50%"><img src="docs/screenshots/09-accept-invite.png" alt="Accept invite screen"></td>
+</tr>
+<tr>
+<td align="center"><em>Invite an agent or admin…</em></td>
+<td align="center"><em>…they set their own password from the emailed link.</em></td>
+</tr>
+</table>
 
-Nobody is ever handed a password. Inviting a teammate — as agent **or** admin — creates them in an `invited` state with no credential and emails a single-use link; they set their own password on first visit, which flips them to `active`.
+Guardrails keep the workspace from locking itself out: you can't deactivate or remove yourself or the last admin, deactivating someone ends their live sessions on the spot, and removing them voids any pending invite.
 
-![Accept invite](docs/screenshots/09-accept-invite.png)
+### The rules every ticket follows
 
-### Setting SLA targets
+The lifecycle and the SLA windows aren't hard-coded — admins own both on the **Workflow** screen. Lifecycle rules cover auto-assignment, AI auto-resolve and its confidence threshold, resolve gates, the auto-close quiet period, and reopen-on-reply. SLA targets set first-response and resolution windows per priority, each with its own at-risk threshold:
 
-![SLA targets](docs/screenshots/08-sla-policies.png)
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/08-workflow-lifecycle.png" alt="Lifecycle rules"></td>
+<td width="50%"><img src="docs/screenshots/08b-workflow-sla.png" alt="SLA targets"></td>
+</tr>
+</table>
 
-SLAs aren't hard-coded — admins set first-response and resolution windows per priority (urgent → low), each with its own at-risk threshold. A live health bar at the top shows how the current queue is tracking against those targets in real time. Tickets flip to **At risk** once 75% of a window has elapsed and **Breached** when it passes; resolved and closed tickets stop carrying a badge. A metric with no target set is simply skipped.
+### Reading the room
 
-### Reading the room — Activity health signals
+The **Activity** page is the global audit log, and it opens with a **Watchlist** — operational-health signals read straight from the audit stream over the last 7 days:
 
-The Activity page (the global audit log) opens with a **Watchlist**: a handful of operational-health signals read straight from the audit stream over the last 7 days — AI escalation rate, AI hard failures (API/parse faults, separated from content gaps), reassignment churn, resolutions that didn't stick (reopened < 24h), and priority re-triage. Each pairs a number with a threshold state (Needs attention / Watch / Healthy), a week-over-week delta coloured by *direction of harm*, and a one-line plain-English read of the underlying problem — a high escalation rate points at knowledge-base gaps; heavy reassignment churn points at routing. Rows are severity-sorted, and clicking one filters the log below to the relevant event. The intent is to surface *why* something's off at a glance, not just *that* it is.
+<p align="center"><img src="docs/screenshots/watchlist.png" alt="Health-signals watchlist" width="900"></p>
+
+AI escalation rate, AI hard failures (API/parse faults, separated from content gaps), reassignment churn, resolutions that didn't stick (reopened < 24h), and priority re-triage. Each pairs a number with a threshold state, a week-over-week delta coloured by *direction of harm*, and a one-line read of the likely cause. Rows are severity-sorted, and clicking one filters the log below.
+
+![Activity log](docs/screenshots/11-activity.png)
+
+### How customers experience it
+
+Customers never log in. They email an address and continue the conversation by replying. They don't see categories, priorities, or SLAs — just normal email replies, some of which happen to be drafted by an AI grounded in the team's own knowledge base. A reply on a resolved ticket auto-reopens it (and unassigns the AI so a human picks it up); a reply on a closed ticket starts a fresh one.
 
 ---
 
@@ -132,38 +180,27 @@ helpdesk/
 └── client/   @helpdesk/client  — React SPA, served by Express in production
 ```
 
-Every server input and every client form validates against the **same** Zod schema in `core/src/schemas.ts`. The Better Auth `Role`, `TicketStatus`, `TicketCategory`, `TicketPriority`, and `SenderType` enums also live there — neither side accepts raw strings anywhere.
+Every server input and every client form validates against the **same** Zod schema in `core/src/schemas.ts`. The `Role`, `TicketStatus`, `TicketCategory`, `TicketPriority`, and `SenderType` enums also live there — neither side accepts raw strings anywhere.
 
 ### Design decisions worth calling out
 
-**Ticket lifecycle as an explicit state machine.** Statuses are `new → processing → open → resolved → closed`, with disallowed transitions rejected at the route layer (e.g. you can't jump `open → closed`; resolved tickets auto-close after 96h via a cron worker; admins can force-close or reopen anything). The agent UI collapses `new` and `processing` into a single read-only "Triaging" pill while the AI is still working, so agents can't reassign a half-classified ticket.
+**Ticket lifecycle as an explicit state machine.** Statuses are `new → processing → open → resolved → closed`, with disallowed transitions rejected at the route layer (you can't jump `open → closed`; resolved tickets auto-close after a configurable quiet period — default 7 days — via a cron worker; admins can force-close or reopen anything). The agent UI collapses `new` and `processing` into a single read-only "Triaging" pill while the AI is still working, so agents can't reassign a half-classified ticket.
 
-**Postgres as the queue, not Redis.** [`pg-boss`](https://github.com/timgit/pg-boss) runs the classification, auto-resolve, email-send, SLA-breach, and auto-close jobs as durable queues in the same database that holds the application data. One fewer service to run, one fewer point of failure, and "did this job complete?" is a SQL query against the queue table. Tradeoff: lower raw throughput than dedicated brokers — fine for a support tool, would not pick this for high-frequency event processing.
+**Postgres as the queue, not Redis.** [`pg-boss`](https://github.com/timgit/pg-boss) runs the classification, auto-resolve, email-send, SLA-breach, auto-close, and KB gap-analysis jobs as durable queues in the same database that holds the application data. One fewer service to run, and "did this job complete?" is a SQL query against the queue table. Tradeoff: lower raw throughput than dedicated brokers — fine for a support tool.
 
-**AI behind a provider-agnostic interface.** All AI calls go through the [Vercel AI SDK](https://sdk.vercel.ai)'s `generateText` / `generateObject`. The currently-bound provider is Google Gemini via `@ai-sdk/google`, but swapping to Claude or OpenAI is a one-line import change. Schemas for structured outputs (categorization, suggested reply confidence) are declared with Zod and validated automatically.
+**AI behind a provider-agnostic interface.** All AI calls go through the [Vercel AI SDK](https://sdk.vercel.ai)'s `generateText` / structured-output helpers. The bound provider is Google Gemini via `@ai-sdk/google`, but swapping to Claude or OpenAI is a one-line import change. Structured outputs (categorization, suggested-reply confidence, KB drafts) are declared with Zod and validated automatically.
 
-**AI polishes; it never drafts blindly.** "Polish with AI" rewrites the agent's draft for tone and clarity; it cannot invent content. "Suggest reply" drafts an answer grounded in the knowledge base, but an agent still reviews and sends it. Auto-resolve is the only path where the AI sends a message without human review, and it's gated on a strict KB match — if Gemini isn't confident, the ticket goes to the human queue rather than guessing.
+**AI polishes; it never drafts blindly — and never publishes on its own.** "Polish with AI" rewrites the agent's draft for tone and clarity; it can't invent content. "Suggest reply" drafts from the knowledge base, but an agent reviews and sends it. KB articles are only ever created through admin approval. Auto-resolve is the single path where AI sends without a human, and it's gated on a strict KB match — if Gemini isn't confident, the ticket goes to the human queue. Because ticket text is attacker-controllable, every drafting prompt fences it in delimiters and escapes the delimiter characters so it can't break out.
 
-**Idempotent inbound webhook.** Resend's `email-received` webhook is at-least-once. Each Ticket and Reply has a unique `resendEmailId`; the handler upserts on that key so a redelivered webhook can't create duplicates. Customer-reply detection (does this email reopen an existing ticket, or start a new one?) keys on `(fromEmail, subject, status)` rather than blind string matching.
+**Idempotent inbound webhook.** Resend's `email-received` webhook is at-least-once. Each Ticket and Reply has a unique `resendEmailId`; the handler dedupes on that key so a redelivered webhook can't create duplicates. The webhook signature is verified before any payload is parsed.
 
-**Better Auth with DB sessions, not JWTs.** Logout is a real revocation, not a "trust the expiry" handshake. Password changes invalidate sessions across devices, and a deactivated account is booted from its live sessions on the spot (a custom login gate also blocks anyone whose status isn't `active`). The `role` field is a Better Auth `additionalField` with `input: false`, so Better Auth's own signup/update endpoints can never touch it — role changes flow *only* through the dedicated admin routes, which set it deliberately (admin included; see [Known limitations](#known-limitations)). Teammates are onboarded via single-use invite links and set their own password; admins never see or set it.
+**Better Auth with DB sessions, not JWTs.** Logout is a real revocation. Password changes invalidate sessions across devices, and a deactivated account is booted from its live sessions on the spot (a custom login gate also blocks anyone whose status isn't `active`). The `role` field is a Better Auth `additionalField` with `input: false`, so the signup/update endpoints can never touch it — role changes flow only through dedicated admin routes.
 
-**Polymorphic attachments enforced at the DB level.** A single `Attachment` row belongs to either a `Reply` or a `Ticket`, never both. Prisma doesn't model XOR constraints natively, so the migration adds a raw `CHECK (replyId IS NULL) <> (ticketId IS NULL)` constraint — invalid combinations fail at insert time, not just at the application layer.
+**Polymorphic attachments enforced at the DB level.** A single `Attachment` row belongs to either a `Reply` or a `Ticket`, never both — a raw `CHECK (replyId IS NULL) <> (ticketId IS NULL)` constraint in the migration makes invalid combinations fail at insert time, not just in the app layer.
 
-**Audit log as a first-class table.** Every status change, assignee change, reply, AI escalation, and auto-action emits an `AuditEvent` row with actor, type, and a JSON diff. The activity feed in the ticket sidebar reads straight from this table — no separate logging system, and the data is queryable with SQL when something looks off in production.
+**Audit log as a first-class table.** Every status change, assignee change, reply, AI escalation, and auto-action emits an `AuditEvent`. The ticket activity feed and the Activity-page Watchlist both read straight from it — no separate logging system, and it's queryable with SQL when something looks off in production.
 
-**Cancellable AI generation.** The "Polish with AI" flow is async and can be slow on cold Gemini calls. The mutation passes an `AbortController.signal` to the AI SDK, so navigating away or dismissing the polish modal actually cancels the in-flight request — you don't pay for tokens you abandoned.
-
-**Testing Trophy, not pyramid.** Component tests in jsdom cover UI logic, integration tests hit a real Postgres via supertest, and Playwright E2E only covers full-journey flows (login → ticket → reply → email send) that you can't fake. Mocks live at the network boundary; the database is never mocked in server tests, because the migrations + schema are exactly what's being verified.
-
-### What I'd revisit
-
-A few things I'd approach differently with hindsight:
-
-- **Knowledge base as a single Markdown file** is too coarse. A structured FAQ table with explicit answer / source-link / last-reviewed columns would let the AI ground answers more reliably and would expose stale entries.
-- **The Express+Vite SPA bundle** keeps deploy simple but couples release cadence — a frontend-only tweak triggers a full server redeploy. Splitting the SPA to a static host (Vercel / Cloudflare Pages) behind the same domain would let the API and UI ship independently.
-- **No full-text search.** Tickets are searchable by sender, subject, and status, but reply bodies aren't indexed. Postgres `tsvector` columns + a GIN index would be a small addition with outsized search-quality gains.
-- **SLA clocks ignore business hours.** A "Mon–Fri 9–17" calendar would more honestly reflect how a small team actually operates, especially around weekend tickets.
+**Testing Trophy, not pyramid.** Component tests in jsdom cover UI logic, integration tests hit a real Postgres via supertest, and Playwright E2E only covers full-journey flows that you can't fake. The database is never mocked in server tests, because the migrations + schema are exactly what's being verified.
 
 ### Repository layout
 
@@ -172,9 +209,10 @@ Per-workspace conventions, key files, and gotchas live in [CLAUDE.md](CLAUDE.md)
 - [core/src/schemas.ts](core/src/schemas.ts) — shared Zod schemas (server + client)
 - [server/src/app.ts](server/src/app.ts) — Express app, importable by tests (no `app.listen`)
 - [server/src/lib/auth.ts](server/src/lib/auth.ts) — Better Auth config
-- [server/prisma/schema.prisma](server/prisma/schema.prisma) — full data model
-- [server/knowledge-base.md](server/knowledge-base.md) — what the AI is allowed to answer on its own
+- [server/prisma/schema.prisma](server/prisma/schema.prisma) — full data model (incl. `KbArticle` / `KbSuggestion`)
+- [server/src/lib/kb-corpus.ts](server/src/lib/kb-corpus.ts) — the KB retrieval seam the AI grounds on
 - [client/src/App.tsx](client/src/App.tsx) — route tree + `ProtectedLayout` / `AdminLayout`
+- [tools/readme-shots/](tools/readme-shots/) — the Playwright harness that produces every screenshot above
 
 ---
 
@@ -185,17 +223,15 @@ This is a portfolio-stage project. It works end-to-end but is intentionally scop
 - **Single tenant.** No notion of multiple organizations or workspaces.
 - **No customer portal.** Customers interact via email only — no login, no "view your ticket status" page.
 - **No 2FA or SSO.** Email + password only. Sessions live in the database with a configurable expiry.
-- **Flat admin model — any admin can mint more admins.** Admins can invite new admins and promote any agent to admin with no second approval. It's deliberate so the workspace is easy to bootstrap, but it's setup-grade access control, not production RBAC (no per-permission roles, no audit gate on promotion). Removal *is* guarded: an admin can't be deactivated or deleted, and the last admin can't be demoted — so you can't accidentally lock everyone out.
-- **AI is best-effort.** Gemini's classification and auto-resolve are probabilistic. Misclassifications happen; agents can always override.
-- **Knowledge base is a single Markdown file.** No structured FAQ editor in the UI yet — edit the file and redeploy.
+- **Flat admin model.** Any admin can invite more admins and promote agents, with no second approval — deliberate so the workspace is easy to bootstrap, but it's setup-grade access control, not per-permission RBAC. Removal *is* guarded so you can't lock everyone out.
+- **AI is best-effort.** Gemini's classification and auto-resolve are probabilistic. Misclassifications happen; agents can always override, and auto-resolve only fires on a confident KB match.
+- **Knowledge base is curated, not crawled.** Articles are written/approved by admins (often from AI-suggested drafts); there's no automatic ingestion of external docs, and retrieval is category-filtered rather than vector search — `getRelevantArticles()` is the single seam a future pgvector upgrade would replace.
 - **No real-time updates.** The UI refetches on focus and after mutations; it doesn't push via WebSocket.
-- **English only.** No internationalization. Gemini will reply in whatever language the customer wrote in, but UI strings are English.
-- **No business-hours awareness in SLAs.** Timers run on wall-clock time. A weekend ticket counts against the same deadline as a Monday one.
-- **Activity health-signal thresholds are hard-coded.** The alert/watch/healthy cutoffs for the Activity Watchlist live as named constants in `server/src/lib/health-signals.ts` (research-grounded defaults). They aren't admin-configurable yet — a v2 could expose them as settings, the way the dashboard SLA-compliance ring thresholds already are.
-- **Single currency / no billing integration.** This is a support tool, not a billing platform.
-- **Email reply parsing is heuristic.** [`email-reply-parser`](https://github.com/crisp-oss/email-reply-parser) handles most clients well, but exotic quoting styles can leak signatures into the visible body.
+- **English only.** Gemini replies in the customer's language, but UI strings are English.
+- **No business-hours awareness in SLAs.** Timers run on wall-clock time — a weekend ticket counts against the same deadline as a Monday one.
+- **Activity health-signal thresholds are hard-coded** named constants in `server/src/lib/health-signals.ts` (research-grounded defaults), not yet admin-configurable.
+- **Email reply parsing is heuristic.** [`email-reply-parser`](https://github.com/crisp-oss/email-reply-parser) handles most clients, but exotic quoting can leak signatures into the visible body.
 - **No full-text search across replies.** Tickets are searchable by name / email / subject; reply bodies aren't indexed.
-- **Attachment size and type limits.** Set conservatively to avoid abuse. See `server/src/routes/attachments.ts` for the current ceilings.
 
 If you spot something here that's blocking a real use case, open an issue.
 
