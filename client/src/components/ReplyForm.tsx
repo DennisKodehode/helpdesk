@@ -3,13 +3,13 @@ import {
   type CreateReplyData,
   createReplySchema,
   MAX_ATTACHMENT_SIZE_BYTES,
+  type PolishReplyResponse,
   type Reply,
-  type SuggestReplyResponse,
 } from "@helpdesk/core";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import { Paperclip, Send, Sparkles, X } from "lucide-react";
+import { BookOpen, Paperclip, Send, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -110,34 +110,26 @@ export default function ReplyForm({ ticketId }: Props) {
     }
   }, [isInternal]);
 
+  // "Polish" sends the agent's draft to the KB-grounded review endpoint and
+  // surfaces the result in a card (preview + confidence + cited sources) for the
+  // agent to review, use, or edit — it never overwrites the draft automatically.
   const polishMutation = useMutation({
     mutationFn: ({ body, refinementNote }: { body: string; refinementNote?: string }) =>
-      axios.post<{ body: string }>(`/api/tickets/${ticketId}/polish-reply`, {
-        body,
-        refinementNote,
-      }),
-    onSuccess: ({ data }) => {
-      setValue("body", data.body, { shouldValidate: true, shouldDirty: true });
-      setIsPolished(true);
-      setRefinementNote("");
-    },
-  });
-
-  // "Suggest reply" surfaces the AI's knowledge-base draft + resolve/escalate
-  // decision for the agent to review, use, or edit.
-  const suggestMutation = useMutation({
-    mutationFn: () =>
       axios
-        .post<SuggestReplyResponse>(`/api/tickets/${ticketId}/suggest-reply`)
+        .post<PolishReplyResponse>(`/api/tickets/${ticketId}/polish-reply`, {
+          body,
+          refinementNote,
+        })
         .then((r) => r.data),
   });
 
-  function applySuggestedDraft(focus: boolean) {
-    const draft = suggestMutation.data?.reply;
+  function applyPolishedDraft(focus: boolean) {
+    const draft = polishMutation.data?.body;
     if (!draft) return;
     setValue("body", draft, { shouldValidate: true, shouldDirty: true });
-    setIsPolished(false);
-    suggestMutation.reset();
+    setIsPolished(true);
+    setRefinementNote("");
+    polishMutation.reset();
     if (focus) document.getElementById("reply-body")?.focus();
   }
 
@@ -262,33 +254,26 @@ export default function ReplyForm({ ticketId }: Props) {
         />
         <FieldError message={errors.body?.message} />
 
-        {!isInternal && (suggestMutation.isPending || suggestMutation.data) && (
+        {!isInternal && (polishMutation.isPending || polishMutation.data) && (
           <div className="ai-surface rounded-[var(--r-md)] p-4">
             <div className="flex items-center justify-between gap-2">
               <p className="ai-chip">
-                <Sparkles className="size-3" aria-hidden /> Suggested reply
+                <Sparkles className="size-3" aria-hidden /> Polished reply
               </p>
               <div className="flex items-center gap-2">
-                {suggestMutation.data && (
+                {polishMutation.data && (
                   <span
-                    className={`${BADGE_BASE} ${confidenceTone(suggestMutation.data.confidence).cls}`}
+                    className={`${BADGE_BASE} ${confidenceTone(polishMutation.data.confidence).cls}`}
                   >
-                    {confidenceTone(suggestMutation.data.confidence).label} ·{" "}
-                    {Math.round(suggestMutation.data.confidence)}%
+                    {confidenceTone(polishMutation.data.confidence).label} ·{" "}
+                    {Math.round(polishMutation.data.confidence)}%
                   </span>
                 )}
-                {suggestMutation.data?.escalate && (
-                  <span
-                    className={`${BADGE_BASE} bg-ros-bg text-ros-fg border-ros-dot/35`}
-                  >
-                    Escalate
-                  </span>
-                )}
-                {suggestMutation.data && (
+                {polishMutation.data && (
                   <button
                     type="button"
-                    aria-label="Dismiss suggestion"
-                    onClick={() => suggestMutation.reset()}
+                    aria-label="Dismiss polished reply"
+                    onClick={() => polishMutation.reset()}
                     className="rounded-full p-0.5 text-ink-3 hover:bg-panel-2 hover:text-foreground"
                   >
                     <X className="size-3.5" />
@@ -297,59 +282,61 @@ export default function ReplyForm({ ticketId }: Props) {
               </div>
             </div>
 
-            {suggestMutation.isPending ? (
+            {polishMutation.isPending ? (
               <div
                 className="mt-3 space-y-2"
                 role="status"
-                aria-label="Drafting a suggested reply"
+                aria-label="Polishing your reply"
               >
                 <div className="shimmer h-3 w-[92%] rounded" />
                 <div className="shimmer h-3 w-full rounded" />
                 <div className="shimmer h-3 w-[70%] rounded" />
               </div>
-            ) : suggestMutation.data ? (
+            ) : polishMutation.data ? (
               <div className="mt-3">
-                {suggestMutation.data.reply ? (
-                  <p className="whitespace-pre-wrap text-[14px] leading-[1.6] text-foreground">
-                    {suggestMutation.data.reply}
-                  </p>
-                ) : (
-                  <p className="text-[14px] text-foreground">
-                    The AI recommends escalating this ticket to a human.
-                  </p>
-                )}
-                {suggestMutation.data.rationale && (
+                <p className="whitespace-pre-wrap text-[14px] leading-[1.6] text-foreground">
+                  {polishMutation.data.body}
+                </p>
+                {polishMutation.data.changeSummary && (
                   <p className="mt-2.5 text-[12.5px] text-accent-ink">
-                    {suggestMutation.data.rationale}
+                    {polishMutation.data.changeSummary}
                   </p>
                 )}
-                {suggestMutation.data.reply && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="accent"
-                      size="sm"
-                      onClick={() => applySuggestedDraft(false)}
-                    >
-                      Use draft
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => applySuggestedDraft(true)}
-                    >
-                      Use &amp; edit
-                    </Button>
+                {polishMutation.data.sources.length > 0 && (
+                  <div className="mt-3 border-t border-border/50 pt-3">
+                    <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-ink-3">
+                      <BookOpen className="size-3" aria-hidden /> Sources used
+                    </p>
+                    <ul className="mt-1.5 space-y-1">
+                      {polishMutation.data.sources.map((s) => (
+                        <li key={s.id} className="text-[12.5px] text-foreground">
+                          {s.title}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="accent"
+                    size="sm"
+                    onClick={() => applyPolishedDraft(false)}
+                  >
+                    Use draft
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => applyPolishedDraft(true)}
+                  >
+                    Use &amp; edit
+                  </Button>
+                </div>
               </div>
             ) : null}
           </div>
-        )}
-
-        {suggestMutation.isError && (
-          <ErrorAlert message="Failed to suggest a reply. Please try again." />
         )}
 
         {polishMutation.isError && (
@@ -423,23 +410,9 @@ export default function ReplyForm({ ticketId }: Props) {
               <Paperclip />
               Attach
             </Button>
-            {/* Suggest reply drafts from the knowledge base; Polish refines the
-                agent's own draft. Both are AI → violet, distinct from ink Send. */}
-            {!isInternal && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="border-primary/30 text-accent-ink hover:bg-accent-tint hover:text-accent-ink"
-                disabled={suggestMutation.isPending}
-                onClick={() => suggestMutation.mutate()}
-              >
-                <Sparkles />
-                {suggestMutation.isPending ? "Suggesting…" : "Suggest reply"}
-              </Button>
-            )}
-            {/* Polish/Refine are AI moments → violet. Refine goes solid accent
-                once there's a note to act on; otherwise a quiet accent-tinted
+            {/* Polish reviews the agent's own draft against the knowledge base;
+                Refine re-runs it with a note. Both are AI moments → violet, and
+                go solid accent once actionable; otherwise a quiet accent-tinted
                 outline keeps the machine action distinct from the ink Send. */}
             {!isInternal &&
               (isPolished ? (

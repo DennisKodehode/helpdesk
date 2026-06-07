@@ -27,7 +27,7 @@ Each workspace has its own `CLAUDE.md` with implementation details: `client/CLAU
 | Backend  | Express 5, TypeScript                                              |
 | Auth     | Better Auth (database sessions, email + password, role field)      |
 | ORM      | Prisma + PostgreSQL                                                |
-| AI       | Google Gemini via Vercel AI SDK (`@ai-sdk/google`, model `gemini-2.5-flash-lite`) — auto-categorization, auto-resolution, agent-facing **Suggest reply** (KB draft + confidence/escalate) and **Polish**, summaries, and **KB gap-analysis** (proposes new articles from resolved tickets). Shared draft logic in `server/src/lib/draft-reply.ts` |
+| AI       | Google Gemini via Vercel AI SDK (`@ai-sdk/google`, model `gemini-2.5-flash-lite`) — auto-categorization, auto-resolution, agent-facing **Polish** (KB-grounded review of the agent's own draft: fact-checks against the category-filtered KB, returns confidence + change summary + cited sources; the agent's *decision* stands, the KB corrects *facts*), summaries, and **KB gap-analysis** (proposes new articles from resolved tickets). Auto-resolve draft logic in `server/src/lib/draft-reply.ts`; Polish lives in the `polish-reply` route |
 | Email    | Resend (outbound replies + inbound webhook for ticket creation)    |
 | Testing  | Vitest (component + integration), Playwright (E2E)                |
 | Deploy   | Railway + Docker                                                   |

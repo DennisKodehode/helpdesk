@@ -34,17 +34,11 @@ When the knowledge base clearly covers a question — *"what's your refund polic
 
 ### Working a ticket, with the AI alongside
 
-When a ticket needs a human, the composer has two AI moves — and the agent owns the send either way.
+When a ticket needs a human, the agent writes the reply and owns the send — the AI assists, it doesn't take over.
 
-**Suggest reply** drafts a grounded answer from the knowledge base, with a confidence score:
+**Polish with AI** takes the agent's own draft and reviews it against the category-filtered knowledge base. It rewrites for tone and structure, fact-checks the claims against policy — correcting the refund window, a step, a link — and returns the result in a card with a **confidence score** and the **KB articles it drew from**, to use as-is, use and edit, or refine with a follow-up note. The agent's *decision* always stands; only the *facts* get anchored.
 
-<p align="center"><img src="docs/screenshots/suggest-reply.gif" alt="Asking the AI to suggest a reply, grounded in the knowledge base" width="760"></p>
-
-If the KB doesn't cover the question, the AI says so and recommends escalating rather than guessing:
-
-<p align="center"><img src="docs/screenshots/ai-suggest-card.png" alt="AI suggested-reply card with confidence and escalate badges" width="640"></p>
-
-**Polish with AI** takes the agent's own rough draft and rewrites it for tone and structure — substance untouched — then accepts a refinement note for a second pass (the GIF up top). And **internal notes** sit on a separate, amber-tinted tab, visible to other agents but never the customer:
+And **internal notes** sit on a separate, amber-tinted tab, visible to other agents but never the customer:
 
 <p align="center"><img src="docs/screenshots/ai-internal-note.png" alt="Internal note composer tab" width="640"></p>
 

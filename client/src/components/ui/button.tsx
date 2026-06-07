@@ -10,7 +10,7 @@ const buttonVariants = cva(
       variant: {
         // `default` is the restrained ink primary (dark on light / light on
         // dark). Violet is NOT the default — it's reserved for `accent`, used
-        // only on AI / machine-driven moments (Suggest reply, Summarize…).
+        // only on AI / machine-driven moments (Polish, Summarize…).
         default:
           "bg-foreground text-background hover:bg-foreground/85 [a]:hover:bg-foreground/85",
         accent:

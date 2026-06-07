@@ -22,10 +22,9 @@ export type DraftDecision = {
   rationale: string | null;
 };
 
-// One prompt, used by both the worker and the suggest-reply endpoint, so the
-// agent preview matches what the auto-responder would have done. The JSON shape
-// adds `confidence` + `rationale` on top of the original action/reply contract;
-// older callers that ignore those fields are unaffected. `corpus` is the
+// The auto-resolver's drafting prompt (see lib/auto-resolve-ticket.ts). The JSON
+// shape adds `confidence` + `rationale` on top of the original action/reply
+// contract; older callers that ignore those fields are unaffected. `corpus` is the
 // category-filtered knowledge base assembled by lib/kb-corpus.ts (renderCorpus);
 // the escalation rules below stay hardcoded — they are internal policy, not a
 // customer-facing article.

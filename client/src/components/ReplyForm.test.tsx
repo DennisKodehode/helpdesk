@@ -65,8 +65,18 @@ describe("ReplyForm", () => {
     });
   });
 
+  // Full PolishReplyResponse shape the endpoint now returns. The result card
+  // reads confidence + sources, so a partial mock would crash the render.
+  const polishData = (overrides: Record<string, unknown> = {}) => ({
+    body: "Polished reply.",
+    confidence: 88,
+    changeSummary: "Tightened the tone and added a sign-off.",
+    sources: [] as { id: string; title: string }[],
+    ...overrides,
+  });
+
   it("calls POST /api/tickets/:id/polish-reply when Polish is clicked", async () => {
-    vi.mocked(axios.post).mockResolvedValue({ data: { body: "Polished." } });
+    vi.mocked(axios.post).mockResolvedValue({ data: polishData() });
     const user = userEvent.setup();
     renderWithProviders(<ReplyForm ticketId="42" />);
 
@@ -80,19 +90,47 @@ describe("ReplyForm", () => {
     });
   });
 
-  it("updates the textarea with polished text and shows Refine button", async () => {
-    vi.mocked(axios.post).mockResolvedValue({ data: { body: "Polished reply." } });
+  it("shows the polished result in a card with a confidence pill and cited sources", async () => {
+    vi.mocked(axios.post).mockResolvedValue({
+      data: polishData({
+        body: "Hi Dana, refunds are available within 30 days.",
+        confidence: 91,
+        sources: [{ id: "kb1", title: "Refund window policy" }],
+      }),
+    });
     const user = userEvent.setup();
     renderWithProviders(<ReplyForm ticketId="42" />);
 
     await user.type(screen.getByRole("textbox", { name: /reply body/i }), "draft");
     await user.click(screen.getByRole("button", { name: /polish/i }));
 
-    await waitFor(() => {
-      expect(screen.getByRole("textbox", { name: /reply body/i })).toHaveValue(
-        "Polished reply.",
-      );
+    expect(
+      await screen.findByText("Hi Dana, refunds are available within 30 days."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        (_, el) => el?.tagName === "SPAN" && el.textContent === "High · 91%",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Refund window policy")).toBeInTheDocument();
+    // The card is a preview — the textarea keeps the agent's original draft.
+    expect(screen.getByRole("textbox", { name: /reply body/i })).toHaveValue("draft");
+  });
+
+  it("fills the textarea and shows the Refine button after Use draft", async () => {
+    vi.mocked(axios.post).mockResolvedValue({
+      data: polishData({ body: "Polished reply." }),
     });
+    const user = userEvent.setup();
+    renderWithProviders(<ReplyForm ticketId="42" />);
+
+    await user.type(screen.getByRole("textbox", { name: /reply body/i }), "draft");
+    await user.click(screen.getByRole("button", { name: /polish/i }));
+    await user.click(await screen.findByRole("button", { name: /use draft/i }));
+
+    expect(screen.getByRole("textbox", { name: /reply body/i })).toHaveValue(
+      "Polished reply.",
+    );
     expect(screen.getByRole("button", { name: /refine/i })).toBeInTheDocument();
   });
 
@@ -108,33 +146,28 @@ describe("ReplyForm", () => {
   });
 
   it("disables Refine button when refinement note is empty", async () => {
-    vi.mocked(axios.post).mockResolvedValue({ data: { body: "Polished." } });
+    vi.mocked(axios.post).mockResolvedValue({ data: polishData() });
     const user = userEvent.setup();
     renderWithProviders(<ReplyForm ticketId="42" />);
 
     await user.type(screen.getByRole("textbox", { name: /reply body/i }), "draft");
     await user.click(screen.getByRole("button", { name: /polish/i }));
+    await user.click(await screen.findByRole("button", { name: /use draft/i }));
 
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /refine/i })).toBeInTheDocument();
-    });
     expect(screen.getByRole("button", { name: /refine/i })).toBeDisabled();
   });
 
   it("hides the refine box and restores the Polish button when the reply textarea is cleared after polishing", async () => {
-    vi.mocked(axios.post).mockResolvedValue({ data: { body: "Polished." } });
+    vi.mocked(axios.post).mockResolvedValue({ data: polishData() });
     const user = userEvent.setup();
     renderWithProviders(<ReplyForm ticketId="42" />);
 
     const replyTextarea = screen.getByRole("textbox", { name: /reply body/i });
     await user.type(replyTextarea, "draft");
     await user.click(screen.getByRole("button", { name: /polish/i }));
+    await user.click(await screen.findByRole("button", { name: /use draft/i }));
 
-    await waitFor(() => {
-      expect(
-        screen.getByRole("textbox", { name: /refinement note/i }),
-      ).toBeInTheDocument();
-    });
+    expect(screen.getByRole("textbox", { name: /refinement note/i })).toBeInTheDocument();
 
     await user.clear(replyTextarea);
 
@@ -148,19 +181,16 @@ describe("ReplyForm", () => {
   });
 
   it("also resets polished mode when the reply textarea contains only whitespace", async () => {
-    vi.mocked(axios.post).mockResolvedValue({ data: { body: "Polished." } });
+    vi.mocked(axios.post).mockResolvedValue({ data: polishData() });
     const user = userEvent.setup();
     renderWithProviders(<ReplyForm ticketId="42" />);
 
     const replyTextarea = screen.getByRole("textbox", { name: /reply body/i });
     await user.type(replyTextarea, "draft");
     await user.click(screen.getByRole("button", { name: /polish/i }));
+    await user.click(await screen.findByRole("button", { name: /use draft/i }));
 
-    await waitFor(() => {
-      expect(
-        screen.getByRole("textbox", { name: /refinement note/i }),
-      ).toBeInTheDocument();
-    });
+    expect(screen.getByRole("textbox", { name: /refinement note/i })).toBeInTheDocument();
 
     await user.clear(replyTextarea);
     await user.type(replyTextarea, "   ");
@@ -345,71 +375,5 @@ describe("ReplyForm", () => {
     const list = await screen.findByRole("list", { name: /attached files/i });
     expect(list.querySelectorAll("li")).toHaveLength(5);
     expect(await screen.findByText(/5 max per reply/i)).toBeInTheDocument();
-  });
-});
-
-describe("ReplyForm — Suggest reply", () => {
-  it("fetches and displays an AI suggested draft with a confidence pill", async () => {
-    vi.mocked(axios.post).mockResolvedValue({
-      data: {
-        action: "resolve",
-        reply: "Try resetting via the link in your email.",
-        confidence: 90,
-        escalate: false,
-        rationale: "Covered by the knowledge base.",
-      },
-    });
-    const user = userEvent.setup();
-    renderWithProviders(<ReplyForm ticketId="42" />);
-
-    await user.click(screen.getByRole("button", { name: /suggest reply/i }));
-
-    expect(
-      await screen.findByText("Try resetting via the link in your email."),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/High.*90%/)).toBeInTheDocument();
-    expect(screen.getByText("Covered by the knowledge base.")).toBeInTheDocument();
-    expect(axios.post).toHaveBeenCalledWith("/api/tickets/42/suggest-reply");
-  });
-
-  it("fills the reply textarea when Use draft is clicked", async () => {
-    vi.mocked(axios.post).mockResolvedValue({
-      data: {
-        action: "resolve",
-        reply: "Here is your reset link.",
-        confidence: 85,
-        escalate: false,
-        rationale: null,
-      },
-    });
-    const user = userEvent.setup();
-    renderWithProviders(<ReplyForm ticketId="42" />);
-
-    await user.click(screen.getByRole("button", { name: /suggest reply/i }));
-    await user.click(await screen.findByRole("button", { name: /use draft/i }));
-
-    expect(screen.getByRole("textbox", { name: /reply body/i })).toHaveValue(
-      "Here is your reset link.",
-    );
-  });
-
-  it("shows an escalate recommendation with no Use draft button", async () => {
-    vi.mocked(axios.post).mockResolvedValue({
-      data: {
-        action: "escalate",
-        reply: null,
-        confidence: 30,
-        escalate: true,
-        rationale: "Possible chargeback.",
-      },
-    });
-    const user = userEvent.setup();
-    renderWithProviders(<ReplyForm ticketId="42" />);
-
-    await user.click(screen.getByRole("button", { name: /suggest reply/i }));
-
-    expect(await screen.findByText(/recommends escalating/i)).toBeInTheDocument();
-    expect(screen.getByText("Escalate")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /use draft/i })).not.toBeInTheDocument();
   });
 });

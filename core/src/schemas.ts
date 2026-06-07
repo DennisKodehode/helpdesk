@@ -315,17 +315,19 @@ export const polishReplySchema = z.object({
   refinementNote: z.string().trim().max(500).optional(),
 });
 
-// AI "Suggest reply" — the knowledge-base draft + resolve/escalate decision
-// the auto-responder would have made, surfaced to the agent for review.
-export const suggestReplyResponseSchema = z.object({
-  action: z.enum(["resolve", "escalate"]),
-  reply: z.string().nullable(),
+// AI "Polish" response — the KB-grounded rewrite of the agent's own draft.
+// Polish fact-checks the draft against the category-filtered knowledge base,
+// corrects/anchors factual claims, and reports how well-supported the result is.
+// `sources` are the KB articles the model cited, already resolved to id/title
+// server-side (hallucinated indexes are dropped before this point).
+export const polishReplyResponseSchema = z.object({
+  body: z.string(),
   confidence: z.number().min(0).max(100),
-  escalate: z.boolean(),
-  rationale: z.string().nullable(),
+  changeSummary: z.string().nullable(),
+  sources: z.array(z.object({ id: z.string(), title: z.string() })),
 });
 
-export type SuggestReplyResponse = z.infer<typeof suggestReplyResponseSchema>;
+export type PolishReplyResponse = z.infer<typeof polishReplyResponseSchema>;
 
 export const dailyTicketCountSchema = z.object({
   date: z.string(),

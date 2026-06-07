@@ -2586,8 +2586,15 @@ describe("POST /api/tickets/:id/polish-reply", () => {
     expect(res.body.error).toBeTypeOf("string");
   });
 
-  it("returns 200 and the polished body on success", async () => {
-    generateTextMock.mockResolvedValueOnce({ text: "Polished reply text." });
+  it("returns 200 with the polished body, confidence, change summary, and sources", async () => {
+    generateTextMock.mockResolvedValueOnce({
+      output: {
+        body: "Polished reply text.",
+        confidence: 88,
+        changeSummary: "Tightened the tone and added a sign-off.",
+        sourceIndexes: [],
+      },
+    });
 
     const res = await request(app)
       .post(`/api/tickets/${ticketId}/polish-reply`)
@@ -2595,7 +2602,47 @@ describe("POST /api/tickets/:id/polish-reply", () => {
       .send({ body: "rough draft" });
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ body: "Polished reply text." });
+    expect(res.body).toEqual({
+      body: "Polished reply text.",
+      confidence: 88,
+      changeSummary: "Tightened the tone and added a sign-off.",
+      sources: [],
+    });
+  });
+
+  it("resolves cited indexes to real articles, dropping duplicate and out-of-range ones", async () => {
+    // A huge hitCount guarantees this article sorts first → corpus index [1].
+    const article = await prisma.kbArticle.create({
+      data: {
+        title: "Refund window policy",
+        question: "How long is the refund window?",
+        answer: "Refunds are available within 30 days of purchase.",
+        status: "published",
+        hitCount: 1_000_000,
+      },
+    });
+    try {
+      generateTextMock.mockResolvedValueOnce({
+        output: {
+          body: "Polished with a fact-check.",
+          confidence: 91,
+          changeSummary: "Corrected the refund window to 30 days.",
+          sourceIndexes: [1, 1, 999],
+        },
+      });
+
+      const res = await request(app)
+        .post(`/api/tickets/${ticketId}/polish-reply`)
+        .set("Cookie", authCookie)
+        .send({ body: "rough draft" });
+
+      expect(res.status).toBe(200);
+      expect(res.body.sources).toEqual([
+        { id: article.id, title: "Refund window policy" },
+      ]);
+    } finally {
+      await prisma.kbArticle.delete({ where: { id: article.id } });
+    }
   });
 
   it("returns 500 when the AI call fails", async () => {
@@ -2911,151 +2958,5 @@ describe("GET /api/tickets — assignee=me filter & /my-open-count", () => {
       .set("Cookie", meCookie);
     expect(res.status).toBe(200);
     expect(res.body.count).toBe(1);
-  });
-});
-
-describe("POST /api/tickets/:id/suggest-reply", () => {
-  let authCookie: string;
-  let testUserId: string;
-  let ticketId: number;
-
-  beforeAll(async () => {
-    const ctx = await auth.$context;
-    const hashedPassword = await ctx.password.hash("Testpassword1!");
-    const id = generateId();
-    const now = new Date();
-
-    await prisma.user.create({
-      data: {
-        id,
-        name: "Suggest Test Agent",
-        email: "test-suggest@example.com",
-        emailVerified: true,
-        role: "agent",
-        createdAt: now,
-        updatedAt: now,
-      },
-    });
-    await prisma.account.create({
-      data: {
-        id: generateId(),
-        accountId: id,
-        providerId: "credential",
-        userId: id,
-        password: hashedPassword,
-        createdAt: now,
-        updatedAt: now,
-      },
-    });
-    testUserId = id;
-
-    const signInRes = await request(app)
-      .post("/api/auth/sign-in/email")
-      .send({ email: "test-suggest@example.com", password: "Testpassword1!" });
-    const cookies = signInRes.headers["set-cookie"] as string[] | string;
-    authCookie = Array.isArray(cookies) ? cookies.join("; ") : cookies;
-  });
-
-  afterAll(async () => {
-    await prisma.session.deleteMany({ where: { userId: testUserId } });
-    await prisma.account.deleteMany({ where: { userId: testUserId } });
-    await prisma.user.delete({ where: { id: testUserId } });
-  });
-
-  beforeEach(async () => {
-    const ticket = await prisma.ticket.create({
-      data: {
-        fromName: "Suggest Test",
-        fromEmail: "suggest@example.com",
-        subject: "How do I reset my password?",
-        body: "I forgot my password.",
-      },
-    });
-    ticketId = ticket.id;
-  });
-
-  afterEach(async () => {
-    await prisma.ticket.delete({ where: { id: ticketId } });
-  });
-
-  it("returns 401 when not authenticated", async () => {
-    const res = await request(app).post(`/api/tickets/${ticketId}/suggest-reply`);
-    expect(res.status).toBe(401);
-  });
-
-  it("returns 400 for a non-numeric ticket ID", async () => {
-    const res = await request(app)
-      .post("/api/tickets/abc/suggest-reply")
-      .set("Cookie", authCookie);
-    expect(res.status).toBe(400);
-  });
-
-  it("returns 404 when the ticket does not exist", async () => {
-    const res = await request(app)
-      .post("/api/tickets/999999999/suggest-reply")
-      .set("Cookie", authCookie);
-    expect(res.status).toBe(404);
-  });
-
-  it("returns a resolve decision with the draft and confidence", async () => {
-    generateTextMock.mockResolvedValueOnce({
-      text: '{"action":"resolve","reply":"Here is how to reset it.","confidence":92,"rationale":"Covered by the KB."}',
-    });
-    const res = await request(app)
-      .post(`/api/tickets/${ticketId}/suggest-reply`)
-      .set("Cookie", authCookie);
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual({
-      action: "resolve",
-      reply: "Here is how to reset it.",
-      confidence: 92,
-      escalate: false,
-      rationale: "Covered by the KB.",
-    });
-  });
-
-  it("returns an escalate decision with no reply", async () => {
-    generateTextMock.mockResolvedValueOnce({
-      text: '{"action":"escalate","confidence":35,"rationale":"Possible chargeback."}',
-    });
-    const res = await request(app)
-      .post(`/api/tickets/${ticketId}/suggest-reply`)
-      .set("Cookie", authCookie);
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual({
-      action: "escalate",
-      reply: null,
-      confidence: 35,
-      escalate: true,
-      rationale: "Possible chargeback.",
-    });
-  });
-
-  it("defaults confidence to 50 and rationale to null when the model omits them", async () => {
-    generateTextMock.mockResolvedValueOnce({
-      text: '{"action":"resolve","reply":"Done."}',
-    });
-    const res = await request(app)
-      .post(`/api/tickets/${ticketId}/suggest-reply`)
-      .set("Cookie", authCookie);
-    expect(res.status).toBe(200);
-    expect(res.body.confidence).toBe(50);
-    expect(res.body.rationale).toBeNull();
-  });
-
-  it("returns 500 when the model returns unparseable JSON", async () => {
-    generateTextMock.mockResolvedValueOnce({ text: "not json at all" });
-    const res = await request(app)
-      .post(`/api/tickets/${ticketId}/suggest-reply`)
-      .set("Cookie", authCookie);
-    expect(res.status).toBe(500);
-  });
-
-  it("returns 500 when the AI call fails", async () => {
-    generateTextMock.mockRejectedValueOnce(new Error("Gemini down"));
-    const res = await request(app)
-      .post(`/api/tickets/${ticketId}/suggest-reply`)
-      .set("Cookie", authCookie);
-    expect(res.status).toBe(500);
   });
 });
