@@ -9,7 +9,7 @@ import {
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import { BookOpen, Paperclip, Send, Sparkles, X } from "lucide-react";
+import { BookOpen, ChevronDown, Paperclip, Send, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -72,6 +72,7 @@ export default function ReplyForm({ ticketId }: Props) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isPolished, setIsPolished] = useState(false);
   const [refinementNote, setRefinementNote] = useState("");
+  const [isRefineOpen, setIsRefineOpen] = useState(false);
 
   const mutation = useMutation({
     mutationFn: (data: CreateReplyData) => {
@@ -96,10 +97,54 @@ export default function ReplyForm({ ticketId }: Props) {
   const bodyValue = watch("body");
   const isInternal = watch("isInternal");
 
+  // "Polish" sends the agent's draft to the KB-grounded review endpoint and
+  // surfaces the result in a card (preview + confidence + cited sources). The
+  // agent iterates on it in-card via Refine and applies it explicitly — Polish
+  // never overwrites the composer on its own. Each fresh result clears + closes
+  // the refine editor so the new draft is what's on screen.
+  const polishMutation = useMutation({
+    mutationFn: ({ body, refinementNote }: { body: string; refinementNote?: string }) =>
+      axios
+        .post<PolishReplyResponse>(`/api/tickets/${ticketId}/polish-reply`, {
+          body,
+          refinementNote,
+        })
+        .then((r) => r.data),
+    onSuccess: () => {
+      setRefinementNote("");
+      setIsRefineOpen(false);
+    },
+  });
+
+  function dismissPolish() {
+    polishMutation.reset();
+    setRefinementNote("");
+    setIsRefineOpen(false);
+  }
+
+  // Apply the card's polished reply to the composer. The textarea stays fully
+  // editable, so this is the single apply action (no separate "edit" variant);
+  // focus lands in the textarea for any final touch-ups.
+  function usePolishedReply() {
+    const draft = polishMutation.data?.body;
+    if (!draft) return;
+    setValue("body", draft, { shouldValidate: true, shouldDirty: true });
+    setIsPolished(true);
+    dismissPolish();
+    document.getElementById("reply-body")?.focus();
+  }
+
+  // Refine the card's *current* draft (not the composer) using the agent's note,
+  // so they can iterate before committing. The refined result replaces the card.
+  function refineDraft() {
+    const draft = polishMutation.data?.body;
+    if (!draft || !refinementNote.trim()) return;
+    polishMutation.mutate({ body: draft, refinementNote });
+  }
+
   useEffect(() => {
     if (isPolished && !bodyValue?.trim()) {
       setIsPolished(false);
-      setRefinementNote("");
     }
   }, [bodyValue, isPolished]);
 
@@ -109,29 +154,6 @@ export default function ReplyForm({ ticketId }: Props) {
       setRefinementNote("");
     }
   }, [isInternal]);
-
-  // "Polish" sends the agent's draft to the KB-grounded review endpoint and
-  // surfaces the result in a card (preview + confidence + cited sources) for the
-  // agent to review, use, or edit — it never overwrites the draft automatically.
-  const polishMutation = useMutation({
-    mutationFn: ({ body, refinementNote }: { body: string; refinementNote?: string }) =>
-      axios
-        .post<PolishReplyResponse>(`/api/tickets/${ticketId}/polish-reply`, {
-          body,
-          refinementNote,
-        })
-        .then((r) => r.data),
-  });
-
-  function applyPolishedDraft(focus: boolean) {
-    const draft = polishMutation.data?.body;
-    if (!draft) return;
-    setValue("body", draft, { shouldValidate: true, shouldDirty: true });
-    setIsPolished(true);
-    setRefinementNote("");
-    polishMutation.reset();
-    if (focus) document.getElementById("reply-body")?.focus();
-  }
 
   function addFiles(incoming: File[]) {
     setAttachmentError(null);
@@ -215,7 +237,12 @@ export default function ReplyForm({ ticketId }: Props) {
                     type="button"
                     role="tab"
                     aria-selected={active}
-                    onClick={() => field.onChange(tab.internal)}
+                    onClick={() => {
+                      field.onChange(tab.internal);
+                      // Switching to an internal note hides the polish card —
+                      // drop its (now-irrelevant) state so it can't reappear.
+                      if (tab.internal) dismissPolish();
+                    }}
                     className={cn(
                       "-mb-px border-b-2 py-2.5 text-[13px] transition-colors",
                       active
@@ -273,7 +300,7 @@ export default function ReplyForm({ ticketId }: Props) {
                   <button
                     type="button"
                     aria-label="Dismiss polished reply"
-                    onClick={() => polishMutation.reset()}
+                    onClick={dismissPolish}
                     className="rounded-full p-0.5 text-ink-3 hover:bg-panel-2 hover:text-foreground"
                   >
                     <X className="size-3.5" />
@@ -316,24 +343,67 @@ export default function ReplyForm({ ticketId }: Props) {
                     </ul>
                   </div>
                 )}
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap items-center gap-1">
                   <Button
                     type="button"
                     variant="accent"
                     size="sm"
-                    onClick={() => applyPolishedDraft(false)}
+                    onClick={usePolishedReply}
                   >
-                    Use draft
+                    Use this reply
                   </Button>
-                  <Button
+                  {/* Disclosure toggle — keeps the card calm until the agent
+                      wants to iterate. Opens an in-card "what should change?"
+                      field that re-polishes this draft (not the composer). */}
+                  <button
                     type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => applyPolishedDraft(true)}
+                    aria-expanded={isRefineOpen}
+                    aria-controls="refine-panel"
+                    onClick={() => setIsRefineOpen((open) => !open)}
+                    className="ml-1 inline-flex items-center gap-1 rounded-[var(--r-sm)] px-2 py-1 text-[13px] font-medium text-accent-ink hover:bg-accent-tint"
                   >
-                    Use &amp; edit
-                  </Button>
+                    Refine
+                    <ChevronDown
+                      className={cn(
+                        "size-3.5 transition-transform",
+                        isRefineOpen && "rotate-180",
+                      )}
+                      aria-hidden
+                    />
+                  </button>
                 </div>
+
+                {isRefineOpen && (
+                  <div id="refine-panel" className="mt-3 border-t border-border/50 pt-3">
+                    <label
+                      htmlFor="refine-note"
+                      className="text-[12.5px] font-medium text-foreground"
+                    >
+                      What should change?
+                    </label>
+                    <Textarea
+                      id="refine-note"
+                      aria-label="What should change?"
+                      placeholder="e.g. too formal — shorten it, lead with the refund steps…"
+                      rows={2}
+                      className="mt-1.5 field-sizing-fixed resize-y border-border/60 bg-background text-[13px]"
+                      value={refinementNote}
+                      onChange={(e) => setRefinementNote(e.target.value)}
+                    />
+                    <div className="mt-2 flex justify-end">
+                      <Button
+                        type="button"
+                        variant="accent"
+                        size="sm"
+                        disabled={!refinementNote.trim() || polishMutation.isPending}
+                        onClick={refineDraft}
+                      >
+                        <Sparkles />
+                        Refine draft
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : null}
           </div>
@@ -370,17 +440,6 @@ export default function ReplyForm({ ticketId }: Props) {
           </ul>
         )}
 
-        {isPolished && !isInternal && (
-          <Textarea
-            className="field-sizing-fixed resize-y border-border/60 bg-background text-[13px]"
-            aria-label="Refinement note"
-            placeholder="Not quite right? Describe what to improve…"
-            rows={2}
-            value={refinementNote}
-            onChange={(e) => setRefinementNote(e.target.value)}
-          />
-        )}
-
         <input
           ref={fileInputRef}
           type="file"
@@ -410,42 +469,23 @@ export default function ReplyForm({ ticketId }: Props) {
               <Paperclip />
               Attach
             </Button>
-            {/* Polish reviews the agent's own draft against the knowledge base;
-                Refine re-runs it with a note. Both are AI moments → violet, and
-                go solid accent once actionable; otherwise a quiet accent-tinted
-                outline keeps the machine action distinct from the ink Send. */}
-            {!isInternal &&
-              (isPolished ? (
-                <Button
-                  type="button"
-                  variant={refinementNote.trim() ? "accent" : "outline"}
-                  size="sm"
-                  className={
-                    refinementNote.trim()
-                      ? undefined
-                      : "border-primary/30 text-accent-ink hover:bg-accent-tint hover:text-accent-ink"
-                  }
-                  disabled={!refinementNote.trim() || polishMutation.isPending}
-                  onClick={() =>
-                    polishMutation.mutate({ body: bodyValue, refinementNote })
-                  }
-                >
-                  <Sparkles />
-                  {polishMutation.isPending ? "Refining…" : "Refine"}
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="border-primary/30 text-accent-ink hover:bg-accent-tint hover:text-accent-ink"
-                  disabled={!bodyValue?.trim() || polishMutation.isPending}
-                  onClick={() => polishMutation.mutate({ body: bodyValue })}
-                >
-                  <Sparkles />
-                  {polishMutation.isPending ? "Polishing…" : "Polish with AI"}
-                </Button>
-              ))}
+            {/* Polish reviews the agent's draft against the knowledge base. It's
+                an AI moment → quiet accent-tinted outline, distinct from the ink
+                Send. While the polish card is open, iteration happens there
+                (Use / Refine), so the toolbar entry point steps aside. */}
+            {!isInternal && !polishMutation.isPending && !polishMutation.data && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-primary/30 text-accent-ink hover:bg-accent-tint hover:text-accent-ink"
+                disabled={!bodyValue?.trim()}
+                onClick={() => polishMutation.mutate({ body: bodyValue })}
+              >
+                <Sparkles />
+                Polish with AI
+              </Button>
+            )}
           </div>
           <Button type="submit" size="sm" disabled={submitDisabled}>
             <Send />

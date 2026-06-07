@@ -115,9 +115,12 @@ describe("ReplyForm", () => {
     expect(screen.getByText("Refund window policy")).toBeInTheDocument();
     // The card is a preview — the textarea keeps the agent's original draft.
     expect(screen.getByRole("textbox", { name: /reply body/i })).toHaveValue("draft");
+    // Single apply action — no redundant "use & edit" variant.
+    expect(screen.getByRole("button", { name: /use this reply/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /use & edit/i })).not.toBeInTheDocument();
   });
 
-  it("fills the textarea and shows the Refine button after Use draft", async () => {
+  it("applies the draft, dismisses the card, and shows the Polished badge after Use this reply", async () => {
     vi.mocked(axios.post).mockResolvedValue({
       data: polishData({ body: "Polished reply." }),
     });
@@ -125,13 +128,17 @@ describe("ReplyForm", () => {
     renderWithProviders(<ReplyForm ticketId="42" />);
 
     await user.type(screen.getByRole("textbox", { name: /reply body/i }), "draft");
-    await user.click(screen.getByRole("button", { name: /polish/i }));
-    await user.click(await screen.findByRole("button", { name: /use draft/i }));
+    await user.click(screen.getByRole("button", { name: /polish with ai/i }));
+    await user.click(await screen.findByRole("button", { name: /use this reply/i }));
 
     expect(screen.getByRole("textbox", { name: /reply body/i })).toHaveValue(
       "Polished reply.",
     );
-    expect(screen.getByRole("button", { name: /refine/i })).toBeInTheDocument();
+    // Card is gone and the composer marks the reply as AI-polished.
+    expect(
+      screen.queryByRole("button", { name: /use this reply/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Polished")).toBeInTheDocument();
   });
 
   it("shows an error alert when Polish fails", async () => {
@@ -145,61 +152,61 @@ describe("ReplyForm", () => {
     expect(await screen.findByRole("alert")).toBeInTheDocument();
   });
 
-  it("disables Refine button when refinement note is empty", async () => {
-    vi.mocked(axios.post).mockResolvedValue({ data: polishData() });
+  it("refines the card's draft in place via the Refine disclosure", async () => {
+    vi.mocked(axios.post).mockResolvedValueOnce({
+      data: polishData({ body: "First polished draft." }),
+    });
     const user = userEvent.setup();
     renderWithProviders(<ReplyForm ticketId="42" />);
 
     await user.type(screen.getByRole("textbox", { name: /reply body/i }), "draft");
-    await user.click(screen.getByRole("button", { name: /polish/i }));
-    await user.click(await screen.findByRole("button", { name: /use draft/i }));
+    await user.click(screen.getByRole("button", { name: /polish with ai/i }));
+    expect(await screen.findByText("First polished draft.")).toBeInTheDocument();
 
-    expect(screen.getByRole("button", { name: /refine/i })).toBeDisabled();
+    // The note field is hidden until the disclosure is opened.
+    expect(
+      screen.queryByRole("textbox", { name: /what should change/i }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^refine$/i }));
+
+    const note = screen.getByRole("textbox", { name: /what should change/i });
+    // "Refine draft" stays disabled until there's a note to act on.
+    expect(screen.getByRole("button", { name: /refine draft/i })).toBeDisabled();
+    await user.type(note, "too formal, shorten it");
+
+    vi.mocked(axios.post).mockResolvedValueOnce({
+      data: polishData({ body: "Shorter, friendlier draft." }),
+    });
+    await user.click(screen.getByRole("button", { name: /refine draft/i }));
+
+    // Refine re-polishes the card's *current* draft plus the note.
+    await waitFor(() => {
+      expect(axios.post).toHaveBeenLastCalledWith("/api/tickets/42/polish-reply", {
+        body: "First polished draft.",
+        refinementNote: "too formal, shorten it",
+      });
+    });
+    expect(await screen.findByText("Shorter, friendlier draft.")).toBeInTheDocument();
   });
 
-  it("hides the refine box and restores the Polish button when the reply textarea is cleared after polishing", async () => {
+  it("removes the Polished badge when the composer is cleared after applying", async () => {
     vi.mocked(axios.post).mockResolvedValue({ data: polishData() });
     const user = userEvent.setup();
     renderWithProviders(<ReplyForm ticketId="42" />);
 
     const replyTextarea = screen.getByRole("textbox", { name: /reply body/i });
     await user.type(replyTextarea, "draft");
-    await user.click(screen.getByRole("button", { name: /polish/i }));
-    await user.click(await screen.findByRole("button", { name: /use draft/i }));
+    await user.click(screen.getByRole("button", { name: /polish with ai/i }));
+    await user.click(await screen.findByRole("button", { name: /use this reply/i }));
 
-    expect(screen.getByRole("textbox", { name: /refinement note/i })).toBeInTheDocument();
+    expect(screen.getByText("Polished")).toBeInTheDocument();
 
     await user.clear(replyTextarea);
 
     await waitFor(() => {
-      expect(
-        screen.queryByRole("textbox", { name: /refinement note/i }),
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText("Polished")).not.toBeInTheDocument();
     });
-    expect(screen.getByRole("button", { name: /polish/i })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /refine/i })).not.toBeInTheDocument();
-  });
-
-  it("also resets polished mode when the reply textarea contains only whitespace", async () => {
-    vi.mocked(axios.post).mockResolvedValue({ data: polishData() });
-    const user = userEvent.setup();
-    renderWithProviders(<ReplyForm ticketId="42" />);
-
-    const replyTextarea = screen.getByRole("textbox", { name: /reply body/i });
-    await user.type(replyTextarea, "draft");
-    await user.click(screen.getByRole("button", { name: /polish/i }));
-    await user.click(await screen.findByRole("button", { name: /use draft/i }));
-
-    expect(screen.getByRole("textbox", { name: /refinement note/i })).toBeInTheDocument();
-
-    await user.clear(replyTextarea);
-    await user.type(replyTextarea, "   ");
-
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("textbox", { name: /refinement note/i }),
-      ).not.toBeInTheDocument();
-    });
+    expect(screen.getByRole("button", { name: /polish with ai/i })).toBeInTheDocument();
   });
 
   it("toggling to Internal note swaps the submit label and hides Polish", async () => {
