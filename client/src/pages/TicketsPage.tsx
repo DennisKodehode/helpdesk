@@ -204,7 +204,6 @@ function TicketsQueue() {
   return (
     <PageContainer width="queue">
       <PageHeader
-        eyebrow="Queue"
         title="Tickets"
         description="Customer requests, auto-categorized by Gemini on arrival."
       />

@@ -58,10 +58,7 @@ export default function MobileTicketsList({ scope }: Props) {
 
   return (
     <>
-      <MobileHead
-        eyebrow={scope === "mine" ? "Assigned to me" : "Queue"}
-        title={scope === "mine" ? "My tickets" : "Tickets"}
-      />
+      <MobileHead title={scope === "mine" ? "My tickets" : "Tickets"} />
 
       <div className="px-4 pb-3">
         <div className="relative">

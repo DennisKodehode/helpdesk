@@ -53,7 +53,6 @@ export default function MobileLogin({ onSubmit, serverError }: Props) {
 
       {/* Form */}
       <div className="flex-1 px-6 pb-[calc(env(safe-area-inset-bottom)+24px)] pt-7">
-        <p className="eyebrow mb-2.5">Sign in</p>
         <h2 className="display-serif mb-2 text-[30px] text-foreground">Welcome back.</h2>
         <p className="mb-6 text-[14px] text-muted-foreground">
           Enter your credentials to access the console.

@@ -95,7 +95,6 @@ export default function ActivityPage() {
   return (
     <PageContainer width="content">
       <PageHeader
-        eyebrow="Audit"
         title="Activity"
         description="Who did what, and when — across tickets and admin actions."
       />

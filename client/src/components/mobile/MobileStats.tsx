@@ -36,11 +36,7 @@ export default function MobileStats() {
 
   return (
     <>
-      <MobileHead
-        eyebrow="Personal"
-        title="My stats"
-        sub="Tickets and replies attributed to you."
-      />
+      <MobileHead title="My stats" sub="Tickets and replies attributed to you." />
 
       {isError && (
         <div className="px-4">

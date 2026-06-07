@@ -27,7 +27,6 @@ export default function KnowledgeBasePage() {
   return (
     <PageContainer width="queue">
       <PageHeader
-        eyebrow="Administration"
         title="Knowledge base"
         description="The articles that ground the AI's replies, and the AI- and agent-proposed additions waiting for your review."
       />

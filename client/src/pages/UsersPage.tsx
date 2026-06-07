@@ -117,7 +117,6 @@ export default function UsersPage() {
   return (
     <PageContainer width="queue">
       <PageHeader
-        eyebrow="Administration"
         title="Agents"
         description="Everyone with access to the workspace. Manage roles, throughput, and access."
         action={

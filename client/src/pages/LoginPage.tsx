@@ -92,7 +92,6 @@ export default function LoginPage() {
         <main className="flex items-center justify-center px-6 py-12 md:px-12 xl:px-16 2xl:px-20">
           <div className="w-full max-w-[380px]">
             <div className="mb-10 space-y-2 xl:mb-12 2xl:mb-14">
-              <p className="eyebrow">Sign in</p>
               <h2 className="display-serif text-[32px] text-foreground md:text-[40px]">
                 Welcome back.
               </h2>

@@ -74,7 +74,6 @@ export default function InviteAgentDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <p className="eyebrow mb-2">Administration</p>
           <DialogTitle className="display-serif text-[28px] leading-tight">
             Invite an agent
           </DialogTitle>

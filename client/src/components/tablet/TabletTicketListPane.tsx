@@ -64,7 +64,6 @@ export default function TabletTicketListPane({ scope, selectedId, onSelect }: Pr
   return (
     <div className="flex h-full w-[384px] flex-none flex-col border-r border-border bg-background">
       <div className="flex-none border-b border-border px-5 pt-[22px] pb-3.5">
-        <p className="eyebrow mb-2">{scope === "mine" ? "Assigned to me" : "Queue"}</p>
         <h1 className="display-serif mb-4 text-[30px] text-foreground">
           {scope === "mine" ? "My tickets" : "Tickets"}
         </h1>

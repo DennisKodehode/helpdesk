@@ -249,7 +249,6 @@ export default function WorkflowPage() {
   return (
     <PageContainer width="dashboard">
       <PageHeader
-        eyebrow="Administration"
         title="Workflow"
         description="The rules every ticket follows from arrival to close, and the SLA windows the queue is measured against."
         action={

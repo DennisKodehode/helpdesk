@@ -55,11 +55,7 @@ export default function MobileDashboard() {
 
   return (
     <>
-      <MobileHead
-        eyebrow="Overview"
-        title="Dashboard"
-        sub="How the queue and your automation are doing today."
-      />
+      <MobileHead title="Dashboard" />
 
       <div className="grid grid-cols-2 gap-3 px-4">
         {isPending || !stats ? (

@@ -31,7 +31,6 @@ function MyTicketsList() {
   return (
     <PageContainer width="list">
       <PageHeader
-        eyebrow="Personal"
         title="My tickets"
         description="Tickets assigned to you — what you're working on now, and what you've already solved."
       />

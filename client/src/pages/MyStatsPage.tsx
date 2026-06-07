@@ -63,7 +63,6 @@ function MyStatsView() {
   return (
     <PageContainer width="content">
       <PageHeader
-        eyebrow="Personal"
         title="My stats"
         description="Tickets and replies attributed to you, plus the speed you've been turning them around at."
       />

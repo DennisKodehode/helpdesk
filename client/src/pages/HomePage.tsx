@@ -21,9 +21,7 @@ function DashboardView() {
   return (
     <PageContainer width="dashboard">
       <PageHeader
-        eyebrow="Overview"
         title="Dashboard"
-        description="Team workload, automation, and where attention is needed right now."
         action={
           <Link
             to="/tickets"
