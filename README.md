@@ -11,7 +11,7 @@
 > Built with React 19, Bun, TypeScript, Prisma, Better Auth, and Google Gemini.
 
 <p align="center">
-  <img src="docs/screenshots/polish-reply.gif" alt="An agent writes a rough draft, clicks Polish with AI, and the AI returns a fact-checked rewrite with a confidence score and cited knowledge-base sources; the agent refines it with a one-line note and sends." width="860">
+  <a href="docs/screenshots/polish-reply.gif" target="_blank" rel="noopener"><img src="docs/screenshots/polish-reply.gif" alt="An agent writes a rough draft, clicks Polish with AI, and the AI returns a fact-checked rewrite with a confidence score and cited knowledge-base sources; the agent refines it with a one-line note and sends." width="860"></a>
 </p>
 
 <p align="center"><em>Write a rough draft, then let the AI <strong>Polish</strong> it — fact-checking against the knowledge base (your team's curated answers) and showing a confidence score — before you send. The agent always owns the send.</em></p>
@@ -22,7 +22,7 @@
 
 A small support team spends most of its day on repetitive email. The obvious questions should answer themselves; humans should handle the rest. Helpdesk does exactly that: inbound support email becomes tickets, Google Gemini sorts and prioritizes every one automatically, resolves the ones it's confident about, and agents work the rest with the AI alongside.
 
-Day to day there are two kinds of user — **agents** work a queue, **admins** also own the roster and the rules everything runs on (there's a privileged global-admin singleton on top; see [Managing the roster](#managing-the-roster)). The rule throughout: **the AI does the busywork, but a human always approves anything that goes out** — agents send every reply, admins approve every published answer. It's single-tenant by design: one team, one product, not a multi-customer SaaS.
+Day to day there are two kinds of user — **agents** work a queue, **admins** also own the roster and the rules everything runs on (there's a privileged global-admin singleton on top — see the admin tour below). The rule throughout: **the AI does the busywork, but a human always approves anything that goes out** — agents send every reply, admins approve every published answer. It's single-tenant by design: one team, one product, not a multi-customer SaaS.
 
 The rest of this README has three parts — a non-technical **guided tour**, a technical **how it works**, and a list of **known limitations**.
 
@@ -32,38 +32,38 @@ The rest of this README has three parts — a non-technical **guided tour**, a t
 
 ### The queue arrives already triaged
 
-<p align="center"><img src="docs/screenshots/03-tickets.png" alt="The ticket queue table with category chips, priority, SLA badges, a filter bar, and a search box" width="860"></p>
+<p align="center"><a href="docs/screenshots/03-tickets.png" target="_blank" rel="noopener"><img src="docs/screenshots/03-tickets.png" alt="The ticket queue table with category chips, priority, SLA badges, a filter bar, and a search box" width="860"></a></p>
 
 This is the triage step — sorting and prioritizing every incoming email automatically. When a message lands, Gemini classifies it within seconds, assigning **both** a category (general / technical / refund / billing / feature request) and a priority (low → urgent) in one call. Every row then carries a category, a priority, and a live **SLA badge** (how much time is left before the response/resolution deadline). You can filter by status, category, priority, assignee, SLA state, or quick-view presets, and search by sender name, email, or subject.
 
-<p align="center"><img src="docs/screenshots/filters-category-open.png" alt="The queue filter bar expanded, showing category options" width="760"></p>
+<p align="center"><a href="docs/screenshots/filters-category-open.png" target="_blank" rel="noopener"><img src="docs/screenshots/filters-category-open.png" alt="The queue filter bar expanded, showing category options" width="760"></a></p>
 
 One detail worth flagging: **SLA state is computed live on every request** — never a stored column — so the "Breached only" filter and the badge can never drift apart. While a ticket is still being classified its category cell shows a violet spinning **"Classifying"** chip, and the internal `new`/`processing` states collapse into one read-only **"Triaging"** pill so agents never act on a half-processed ticket.
 
 ### A ticket the AI handled end to end
 
-<p align="center"><img src="docs/screenshots/04-ticket-detail.png" alt="A ticket detail view showing an AI auto-reply with a violet sparkle avatar and an activity feed entry reading AI auto-resolved" width="860"></p>
+<p align="center"><a href="docs/screenshots/04-ticket-detail.png" target="_blank" rel="noopener"><img src="docs/screenshots/04-ticket-detail.png" alt="A ticket detail view showing an AI auto-reply with a violet sparkle avatar and an activity feed entry reading AI auto-resolved" width="860"></a></p>
 
-On a confident knowledge-base match, the AI drafts a grounded reply, **sends it**, marks the ticket resolved as itself, and logs "AI auto-resolved the ticket" — no human paged. Otherwise the ticket routes to a person. (Auto-resolve only fires when every gate passes: the feature is on, the model chose to resolve, confidence clears the admin-set threshold, and the resolution gates are met. The concurrency that makes this possible is in [How it works](#architecture--the-inbound-email-pipeline).)
+On a confident knowledge-base match, the AI drafts a grounded reply, **sends it**, marks the ticket resolved as itself, and logs "AI auto-resolved the ticket" — no human paged. Otherwise the ticket routes to a person. (Auto-resolve only fires when every gate passes: the feature is on, the model chose to resolve, confidence clears the admin-set threshold, and the resolution gates are met. The concurrency that makes this possible is in [How it works](#how-it-works).)
 
 ### Working a ticket, with the AI alongside
 
 The feature shown in the GIF above is **Polish**. The agent writes their own draft, clicks **Polish with AI**, and the AI reviews it against the category-filtered knowledge base — returning a card with a **confidence score**, **cited KB sources**, and a **one-line change summary**. The agent can use it, edit it, or refine it with a note; it **never auto-overwrites** the textarea. The split is deliberate: the agent's *decision* stands, the KB only corrects *facts* (policy windows, steps, links, numbers). Citation indexes are validated server-side, so a hallucinated source can never reach the agent.
 
-<p align="center"><img src="docs/screenshots/ai-internal-note.png" alt="The reply composer with the Internal note tab active, shown in an amber treatment distinct from the customer-reply tab" width="700"></p>
+<p align="center"><a href="docs/screenshots/ai-internal-note.png" target="_blank" rel="noopener"><img src="docs/screenshots/ai-internal-note.png" alt="The reply composer with the Internal note tab active, shown in an amber treatment distinct from the customer-reply tab" width="700"></a></p>
 
 <p align="center"><em>Internal notes sit on a separate amber tab — visible to other agents, never sent to the customer.</em></p>
 
 ### A knowledge base that grows itself
 
-<p align="center"><img src="docs/screenshots/10-knowledge-base.png" alt="The Knowledge base Articles tab listing structured articles with category, status, and source, plus a Suggestions tab with a pending-count badge" width="860"></p>
+<p align="center"><a href="docs/screenshots/10-knowledge-base.png" target="_blank" rel="noopener"><img src="docs/screenshots/10-knowledge-base.png" alt="The Knowledge base Articles tab listing structured articles with category, status, and source, plus a Suggestions tab with a pending-count badge" width="860"></a></p>
 
 The knowledge base is **admin-curated structured articles** — not a wiki the AI edits. New content arrives two ways: an agent can file **"Suggest for KB"** on a resolved ticket (one suggestion per ticket), and a daily clustering job proposes articles from recurring, uncovered topics. Nothing publishes on its own.
 
 <table>
 <tr>
-<td><img src="docs/screenshots/flow-kb-3-queue.png" width="420" alt="The KB suggestion review queue with a pending AI-drafted suggestion and a Review action"></td>
-<td><img src="docs/screenshots/modal-kb-approve.png" width="420" alt="The approve dialog with editable title, question, and answer fields and an Approve and publish button"></td>
+<td><a href="docs/screenshots/flow-kb-3-queue.png" target="_blank" rel="noopener"><img src="docs/screenshots/flow-kb-3-queue.png" width="420" alt="The KB suggestion review queue with a pending AI-drafted suggestion and a Review action"></a></td>
+<td><a href="docs/screenshots/modal-kb-approve.png" target="_blank" rel="noopener"><img src="docs/screenshots/modal-kb-approve.png" width="420" alt="The approve dialog with editable title, question, and answer fields and an Approve and publish button"></a></td>
 </tr>
 </table>
 
@@ -73,8 +73,8 @@ The knowledge base is **admin-curated structured articles** — not a wiki the A
 
 <table>
 <tr>
-<td><img src="docs/screenshots/06-my-tickets.png" width="420" alt="A personal queue split into working on and closed tickets"></td>
-<td><img src="docs/screenshots/07-my-stats.png" width="420" alt="A personal stats page showing open tickets, resolved over 30 days and lifetime, average resolution and first-reply times, and reply counts"></td>
+<td><a href="docs/screenshots/06-my-tickets.png" target="_blank" rel="noopener"><img src="docs/screenshots/06-my-tickets.png" width="420" alt="A personal queue split into working on and closed tickets"></a></td>
+<td><a href="docs/screenshots/07-my-stats.png" target="_blank" rel="noopener"><img src="docs/screenshots/07-my-stats.png" width="420" alt="A personal stats page showing open tickets, resolved over 30 days and lifetime, average resolution and first-reply times, and reply counts"></a></td>
 </tr>
 </table>
 
@@ -82,7 +82,7 @@ The knowledge base is **admin-curated structured articles** — not a wiki the A
 
 ### The dashboard everyone lands on
 
-<p align="center"><img src="docs/screenshots/02-dashboard.png" alt="The dashboard with open, triaging, breached, and unassigned counts, an AI-activity card, a recent-activity feed, tickets-by-category, a needs-attention list, and two SLA-compliance gauges" width="860"></p>
+<p align="center"><a href="docs/screenshots/02-dashboard.png" target="_blank" rel="noopener"><img src="docs/screenshots/02-dashboard.png" alt="The dashboard with open, triaging, breached, and unassigned counts, an AI-activity card, a recent-activity feed, tickets-by-category, a needs-attention list, and two SLA-compliance gauges" width="860"></a></p>
 
 Signing in drops you on a workspace-wide dashboard — the same live view for agents and admins: open / triaging / breached / unassigned counts, an AI-activity card, a recent-activity feed, tickets by category, a highest-priority needs-attention list, and first-response / resolution SLA-compliance gauges.
 
@@ -91,20 +91,20 @@ Signing in drops you on a workspace-wide dashboard — the same live view for ag
 Customers never log in — they just email and reply, and they never see categories, priorities, or SLAs. To them it's normal email; some replies just happen to be AI-drafted and grounded in the team's KB. A reply on a **resolved** ticket auto-reopens it (and, if the AI was the assignee, unassigns it so a human picks it up). A reply on a **closed** ticket starts a fresh ticket. Auto-responders and bounce messages are detected by their headers and dropped before they ever become a ticket.
 
 <details>
-<summary><strong>The admin tour</strong> — roster, workflow rules, and the activity log</summary>
+<summary><h3>🔎 The admin tour — roster, workflow rules &amp; the activity log&nbsp; <sub>(click to expand)</sub></h3></summary>
 
 ### Managing the roster
 
 <table>
 <tr>
-<td><img src="docs/screenshots/05-agents.png" width="420" alt="The Agents roster table showing role, status, open assignments, resolved count, average resolution, and last-active per teammate"></td>
-<td><img src="docs/screenshots/modal-invite-agent.png" width="420" alt="The invite dialog where an admin enters a new teammate's name, email, and role"></td>
+<td><a href="docs/screenshots/05-agents.png" target="_blank" rel="noopener"><img src="docs/screenshots/05-agents.png" width="420" alt="The Agents roster table showing role, status, open assignments, resolved count, average resolution, and last-active per teammate"></a></td>
+<td><a href="docs/screenshots/modal-invite-agent.png" target="_blank" rel="noopener"><img src="docs/screenshots/modal-invite-agent.png" width="420" alt="The invite dialog where an admin enters a new teammate's name, email, and role"></a></td>
 </tr>
 </table>
 
 <p align="center"><em>Manage the roster (left) and invite a teammate as agent or admin (right).</em></p>
 
-<p align="center"><img src="docs/screenshots/09-accept-invite.png" alt="The accept-invite screen where a new teammate sets their own password from an emailed single-use link" width="700"></p>
+<p align="center"><a href="docs/screenshots/09-accept-invite.png" target="_blank" rel="noopener"><img src="docs/screenshots/09-accept-invite.png" alt="The accept-invite screen where a new teammate sets their own password from an emailed single-use link" width="700"></a></p>
 
 <p align="center"><em>The invitee sets their own password from a single-use emailed link — nobody is ever handed a password.</em></p>
 
@@ -114,8 +114,8 @@ Inviting creates the user in an **invited** state with no credential and emails 
 
 <table>
 <tr>
-<td><img src="docs/screenshots/08-workflow-lifecycle.png" width="420" alt="The Workflow Lifecycle rules tab with auto-assign, AI auto-resolve and its confidence threshold, resolve gates, auto-close quiet period, reopen-on-reply, lock-closed, and a knowledge-base growth group"></td>
-<td><img src="docs/screenshots/08b-workflow-sla.png" width="420" alt="The Workflow SLA targets tab with per-priority first-response and resolution windows"></td>
+<td><a href="docs/screenshots/08-workflow-lifecycle.png" target="_blank" rel="noopener"><img src="docs/screenshots/08-workflow-lifecycle.png" width="420" alt="The Workflow Lifecycle rules tab with auto-assign, AI auto-resolve and its confidence threshold, resolve gates, auto-close quiet period, reopen-on-reply, lock-closed, and a knowledge-base growth group"></a></td>
+<td><a href="docs/screenshots/08b-workflow-sla.png" target="_blank" rel="noopener"><img src="docs/screenshots/08b-workflow-sla.png" width="420" alt="The Workflow SLA targets tab with per-priority first-response and resolution windows"></a></td>
 </tr>
 </table>
 
@@ -125,11 +125,11 @@ The **Workflow** screen has two tabs. **Lifecycle rules** covers auto-assign (an
 
 ### Operational health at a glance
 
-<p align="center"><img src="docs/screenshots/watchlist.png" alt="The Activity page Watchlist strip with five health-signal cards — AI escalation rate, AI hard failures, reassignment churn, reopened under 24h, and priority re-triage — each with a value, threshold state, week-over-week delta, and a sparkline" width="860"></p>
+<p align="center"><a href="docs/screenshots/watchlist.png" target="_blank" rel="noopener"><img src="docs/screenshots/watchlist.png" alt="The Activity page Watchlist strip with five health-signal cards — AI escalation rate, AI hard failures, reassignment churn, reopened under 24h, and priority re-triage — each with a value, threshold state, week-over-week delta, and a sparkline" width="860"></a></p>
 
 The **Activity** page is the global audit log, and it opens with a **Watchlist** of five health signals over a trailing 7 days that flag when something needs attention: how often the AI gives up and hands off to a human (escalation), how often its pipeline hard-fails, how often tickets bounce between agents (churn), how often a "resolved" ticket comes back within a day, and how often priority gets re-triaged — each with a sparkline trend. Click a signal to filter the log below.
 
-<p align="center"><img src="docs/screenshots/11-activity.png" alt="The Activity page audit log table, newest-first, filterable by event type, actor, and date range" width="860"></p>
+<p align="center"><a href="docs/screenshots/11-activity.png" target="_blank" rel="noopener"><img src="docs/screenshots/11-activity.png" alt="The Activity page audit log table, newest-first, filterable by event type, actor, and date range" width="860"></a></p>
 
 <p align="center"><em>Under the hood there are two separate audit tables: a ticket-scoped lifecycle log and an admin/config-mutation log.</em></p>
 
@@ -180,7 +180,7 @@ A customer email hits the **Resend webhook**, verified against the **raw request
 
 Three Bun workspaces: `core`, `server`, `client`. **`@helpdesk/core` is source-only** — its `package.json` points straight at `./src/index.ts`, so both sides import the *same* TypeScript Zod schemas and string enums. One schema object validates every server input and every client form; there are no raw status/role strings anywhere.
 
-### Design decisions worth calling out
+### Design decisions
 
 - **The ticket lifecycle is an explicit state machine.** Five states (`new`, `processing`, `open`, `resolved`, `closed`) with role-specific transition matrices — agents may only do `open → resolved`; admins also close and reopen (`new` leaves only via the AI worker). The UI collapses `new`+`processing` into one read-only "Triaging" pill so users never see internal states.
 - **Postgres *is* the queue.** pg-boss runs six queues and three crons directly off `DATABASE_URL`. *Trade-off:* one fewer service to run and monitor, at the cost of the throughput a dedicated broker (Redis/SQS) would give — a deliberate fit for one team's volume.
