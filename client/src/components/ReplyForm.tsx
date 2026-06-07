@@ -9,7 +9,7 @@ import {
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import { BookOpen, ChevronDown, Paperclip, Send, Sparkles, X } from "lucide-react";
+import { BookOpen, Check, ChevronDown, Paperclip, Send, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -321,9 +321,14 @@ export default function ReplyForm({ ticketId }: Props) {
               </div>
             ) : polishMutation.data ? (
               <div className="mt-3">
-                <p className="whitespace-pre-wrap text-[14px] leading-[1.6] text-foreground">
-                  {polishMutation.data.body}
-                </p>
+                {/* A clean, opaque writing-field surface. In dark mode use the
+                    solid neutral panel-2 (not a translucent input fill) so the
+                    violet ai-surface can't bleed through — just gray, no tint. */}
+                <div className="rounded-[var(--r-sm)] border border-border bg-background p-4 dark:bg-panel-2">
+                  <p className="whitespace-pre-wrap text-[14px] leading-[1.62] text-foreground">
+                    {polishMutation.data.body}
+                  </p>
+                </div>
                 {polishMutation.data.changeSummary && (
                   <p className="mt-2.5 text-[12.5px] text-accent-ink">
                     {polishMutation.data.changeSummary}
@@ -334,43 +339,53 @@ export default function ReplyForm({ ticketId }: Props) {
                     <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-ink-3">
                       <BookOpen className="size-3" aria-hidden /> Sources used
                     </p>
-                    <ul className="mt-1.5 space-y-1">
+                    <ul className="mt-2 space-y-1.5">
                       {polishMutation.data.sources.map((s) => (
-                        <li key={s.id} className="text-[12.5px] text-foreground">
+                        <li
+                          key={s.id}
+                          className="flex items-center gap-2.5 text-[13px] text-foreground"
+                        >
+                          <span className="shrink-0 rounded bg-accent-tint-2 px-1.5 py-0.5 font-mono text-[9px] font-semibold tracking-[0.08em] text-accent-ink">
+                            KB
+                          </span>
                           {s.title}
                         </li>
                       ))}
                     </ul>
                   </div>
                 )}
-                <div className="mt-3 flex flex-wrap items-center gap-1">
+                {/* Primary/secondary action pair. The outline recipe matches the
+                    "Polish with AI" toolbar button so the two AI entry points read
+                    as one family; the rotating chevron stays the disclosure tell. */}
+                <div className="mt-4 flex flex-wrap items-center gap-2.5">
                   <Button
                     type="button"
                     variant="accent"
                     size="sm"
                     onClick={usePolishedReply}
                   >
+                    <Check />
                     Use this reply
                   </Button>
-                  {/* Disclosure toggle — keeps the card calm until the agent
-                      wants to iterate. Opens an in-card "what should change?"
-                      field that re-polishes this draft (not the composer). */}
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
                     aria-expanded={isRefineOpen}
                     aria-controls="refine-panel"
                     onClick={() => setIsRefineOpen((open) => !open)}
-                    className="ml-1 inline-flex items-center gap-1 rounded-[var(--r-sm)] px-2 py-1 text-[13px] font-medium text-accent-ink hover:bg-accent-tint"
+                    className="border-primary/30 text-accent-ink hover:bg-accent-tint hover:text-accent-ink"
                   >
+                    <Sparkles />
                     Refine
                     <ChevronDown
                       className={cn(
-                        "size-3.5 transition-transform",
+                        "size-3.5 opacity-75 transition-transform",
                         isRefineOpen && "rotate-180",
                       )}
                       aria-hidden
                     />
-                  </button>
+                  </Button>
                 </div>
 
                 {isRefineOpen && (
