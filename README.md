@@ -22,7 +22,7 @@
 
 A small support team spends most of its day on repetitive email. The obvious questions should answer themselves; humans should handle the rest. Helpdesk does exactly that: inbound support email becomes tickets, Google Gemini sorts and prioritizes every one automatically, resolves the ones it's confident about, and agents work the rest with the AI alongside.
 
-Day to day there are two kinds of user — **agents** work a queue, **admins** also own the roster and the rules everything runs on (there's a privileged global-admin singleton on top — see the admin tour below). The rule throughout: **the AI does the busywork, but a human always approves anything that goes out** — agents send every reply, admins approve every published answer. It's single-tenant by design: one team, one product, not a multi-customer SaaS.
+Day to day there are two kinds of user — **agents** work a queue, **admins** also own the roster and the rules everything runs on (there's a privileged global-admin singleton on top — see [the admin tour](#the-admin-tour)). The rule throughout: **the AI does the busywork, but a human always approves anything that goes out** — agents send every reply, admins approve every published answer. It's single-tenant by design: one team, one product, not a multi-customer SaaS.
 
 The rest of this README has three parts — a non-technical **guided tour**, a technical **how it works**, and a list of **known limitations**.
 
@@ -90,8 +90,11 @@ Signing in drops you on a workspace-wide dashboard — the same live view for ag
 
 Customers never log in — they just email and reply, and they never see categories, priorities, or SLAs. To them it's normal email; some replies just happen to be AI-drafted and grounded in the team's KB. A reply on a **resolved** ticket auto-reopens it (and, if the AI was the assignee, unassigns it so a human picks it up). A reply on a **closed** ticket starts a fresh ticket. Auto-responders and bounce messages are detected by their headers and dropped before they ever become a ticket.
 
-<details>
-<summary><h3>🔎 The admin tour — roster, workflow rules &amp; the activity log&nbsp; <sub>(click to expand)</sub></h3></summary>
+---
+
+## The admin tour
+
+Admins get everything agents have, plus the controls that shape how the queue behaves — the roster, the workflow rules, and the audit log.
 
 ### Managing the roster
 
@@ -132,8 +135,6 @@ The **Activity** page is the global audit log, and it opens with a **Watchlist**
 <p align="center"><a href="docs/screenshots/11-activity.png" target="_blank" rel="noopener"><img src="docs/screenshots/11-activity.png" alt="The Activity page audit log table, newest-first, filterable by event type, actor, and date range" width="860"></a></p>
 
 <p align="center"><em>Under the hood there are two separate audit tables: a ticket-scoped lifecycle log and an admin/config-mutation log.</em></p>
-
-</details>
 
 ---
 
