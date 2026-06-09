@@ -1,6 +1,7 @@
 import { AdminAuditEventType, updateWorkflowSettingsSchema } from "@helpdesk/core";
 import { Router } from "express";
 import { recordAdminAuditEvent } from "../lib/admin-audit";
+import { assignUnassignedTickets } from "../lib/assign-agent";
 import { prisma } from "../lib/prisma";
 import { firstIssue } from "../lib/validation";
 import {
@@ -64,30 +65,44 @@ router.patch("/", ...requireAdminChain, async (req, res) => {
 
   // Upsert so the singleton is created on first edit even if seeding was
   // skipped; `create` lets the schema defaults fill any unspecified fields.
-  const updated = await prisma.$transaction(async (tx) => {
-    const row = await tx.workflowSettings.upsert({
-      where: { id: WORKFLOW_SETTINGS_ID },
-      create: { id: WORKFLOW_SETTINGS_ID, ...result.data },
-      update: result.data,
-    });
-    // Per-field before/after diff (only the fields the PATCH actually changed).
-    const changed: Record<string, { before: unknown; after: unknown }> = {};
-    for (const [key, value] of Object.entries(result.data)) {
-      const prev = (current as Record<string, unknown>)[key];
-      if (prev !== value) changed[key] = { before: prev, after: value };
-    }
-    if (Object.keys(changed).length > 0) {
-      await recordAdminAuditEvent(tx, {
-        actorId: req.user!.id,
-        actorName: req.user!.name,
-        type: AdminAuditEventType.workflow_settings_changed,
-        targetName: "Workflow",
-        data: { changed },
+  // The bulk auto-assign backfill loops per ticket, so give the tx more headroom
+  // than the 5s default.
+  const { row, assignedCount } = await prisma.$transaction(
+    async (tx) => {
+      const row = await tx.workflowSettings.upsert({
+        where: { id: WORKFLOW_SETTINGS_ID },
+        create: { id: WORKFLOW_SETTINGS_ID, ...result.data },
+        update: result.data,
       });
-    }
-    return row;
-  });
-  res.json(toResponse(updated));
+      // Saving with auto-assign enabled also sweeps the existing queue: every
+      // open, unassigned ticket is handed to an agent per the chosen strategy.
+      // Idempotent — once the queue is empty this is a cheap no-op query.
+      const assignedCount = row.autoAssignOn
+        ? await assignUnassignedTickets(tx, row, req.user!.id)
+        : 0;
+      // Per-field before/after diff (only the fields the PATCH actually changed).
+      const changed: Record<string, { before: unknown; after: unknown }> = {};
+      for (const [key, value] of Object.entries(result.data)) {
+        const prev = (current as Record<string, unknown>)[key];
+        if (prev !== value) changed[key] = { before: prev, after: value };
+      }
+      if (Object.keys(changed).length > 0 || assignedCount > 0) {
+        await recordAdminAuditEvent(tx, {
+          actorId: req.user!.id,
+          actorName: req.user!.name,
+          type: AdminAuditEventType.workflow_settings_changed,
+          targetName: "Workflow",
+          data: {
+            changed,
+            ...(assignedCount > 0 ? { autoAssignBackfill: assignedCount } : {}),
+          },
+        });
+      }
+      return { row, assignedCount };
+    },
+    { timeout: 20_000 },
+  );
+  res.json({ ...toResponse(row), assignedCount });
 });
 
 export default router;

@@ -1,4 +1,4 @@
-import { AutoAssignMode } from "@helpdesk/core";
+import { AutoAssignMode, NotificationType, TicketStatus } from "@helpdesk/core";
 import { generateId } from "better-auth";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -191,6 +191,41 @@ describe("workflow-settings API", () => {
         .set("Cookie", adminCookie)
         .send({ slaYellowMin: 95 });
       expect(res.status).toBe(400);
+    });
+
+    it("backfills open, unassigned tickets when saved with auto-assign on", async () => {
+      // The seeded route-agent is the only active human agent here, so round-robin
+      // hands this ticket to them.
+      const ticket = await prisma.ticket.create({
+        data: {
+          fromName: "Backfill",
+          fromEmail: "backfill@example.com",
+          subject: "Needs an owner",
+          body: "",
+          status: TicketStatus.open,
+          assignedToId: null,
+        },
+      });
+
+      const res = await request(app)
+        .patch("/api/workflow-settings")
+        .set("Cookie", adminCookie)
+        .send({ autoAssignOn: true, autoAssignMode: AutoAssignMode.round_robin });
+      expect(res.status).toBe(200);
+      expect(res.body.assignedCount).toBeGreaterThanOrEqual(1);
+
+      const row = await prisma.ticket.findUnique({ where: { id: ticket.id } });
+      expect(row!.assignedToId).toBe(agentId);
+
+      const notif = await prisma.notification.findFirst({
+        where: { ticketId: ticket.id, type: NotificationType.ticket_assigned },
+      });
+      expect(notif).not.toBeNull();
+
+      // Cleanup the ticket and its derived rows.
+      await prisma.notification.deleteMany({ where: { ticketId: ticket.id } });
+      await prisma.auditEvent.deleteMany({ where: { ticketId: ticket.id } });
+      await prisma.ticket.delete({ where: { id: ticket.id } });
     });
 
     it("updates the compliance thresholds and persists them", async () => {

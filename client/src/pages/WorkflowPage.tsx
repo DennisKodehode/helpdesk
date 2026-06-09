@@ -2,6 +2,7 @@ import { type SlaPolicy, TicketPriority } from "@helpdesk/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { Check, RotateCcw, Target } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import AgentToast from "@/components/AgentToast";
 import LifecycleRulesPanel from "@/components/LifecycleRulesPanel";
 import type { EditablePolicy } from "@/components/SlaTargetCard";
 import SlaTargetsPanel from "@/components/SlaTargetsPanel";
@@ -111,6 +112,8 @@ export default function WorkflowPage() {
   const [tab, setTab] = useState<Tab>("lifecycle");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  // Confirmation when a save with auto-assign on swept the existing queue.
+  const [assignToast, setAssignToast] = useState<string | null>(null);
 
   // Adopt each server snapshot when it (re)loads, unless the user has unsaved
   // edits in flight (don't clobber their work on a background refetch).
@@ -135,6 +138,13 @@ export default function WorkflowPage() {
     const t = setTimeout(() => setSaved(false), 2600);
     return () => clearTimeout(t);
   }, [saved]);
+
+  // Auto-dismiss the auto-assign confirmation toast.
+  useEffect(() => {
+    if (!assignToast) return;
+    const t = setTimeout(() => setAssignToast(null), 4000);
+    return () => clearTimeout(t);
+  }, [assignToast]);
 
   const lifeDirty =
     life != null &&
@@ -202,9 +212,14 @@ export default function WorkflowPage() {
   async function handleSave() {
     setSaving(true);
     const work: Promise<unknown>[] = [];
+    let assignedCount = 0;
 
     if (lifeDirty && life) {
-      work.push(updateSettings.mutateAsync(life));
+      work.push(
+        updateSettings.mutateAsync(life).then((count) => {
+          assignedCount = count;
+        }),
+      );
     }
     if (policiesDirty && policies && baselinePolicies) {
       const changed = policies.filter((d) => {
@@ -233,7 +248,25 @@ export default function WorkflowPage() {
     await queryClient.invalidateQueries({ queryKey: ["workflow-settings"] });
     await queryClient.invalidateQueries({ queryKey: ["sla-policies"] });
     await queryClient.invalidateQueries({ queryKey: ["stats", "sla-health"] });
-    if (results.every((r) => r.status === "fulfilled")) setSaved(true);
+    // An auto-assign backfill reassigns tickets and fires notifications — refresh
+    // the queue, the stats rings, and the bell so they reflect the sweep.
+    if (assignedCount > 0) {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["tickets"] }),
+        queryClient.invalidateQueries({ queryKey: ["stats"] }),
+        queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+      ]);
+    }
+    if (results.every((r) => r.status === "fulfilled")) {
+      setSaved(true);
+      if (assignedCount > 0) {
+        setAssignToast(
+          `Assigned ${assignedCount} unassigned ${
+            assignedCount === 1 ? "ticket" : "tickets"
+          } to agents`,
+        );
+      }
+    }
   }
 
   const dirtyCount = (rulesDirty ? 1 : 0) + (slaDirty ? 1 : 0);
@@ -346,6 +379,8 @@ export default function WorkflowPage() {
           </div>
         </section>
       )}
+
+      <AgentToast message={assignToast} />
     </PageContainer>
   );
 }

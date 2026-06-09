@@ -33,8 +33,13 @@ export function useWorkflowSettings() {
 export function useUpdateWorkflowSettings() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: UpdateWorkflowSettingsData) =>
-      axios.patch("/api/workflow-settings", data),
+    // Returns how many existing unassigned tickets the save auto-assigned (0
+    // unless auto-assign is on and the queue had unassigned tickets) so the page
+    // can confirm the side effect.
+    mutationFn: async (data: UpdateWorkflowSettingsData): Promise<number> => {
+      const { data: res } = await axios.patch("/api/workflow-settings", data);
+      return typeof res?.assignedCount === "number" ? res.assignedCount : 0;
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
   });
 }

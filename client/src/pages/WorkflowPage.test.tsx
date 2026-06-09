@@ -118,7 +118,7 @@ afterEach(cleanup);
 describe("WorkflowPage", () => {
   it("renders the pipeline and lifecycle rules after load", async () => {
     renderWithProviders(<WorkflowPage />);
-    expect(await screen.findByText("Auto-assign new tickets")).toBeInTheDocument();
+    expect(await screen.findByText("Auto-assign tickets")).toBeInTheDocument();
     // Pipeline stage nodes + a data-driven connector label from the rule state.
     expect(screen.getByText("Triaging")).toBeInTheDocument();
     expect(screen.getByText(/AI ≥ 85% resolves/)).toBeInTheDocument();
@@ -129,7 +129,7 @@ describe("WorkflowPage", () => {
   it("marks lifecycle dirty when a switch toggles and saves via PATCH", async () => {
     const user = userEvent.setup();
     renderWithProviders(<WorkflowPage />);
-    const toggle = await screen.findByRole("switch", { name: "Auto-assign new tickets" });
+    const toggle = await screen.findByRole("switch", { name: "Auto-assign tickets" });
 
     await user.click(toggle);
 
@@ -151,7 +151,7 @@ describe("WorkflowPage", () => {
   it("preserves lifecycle edits when switching tabs", async () => {
     const user = userEvent.setup();
     renderWithProviders(<WorkflowPage />);
-    const toggle = await screen.findByRole("switch", { name: "Auto-assign new tickets" });
+    const toggle = await screen.findByRole("switch", { name: "Auto-assign tickets" });
     await user.click(toggle);
     expect(
       (await screen.findAllByText(/Lifecycle has unsaved changes/i)).length,
@@ -166,14 +166,14 @@ describe("WorkflowPage", () => {
       (await screen.findAllByText(/Lifecycle has unsaved changes/i)).length,
     ).toBeGreaterThan(0);
     expect(
-      await screen.findByRole("switch", { name: "Auto-assign new tickets" }),
+      await screen.findByRole("switch", { name: "Auto-assign tickets" }),
     ).toHaveAttribute("aria-checked", "true");
   });
 
   it("saves an edited SLA-compliance threshold via PATCH and labels it as SLA", async () => {
     const user = userEvent.setup();
     renderWithProviders(<WorkflowPage />);
-    await screen.findByText("Auto-assign new tickets");
+    await screen.findByText("Auto-assign tickets");
 
     await user.click(screen.getByRole("tab", { name: /SLA targets/i }));
     // Stepper, not a number input: bump green 90 → 91.
@@ -199,7 +199,7 @@ describe("WorkflowPage", () => {
   it("shows a sticky save bar once there are unsaved changes", async () => {
     const user = userEvent.setup();
     renderWithProviders(<WorkflowPage />);
-    const toggle = await screen.findByRole("switch", { name: "Auto-assign new tickets" });
+    const toggle = await screen.findByRole("switch", { name: "Auto-assign tickets" });
 
     expect(
       screen.queryByRole("region", { name: /unsaved changes/i }),
@@ -220,7 +220,7 @@ describe("WorkflowPage", () => {
     const user = userEvent.setup();
     renderWithProviders(<WorkflowPage />);
     // Make the page dirty via an unrelated lifecycle edit so the save bar shows.
-    const toggle = await screen.findByRole("switch", { name: "Auto-assign new tickets" });
+    const toggle = await screen.findByRole("switch", { name: "Auto-assign tickets" });
     await user.click(toggle);
 
     const bar = await screen.findByRole("region", { name: /unsaved changes/i });

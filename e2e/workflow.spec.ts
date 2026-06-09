@@ -22,7 +22,7 @@ import {
 //   4. The tested toggle is restored to its seeded default (cleanup).
 //   5. An agent visiting /workflow is redirected to the dashboard.
 //
-// Mutation strategy: we toggle "Auto-assign new tickets", whose seeded default
+// Mutation strategy: we toggle "Auto-assign tickets", whose seeded default
 // is OFF (autoAssignOn: false). This gives a known starting state after every
 // globalSetup DB reset. We restore it at the end of the serial block so it
 // does not bleed into any run that follows.
@@ -34,7 +34,7 @@ test.describe
   .serial("Workflow page — admin lifecycle rules", () => {
     // The switch we'll toggle throughout this block. Its accessible name matches
     // the `title` prop passed to WorkflowRule → Switch aria-label.
-    const SWITCH_NAME = "Auto-assign new tickets";
+    const SWITCH_NAME = "Auto-assign tickets";
 
     test("admin navigates via sidebar to /workflow and sees the page title and pipeline", async ({
       page,

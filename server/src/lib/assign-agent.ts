@@ -1,5 +1,13 @@
-import { AutoAssignMode, Role, TicketStatus, UserStatus } from "@helpdesk/core";
+import {
+  AuditEventType,
+  AutoAssignMode,
+  NotificationType,
+  Role,
+  TicketStatus,
+  UserStatus,
+} from "@helpdesk/core";
 import type { Prisma } from "../generated/prisma/client";
+import { recordAuditEvent } from "./audit";
 import { WORKFLOW_SETTINGS_ID, type WorkflowSettingsRow } from "./workflow-settings";
 
 const AI_USER_EMAIL = "ai@helpdesk.internal";
@@ -60,4 +68,57 @@ export async function pickAssignee(
     update: { roundRobinCursor: nextCursor },
   });
   return chosen;
+}
+
+// Backfills every open, unassigned ticket onto an active agent using the current
+// auto-assign strategy. Invoked when an admin saves the Workflow screen with
+// auto-assign enabled, so the *existing* queue obeys the rule too — not only the
+// tickets that exit triage afterward. Each assignment mirrors a manual one
+// (assignee_changed audit + ticket_assigned notification) with the admin as
+// actor, and shares the same persisted round-robin cursor as triage-exit
+// assignment so the two stay fair. Returns how many tickets were assigned.
+// Must run inside a transaction: round-robin advances the settings cursor, and
+// least-loaded re-reads live load as tickets are assigned within the same tx.
+export async function assignUnassignedTickets(
+  tx: Prisma.TransactionClient,
+  settings: WorkflowSettingsRow,
+  actorId: string,
+): Promise<number> {
+  const unassigned = await tx.ticket.findMany({
+    where: { status: TicketStatus.open, assignedToId: null },
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  // pickAssignee reads the round-robin cursor off the passed settings object;
+  // advance a local copy each pick so successive tickets don't all land on the
+  // same agent (the DB cursor is advanced by pickAssignee in lockstep).
+  // least-loaded ignores the cursor and self-balances off live in-tx load.
+  let cursor = settings.roundRobinCursor;
+  let assigned = 0;
+  for (const ticket of unassigned) {
+    const agentId = await pickAssignee(tx, { ...settings, roundRobinCursor: cursor });
+    if (!agentId) break; // no eligible agent — leave the remainder unassigned
+    cursor += 1;
+    await tx.ticket.update({
+      where: { id: ticket.id },
+      data: { assignedToId: agentId },
+    });
+    await recordAuditEvent(tx, {
+      ticketId: ticket.id,
+      actorId,
+      type: AuditEventType.assignee_changed,
+      data: { from: null, to: agentId, autoAssigned: true },
+    });
+    await tx.notification.create({
+      data: {
+        userId: agentId,
+        actorId,
+        type: NotificationType.ticket_assigned,
+        ticketId: ticket.id,
+      },
+    });
+    assigned += 1;
+  }
+  return assigned;
 }

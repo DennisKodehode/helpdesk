@@ -34,8 +34,8 @@ export default function LifecycleRulesPanel({ life, set }: Props) {
       <WorkflowRuleGroup label="Triage & routing">
         <WorkflowRule
           icon={<UserCheck aria-hidden className="size-[18px]" />}
-          title="Auto-assign new tickets"
-          desc="When AI finishes triage, hand the ticket to an available agent automatically instead of leaving it unassigned."
+          title="Auto-assign tickets"
+          desc="Hand unassigned tickets to an available agent automatically — when AI finishes triage, and across the current open queue each time you save."
           on={life.autoAssignOn}
           onToggle={(v) => set("autoAssignOn", v)}
         >
